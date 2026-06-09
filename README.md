@@ -40,3 +40,8 @@ Ouvrir [http://localhost:3000](http://localhost:3000).
 ## Couleur de marque
 
 `#0D192F` (interprétation de `#0Q192F` — caractère hex invalide corrigé)
+
+## Déploiement (GitHub + Vercel)
+
+- Guide complet : [docs/DEPLOIEMENT-GITHUB-VERCEL.md](docs/DEPLOIEMENT-GITHUB-VERCEL.md)
+- Pousser une mise à jour : `.\scripts\git-push.ps1 -Message "votre message"`
