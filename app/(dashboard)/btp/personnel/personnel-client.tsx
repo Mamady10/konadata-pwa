@@ -36,8 +36,8 @@ export function PersonnelClient({ items: initialItems, sites }: Props) {
     setError(null);
     formData.set('site_id', siteId);
     const result = await createBtpPersonnel(formData);
-    if (result.error) {
-      setError(result.error);
+    if ('error' in result) {
+      setError(result.error ?? 'Enregistrement impossible.');
       return;
     }
     setShowForm(false);

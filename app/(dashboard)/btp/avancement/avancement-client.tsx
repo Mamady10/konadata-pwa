@@ -48,8 +48,8 @@ export function AvancementClient({
     }
     formData.set('site_id', siteId);
     const result = await recordBtpSiteProgress(formData);
-    if (result.error) {
-      setError(result.error);
+    if ('error' in result) {
+      setError(result.error ?? 'Enregistrement impossible.');
       return;
     }
     setShowForm(false);

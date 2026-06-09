@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { DataTable, StatusBadge } from '@/components/dashboard/data-table';
 import { TuitionInstallmentsCard } from '@/components/school/tuition-installments-card';
 import { formatCurrency } from '@/lib/utils';
-import type { TuitionInstallment } from '@/lib/school/student-payments';
+import type { TuitionBalance, TuitionInstallment } from '@/lib/school/student-payments';
 import { ArrowLeft, Download } from 'lucide-react';
 import { getReportCardPdfBase64 } from '@/lib/actions/report-cards';
 
@@ -47,13 +47,7 @@ interface DossierProps {
     status: string;
     date: string;
   }>;
-  balance: {
-    total_due_gnf: number;
-    paid_gnf: number;
-    remaining_gnf: number;
-    fully_paid?: boolean;
-    academic_year?: string;
-  } | null;
+  balance: TuitionBalance | null;
   tuitionInstallments: TuitionInstallment[];
   canRecordPayments: boolean;
 }
@@ -79,7 +73,7 @@ export function StudentDossierClient({ dossier }: { dossier: DossierProps }) {
   async function downloadBulletin(cardId: string) {
     const res = await getReportCardPdfBase64(cardId);
     if ('error' in res && res.error) return;
-    if (!res.base64 || !res.fileName) return;
+    if (!('base64' in res) || !res.base64 || !res.fileName) return;
     const bytes = Uint8Array.from(atob(res.base64), (c) => c.charCodeAt(0));
     const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
     const a = document.createElement('a');

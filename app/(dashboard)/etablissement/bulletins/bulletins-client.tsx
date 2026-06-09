@@ -225,7 +225,7 @@ export function BulletinsClient({
       if (cancelled) return;
       if (res && 'error' in res && res.error) {
         setCompleteness(null);
-        setCompletenessError(res.error);
+        setCompletenessError(String(res.error));
       } else {
         setCompleteness(res);
         setCompletenessError(null);
@@ -277,11 +277,11 @@ export function BulletinsClient({
       force,
       includedExamTypes: includedExamTypesPayload(),
     });
-    if (openGapConfirm('generate', result)) {
+    if ('needsConfirmation' in result && openGapConfirm('generate', result)) {
       setLoading(false);
       return;
     }
-    if (result.error) {
+    if ('error' in result && result.error) {
       setMessage(result.error);
       setAiGuidance(null);
     } else {
@@ -313,7 +313,7 @@ export function BulletinsClient({
       force,
       includedExamTypes: includedExamTypesPayload(),
     });
-    if (mode === 'final' && openGapConfirm('publish_final', result)) {
+    if (mode === 'final' && 'needsConfirmation' in result && openGapConfirm('publish_final', result)) {
       setLoading(false);
       return;
     }
@@ -344,7 +344,7 @@ export function BulletinsClient({
       force,
       includedExamTypes: includedExamTypesPayload(),
     });
-    if (openGapConfirm('zip', result)) {
+    if ('needsConfirmation' in result && openGapConfirm('zip', result)) {
       setLoading(false);
       return;
     }
@@ -353,7 +353,7 @@ export function BulletinsClient({
       setMessage(result.error);
       return;
     }
-    if (result.base64 && result.fileName) {
+    if ('base64' in result && result.base64 && result.fileName) {
       downloadBase64(result.base64, result.fileName, 'application/zip');
       setMessage(`Archive ZIP : ${result.count} bulletin(s)`);
     }
@@ -376,7 +376,7 @@ export function BulletinsClient({
       setMessage(result.error);
       return;
     }
-    if (result.base64 && result.fileName) {
+    if ('base64' in result && result.base64 && result.fileName) {
       downloadBase64(result.base64, result.fileName, 'application/pdf');
     }
   }
@@ -639,7 +639,7 @@ export function BulletinsClient({
               </Button>
               <Button
                 variant="outline"
-                onClick={handleZipExport}
+                onClick={() => void handleZipExport()}
                 disabled={loading || !classId || pdfBlocked}
               >
                 <FileArchive className="h-4 w-4" />

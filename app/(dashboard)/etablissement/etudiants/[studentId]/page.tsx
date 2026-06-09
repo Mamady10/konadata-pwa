@@ -12,7 +12,7 @@ export default async function StudentDossierPage({ params }: Props) {
   const { studentId } = await params;
   const result = await getStudentDossier(studentId);
 
-  if (result.error) {
+  if ('error' in result) {
     if (result.error === 'Non autorisé') redirect('/etablissement/etudiants');
     notFound();
   }

@@ -73,7 +73,7 @@ export function BtpDocumentsClient({
     fd.set('document_type', documentType);
 
     const result = await uploadBtpSiteDocument(fd);
-    if (result.error) setError(result.error);
+    if ('error' in result) setError(result.error ?? 'Enregistrement impossible.');
     else router.refresh();
     setLoading(false);
     e.target.value = '';

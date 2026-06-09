@@ -115,7 +115,7 @@ export function AssignationsClient({ orgName, orgType, schoolData, ngoData, btpD
       return { classId, subjectId };
     });
     const result = await saveTeacherTeachingAssignments(teacherId, slots);
-    if (result.error) setMessage({ type: 'err', text: result.error });
+    if ('error' in result) setMessage({ type: 'err', text: result.error ?? 'Erreur' });
     else {
       setMessage({ type: 'ok', text: 'Assignations enregistrées.' });
       router.refresh();
@@ -127,7 +127,7 @@ export function AssignationsClient({ orgName, orgType, schoolData, ngoData, btpD
     setSavingId(staffId);
     setMessage(null);
     const result = await saveNgoStaffProjectAssignments(staffId, ngoDraft[staffId] ?? []);
-    if (result.error) setMessage({ type: 'err', text: result.error });
+    if ('error' in result) setMessage({ type: 'err', text: result.error ?? 'Erreur' });
     else {
       setMessage({ type: 'ok', text: 'Assignations enregistrées.' });
       router.refresh();
@@ -139,7 +139,7 @@ export function AssignationsClient({ orgName, orgType, schoolData, ngoData, btpD
     setSavingId(staffId);
     setMessage(null);
     const result = await saveBtpStaffSiteAssignments(staffId, btpDraft[staffId] ?? []);
-    if (result.error) setMessage({ type: 'err', text: result.error });
+    if ('error' in result) setMessage({ type: 'err', text: result.error ?? 'Erreur' });
     else {
       setMessage({ type: 'ok', text: 'Assignations enregistrées.' });
       router.refresh();

@@ -40,8 +40,8 @@ export function CarburantClient({ items: initialItems, sites, totalLiters }: Pro
     formData.set('site_id', siteId);
     formData.set('is_anomaly', isAnomaly ? 'true' : 'false');
     const result = await createBtpFuelLog(formData);
-    if (result.error) {
-      setError(result.error);
+    if ('error' in result) {
+      setError(result.error ?? 'Enregistrement impossible.');
       return;
     }
     setShowForm(false);

@@ -35,8 +35,8 @@ export function ChantiersClient({ items: initialItems, description, canCreate }:
   async function handleCreate(formData: FormData) {
     setError(null);
     const result = await createBtpSite(formData);
-    if (result.error) {
-      setError(result.error);
+    if ('error' in result) {
+      setError(result.error ?? 'Enregistrement impossible.');
       return;
     }
     setShowForm(false);

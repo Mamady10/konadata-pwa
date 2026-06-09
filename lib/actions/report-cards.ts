@@ -2,7 +2,7 @@
 
 import JSZip from 'jszip';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
-import { canManageAssignments } from '@/lib/school/permissions';
+import { canManageAssignments } from '@/lib/actions/assignments';
 import { requireOrgId } from '@/lib/actions/org';
 import {
   generateReportCardPdfBuffer,
