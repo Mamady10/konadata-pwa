@@ -1,0 +1,43 @@
+1
+00:00:00,000 --> 00:00:20,690
+Bienvenue dans cette formation KonaData pour les établissements scolaires. En quinze minutes, nous parcourrons le cycle complet : catalogue des classes, assignations enseignants, inscriptions, notes, bulletins PDF et suivi des paiements. Connectez-vous avec votre compte établissement pour commencer.
+
+2
+00:00:20,690 --> 00:00:45,050
+Le tableau de bord direction regroupe les indicateurs clés : effectifs, paiements, classes actives. Chaque rôle ne voit que ce qui le concerne : le comptable les encaissements, l'enseignant ses classes assignées, le directeur l'ensemble de l'établissement. Le menu latéral mène aux candidatures, étudiants, formations, résultats, bulletins et paiements.
+
+3
+00:00:45,050 --> 00:01:08,050
+Dans Formations, le catalogue est organisé par palier : collège avec trimestres, lycée avec semestres. Créez des classes en un clic via les modèles par palier, importez un fichier Excel ou CSV, puis gérez les matières avec les presets adaptés. Modifier ou archiver une classe n'efface pas l'historique : vous gardez la traçabilité.
+
+4
+00:01:08,050 --> 00:01:32,540
+Les assignations relient chaque enseignant à ses couples classe et matière. Le regroupement par palier facilite la lecture. Un bandeau orange signale les couples sans professeur. Règle importante : un seul enseignant par couple classe-matière. Après enregistrement, les cases restent cochées : l'enseignant ne saisit que ce qu'on lui a assigné.
+
+5
+00:01:32,540 --> 00:01:57,630
+L'import d'élèves évite la ressaisie manuelle. Sélectionnez la classe cible, déposez un CSV ou Excel, ou utilisez KonaAI pour lire une photo de registre. L'aperçu vous permet de corriger avant validation. Les matricules peuvent être générés automatiquement. Depuis la fiche élève, consultez l'historique scolaire et l'échéancier des frais.
+
+6
+00:01:57,630 --> 00:02:19,510
+La liste des étudiants permet de filtrer par classe, rechercher par nom ou matricule, et ouvrir chaque dossier. La scolarité y gère les inscriptions ; le comptable consulte les effectifs en lecture seule. Chaque fiche regroupe identité, contacts tuteur, documents et solde des frais de scolarité.
+
+7
+00:02:19,510 --> 00:02:45,850
+La saisie des notes se fait par classe, matière et période — trimestre ou semestre selon le palier. Dans la grille, zéro sur vingt est une note réelle saisie. Une case vide signifie note manquante : le directeur est alerté lors de la génération des bulletins. L'import CSV accélère la saisie collective. Les enseignants n'accèdent qu'aux classes qui leur sont assignées.
+
+8
+00:02:45,850 --> 00:03:19,890
+Les bulletins sont le cœur du module. Choisissez classe, période et année, puis cochez les types d'évaluation retenus : devoir, composition, interrogation. Seuls ces types entrent dans la moyenne et le PDF. Le panneau de complétude affiche le pourcentage de notes saisies. Générez en provisoire d'abord, exportez le conseil de classe en CSV, puis le PDF ou ZIP une fois logo et cachet configurés. Publiez en définitif avec notification SMS aux familles.
+
+9
+00:03:19,890 --> 00:03:46,370
+Le module paiements suit le recouvrement des frais de scolarité. Les indicateurs affichent impayés, créances et retards. L'onglet Impayés liste les élèves en retard, filtrable par classe, avec lien direct vers la fiche. Enregistrez un paiement au guichet : l'échéancier se met à jour immédiatement. Exportez les impayés en Excel pour le suivi quotidien du comptable.
+
+10
+00:03:46,370 --> 00:04:08,380
+Les parents n'ont pas besoin de créer un compte. Sur la page Suivi scolarité, ils saisissent le matricule de l'élève et reçoivent un code par SMS. Ils consultent ensuite le solde des frais et téléchargent le bulletin PDF publié. C'est le lien entre l'établissement et les familles, sans application à installer.
+
+11
+00:04:08,380 --> 00:04:33,760
+Récapitulons le parcours pilote : catalogue par palier, assignations enseignants, import des élèves, saisie des notes, bulletins fiables provisoires puis définitifs, encaissement et portail parents. KonaData remplace les fichiers dispersés par un espace unique, sur ordinateur et mobile. Rendez-vous sur konadatagn.com pour votre démonstration personnalisée.

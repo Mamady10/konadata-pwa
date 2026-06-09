@@ -1,0 +1,1 @@
+-- Copiez le contenu de supabase/migrations/028_ensure_learner_profile.sql dans le SQL Editor.

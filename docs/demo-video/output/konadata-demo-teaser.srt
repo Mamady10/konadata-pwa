@@ -1,0 +1,23 @@
+1
+00:00:00,000 --> 00:00:16,610
+En Guinée, les organisations perdent des heures à ressaisir des listes et compiler des rapports sur des fichiers dispersés. KonaData est la plateforme intelligente qui centralise vos données, sur ordinateur et mobile, même avec une connexion 3G.
+
+2
+00:00:16,610 --> 00:00:38,150
+Une seule plateforme, quatre univers métiers. Établissements scolaires : inscriptions, notes et bulletins. ONG : projets, bénéficiaires et sondages terrain. BTP : chantiers, carburant et stocks. PME : ventes, achats et stocks au quotidien.
+
+3
+00:00:38,150 --> 00:00:55,730
+Fini la ressaisie manuelle. Déposez un fichier Excel, un PDF, ou même une photo d'un registre manuscrit. KonaAI extrait les noms, matricules et contacts. Vous choisissez la classe et validez l'import en quelques secondes.
+
+4
+00:00:55,730 --> 00:01:08,930
+Visualisez les réponses en direct : graphiques, carte et détection des doublons. Puis laissez KonaAI rédiger le rapport de synthèse, prêt pour le bailleur ou le comité de direction.
+
+5
+00:01:08,930 --> 00:01:20,740
+Installez KonaData sur l'écran d'accueil de votre téléphone, comme une application, sans passer par le Play Store. Les formulaires s'envoient dès que le réseau revient.
+
+6
+00:01:20,740 --> 00:01:33,100
+KonaData : vos données, votre terrain, votre intelligence. Rendez-vous sur konadatagn.com pour créer votre organisation ou demander une démonstration.

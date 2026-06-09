@@ -1,0 +1,23 @@
+1
+00:00:00,000 --> 00:00:20,690
+Bienvenue dans cette formation KonaData pour les établissements scolaires. En quinze minutes, nous parcourrons le cycle complet : catalogue des classes, assignations enseignants, inscriptions, notes, bulletins PDF et suivi des paiements. Connectez-vous avec votre compte établissement pour commencer.
+
+2
+00:00:20,690 --> 00:00:43,690
+Dans Formations, le catalogue est organisé par palier : collège avec trimestres, lycée avec semestres. Créez des classes en un clic via les modèles par palier, importez un fichier Excel ou CSV, puis gérez les matières avec les presets adaptés. Modifier ou archiver une classe n'efface pas l'historique : vous gardez la traçabilité.
+
+3
+00:00:43,690 --> 00:01:10,030
+La saisie des notes se fait par classe, matière et période — trimestre ou semestre selon le palier. Dans la grille, zéro sur vingt est une note réelle saisie. Une case vide signifie note manquante : le directeur est alerté lors de la génération des bulletins. L'import CSV accélère la saisie collective. Les enseignants n'accèdent qu'aux classes qui leur sont assignées.
+
+4
+00:01:10,030 --> 00:01:44,070
+Les bulletins sont le cœur du module. Choisissez classe, période et année, puis cochez les types d'évaluation retenus : devoir, composition, interrogation. Seuls ces types entrent dans la moyenne et le PDF. Le panneau de complétude affiche le pourcentage de notes saisies. Générez en provisoire d'abord, exportez le conseil de classe en CSV, puis le PDF ou ZIP une fois logo et cachet configurés. Publiez en définitif avec notification SMS aux familles.
+
+5
+00:01:44,070 --> 00:02:10,550
+Le module paiements suit le recouvrement des frais de scolarité. Les indicateurs affichent impayés, créances et retards. L'onglet Impayés liste les élèves en retard, filtrable par classe, avec lien direct vers la fiche. Enregistrez un paiement au guichet : l'échéancier se met à jour immédiatement. Exportez les impayés en Excel pour le suivi quotidien du comptable.
+
+6
+00:02:10,550 --> 00:02:35,930
+Récapitulons le parcours pilote : catalogue par palier, assignations enseignants, import des élèves, saisie des notes, bulletins fiables provisoires puis définitifs, encaissement et portail parents. KonaData remplace les fichiers dispersés par un espace unique, sur ordinateur et mobile. Rendez-vous sur konadatagn.com pour votre démonstration personnalisée.

@@ -1,0 +1,5 @@
+-- Combined schema for Supabase SQL Editor (run once if CLI unavailable)
+-- Project: wrwhoqtxttthmqfocmab
+-- Or use: npx supabase db push
+
+\i 001_core_schema.sql

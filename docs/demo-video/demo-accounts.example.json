@@ -1,0 +1,29 @@
+{
+  "password": "DemoKona2026!",
+  "accounts": [
+    {
+      "key": "school",
+      "email": "demo.ecole@konadata.demo",
+      "fullName": "Directeur Démo ISC",
+      "orgType": "school"
+    },
+    {
+      "key": "ngo",
+      "email": "demo.ong@konadata.demo",
+      "fullName": "Directrice Démo FDG",
+      "orgType": "ngo"
+    },
+    {
+      "key": "btp",
+      "email": "demo.btp@konadata.demo",
+      "fullName": "Directeur Démo BTP",
+      "orgType": "btp"
+    },
+    {
+      "key": "pme",
+      "email": "demo.pme@konadata.demo",
+      "fullName": "Gérant Démo Mamou",
+      "orgType": "business"
+    }
+  ]
+}

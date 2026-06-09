@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0D192F" />
+    <title>Hors ligne — Guinea PWA</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #0d192f;
+        color: #e2e8f0;
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+      }
+      .card {
+        max-width: 24rem;
+        text-align: center;
+      }
+      .icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+      }
+      h1 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+      }
+      p {
+        font-size: 0.875rem;
+        color: #94a3b8;
+        line-height: 1.5;
+        margin-bottom: 1.5rem;
+      }
+      button {
+        background: #3b82f6;
+        color: #fff;
+        border: none;
+        border-radius: 0.5rem;
+        padding: 0.625rem 1.25rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      button:active {
+        opacity: 0.85;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="icon" aria-hidden="true">📡</div>
+      <h1>Vous êtes hors ligne</h1>
+      <p>
+        Pas de connexion réseau détectée. L'application reste accessible grâce au
+        cache local. Vos formulaires seront envoyés automatiquement à la
+        reconnexion.
+      </p>
+      <button type="button" onclick="location.reload()">Réessayer</button>
+    </div>
+  </body>
+</html>

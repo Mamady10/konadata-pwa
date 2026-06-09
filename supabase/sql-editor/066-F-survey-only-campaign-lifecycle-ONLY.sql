@@ -1,0 +1,3 @@
+-- 066 — Abonnement par campagne (survey_only)
+-- Exécuter après 065-F-survey-only-org-ONLY.sql
+-- Contenu identique à supabase/migrations/066_survey_only_campaign_lifecycle.sql

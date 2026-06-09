@@ -1,0 +1,2 @@
+-- Copier-coller dans Supabase SQL Editor si la migration 021 n'est pas encore appliquée.
+-- Fichier source : supabase/migrations/021_school_teaching_assignments.sql

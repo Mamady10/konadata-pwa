@@ -1,0 +1,51 @@
+1
+00:00:00,000 --> 00:00:16,610
+En Guinée, les organisations perdent des heures à ressaisir des listes et compiler des rapports sur des fichiers dispersés. KonaData est la plateforme intelligente qui centralise vos données, sur ordinateur et mobile, même avec une connexion 3G.
+
+2
+00:00:16,610 --> 00:00:38,150
+Une seule plateforme, quatre univers métiers. Établissements scolaires : inscriptions, notes et bulletins. ONG : projets, bénéficiaires et sondages terrain. BTP : chantiers, carburant et stocks. PME : ventes, achats et stocks au quotidien.
+
+3
+00:00:38,150 --> 00:00:53,490
+KonaData intègre KonaAI : lecture automatique de documents scannés, extraction de listes et génération de rapports pour vos bailleurs ou votre direction. Vous déposez un fichier, l'IA structure, vous validez.
+
+4
+00:00:53,490 --> 00:01:04,080
+Connexion par email ou par numéro de téléphone, avec code de vérification par SMS. Adapté aux réalités du terrain guinéen.
+
+5
+00:01:04,080 --> 00:01:14,280
+Côté établissement, la direction accède à un tableau de bord clair : évolution des inscriptions, paiements et vue d'ensemble de la scolarité.
+
+6
+00:01:14,280 --> 00:01:31,860
+Fini la ressaisie manuelle. Déposez un fichier Excel, un PDF, ou même une photo d'un registre manuscrit. KonaAI extrait les noms, matricules et contacts. Vous choisissez la classe et validez l'import en quelques secondes.
+
+7
+00:01:31,860 --> 00:01:40,750
+Les enseignants saisissent les résultats par classe. Les directeurs suivent les moyennes et le classement en temps réel.
+
+8
+00:01:40,750 --> 00:01:48,230
+En un clic, générez les bulletins avec classement automatique, prêts pour les élèves et leurs familles.
+
+9
+00:01:48,230 --> 00:01:56,710
+Côté ONG, lancez des sondages terrain, idéal pour une campagne ponctuelle ou une étude de besoins sur le terrain.
+
+10
+00:01:56,710 --> 00:02:08,340
+Partagez un QR code ou un lien. Les participants répondent depuis leur téléphone, en français, avec vérification par SMS si nécessaire.
+
+11
+00:02:08,340 --> 00:02:21,540
+Visualisez les réponses en direct : graphiques, carte et détection des doublons. Puis laissez KonaAI rédiger le rapport de synthèse, prêt pour le bailleur ou le comité de direction.
+
+12
+00:02:21,540 --> 00:02:33,350
+Installez KonaData sur l'écran d'accueil de votre téléphone, comme une application, sans passer par le Play Store. Les formulaires s'envoient dès que le réseau revient.
+
+13
+00:02:33,350 --> 00:02:45,710
+KonaData : vos données, votre terrain, votre intelligence. Rendez-vous sur konadatagn.com pour créer votre organisation ou demander une démonstration.

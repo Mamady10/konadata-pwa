@@ -1,0 +1,3 @@
+-- Copiez-collez le contenu de :
+-- supabase/migrations/027_learner_school_onboarding.sql
+-- dans le SQL Editor Supabase (Dashboard → SQL).

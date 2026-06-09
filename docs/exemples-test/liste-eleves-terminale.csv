@@ -1,0 +1,11 @@
+nom;matricule;email;telephone;tuteur;telephone_tuteur;consentement_sms
+Diallo Aminata;TER-26-001;;622100101;Mamadou Diallo;622200101;oui
+Camara Ibrahim;TER-26-002;;622100102;Fatou Camara;622200102;oui
+Bah Fatoumata;TER-26-003;;622100103;Ibrahima Bah;622200103;oui
+Soumah Mohamed;TER-26-004;;622100104;Aissatou Soumah;622200104;oui
+Kourouma Mariama;TER-26-005;;622100105;Alpha Kourouma;622200105;oui
+Condé Oumar;TER-26-006;;622100106;Mariam Condé;622200106;non
+Sylla Aissatou;TER-26-007;;622100107;Thierno Sylla;622200107;oui
+Touré Mamadou;TER-26-008;;622100108;Hawa Touré;622200108;oui
+Keita Ousmane;TER-26-009;;622100109;Dr. Alpha Keita;622200109;oui
+Bangoura Kadiatou;TER-26-010;;622100110;Sekou Bangoura;622200110;oui
