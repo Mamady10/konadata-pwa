@@ -25,6 +25,7 @@ import {
   type EducationLevelBand,
   type GradingPeriodPolicyByLevel,
 } from '@/lib/school/grading-period-settings';
+import { defaultMaxScoreForEducationBand } from '@/lib/school/evaluation-defaults';
 
 export interface EvaluationContext {
   subjectId: string;
@@ -32,7 +33,10 @@ export interface EvaluationContext {
   examType: string;
   semester: string;
   academicYear: string;
+  /** Barème (10 primaire, 20 collège/lycée…). */
   maxScore: number;
+  /** Poids de cette évaluation dans la moyenne de la matière. */
+  coefficient: number;
 }
 
 export interface ClassOption {
@@ -151,6 +155,9 @@ export function EvaluationSelector({
       classId,
       semester: nextSemester,
       subjectId: subjectStillValid ? value.subjectId : '',
+      maxScore: defaultMaxScoreForEducationBand(
+        resolveClassEducationBand(cls?.education_level_band, cls?.level)
+      ),
     });
   }
 
@@ -279,6 +286,23 @@ export function EvaluationSelector({
             onChange={(e) => patch({ maxScore: Number(e.target.value) || 20 })}
             disabled={disabled}
           />
+          {levelBand === 'primaire' && (
+            <p className="text-[11px] text-muted-foreground">Primaire : barème /10 par défaut.</p>
+          )}
+        </div>
+        <div className="space-y-2">
+          <Label>Coef. évaluation</Label>
+          <Input
+            type="number"
+            min={0.5}
+            step={0.5}
+            value={value.coefficient}
+            onChange={(e) => patch({ coefficient: Number(e.target.value) || 1 })}
+            disabled={disabled}
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Poids dans la moyenne de la matière (ex. Devoir×1, Composition×2).
+          </p>
         </div>
       </div>
     </div>
@@ -306,5 +330,6 @@ export function defaultEvaluationContext(
     semester: firstPeriodIdForPolicy(policy),
     academicYear: defaultAcademicYear(),
     maxScore: 20,
+    coefficient: 1,
   };
 }

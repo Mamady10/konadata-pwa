@@ -1941,7 +1941,7 @@ export async function generateReportCards(
       .eq('academic_year', academicYear),
     supabase
       .from('school_grade_evaluations')
-      .select('subject_id, exam_type')
+      .select('subject_id, exam_type, max_score, coefficient')
       .eq('organization_id', orgId)
       .eq('class_id', classId)
       .eq('semester', semester)
@@ -1950,9 +1950,10 @@ export async function generateReportCards(
 
   const { computeStudentAverageFromGrades } = await import('@/lib/school/report-card-average');
   const { evaluateClassCompleteness } = await import('@/lib/school/report-card-completeness');
+  const { mapGradesWithEvaluationMeta } = await import('@/lib/school/grade-evaluation-meta');
 
   const { isGradeRecorded } = await import('@/lib/school/grade-gaps');
-  const gradeRows = filterByIncludedExamTypes(
+  const rawGradeRows = filterByIncludedExamTypes(
     (grades ?? [])
       .filter((g) => isGradeRecorded(g.score))
       .map((g) => ({
@@ -1964,6 +1965,15 @@ export async function generateReportCards(
         coefficient: Number((g.school_subjects as { coefficient?: number })?.coefficient ?? 1),
       })),
     includedExamTypes
+  );
+  const gradeRows = mapGradesWithEvaluationMeta(
+    rawGradeRows,
+    (evaluations ?? []).map((e) => ({
+      subject_id: e.subject_id as string,
+      exam_type: e.exam_type as string,
+      max_score: e.max_score,
+      coefficient: e.coefficient,
+    }))
   );
 
   const completeness = evaluateClassCompleteness({

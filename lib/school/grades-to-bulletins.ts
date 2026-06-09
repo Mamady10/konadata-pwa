@@ -55,7 +55,7 @@ export async function evaluateReportCardReadiness(
       .eq('academic_year', academicYear),
     supabase
       .from('school_grade_evaluations')
-      .select('subject_id, exam_type')
+      .select('subject_id, exam_type, max_score, coefficient')
       .eq('organization_id', orgId)
       .eq('class_id', classId)
       .eq('semester', semester)
@@ -63,18 +63,27 @@ export async function evaluateReportCardReadiness(
   ]);
 
   const { filterByIncludedExamTypes } = await import('@/lib/school/bulletin-exam-types');
+  const { mapGradesWithEvaluationMeta } = await import('@/lib/school/grade-evaluation-meta');
 
   const enrolledIds = (students ?? []).map((s) => s.id as string);
-  const gradeRows = filterByIncludedExamTypes(
-    (grades ?? []).map((g) => ({
-      studentId: g.student_id as string,
-      subjectId: g.subject_id as string,
-      examType: (g.exam_type as string) ?? 'default',
-      score: Number(g.score),
-      maxScore: Number(g.max_score) || 20,
-      coefficient: Number((g.school_subjects as { coefficient?: number })?.coefficient ?? 1),
-    })),
-    includedExamTypes
+  const gradeRows = mapGradesWithEvaluationMeta(
+    filterByIncludedExamTypes(
+      (grades ?? []).map((g) => ({
+        studentId: g.student_id as string,
+        subjectId: g.subject_id as string,
+        examType: (g.exam_type as string) ?? 'default',
+        score: Number(g.score),
+        maxScore: Number(g.max_score) || 20,
+        coefficient: Number((g.school_subjects as { coefficient?: number })?.coefficient ?? 1),
+      })),
+      includedExamTypes
+    ),
+    (evaluations ?? []).map((e) => ({
+      subject_id: e.subject_id as string,
+      exam_type: e.exam_type as string,
+      max_score: e.max_score,
+      coefficient: e.coefficient,
+    }))
   );
 
   const completeness = evaluateClassCompleteness({

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,9 +11,13 @@ import { AlertCircle, Grid3X3, FileSpreadsheet, Paperclip } from 'lucide-react';
 import {
   defaultEvaluationContext,
   evaluationKeyFromContext,
+  isEvaluationReady,
   type ClassOption,
   type EvaluationContext,
 } from './evaluation-selector';
+import { getGradeEvaluationSettings } from '@/lib/actions/grade-evaluations';
+import { defaultMaxScoreForEducationBand } from '@/lib/school/evaluation-defaults';
+import { resolveClassEducationBand } from '@/lib/school/education-level-catalog';
 import { parseEducationLevelBand } from '@/lib/school/education-level-catalog';
 import {
   gradingPeriodLabel,
@@ -61,6 +65,46 @@ export function ResultatsClient({
   const [filterClassId, setFilterClassId] = useState(ALL_FILTER);
   const [filterSubjectId, setFilterSubjectId] = useState(ALL_FILTER);
   const [filterPeriodId, setFilterPeriodId] = useState(ALL_FILTER);
+
+  useEffect(() => {
+    if (!isEvaluationReady(evaluation)) return;
+    let cancelled = false;
+    const cls = classes.find((c) => c.id === evaluation.classId);
+    const band = resolveClassEducationBand(cls?.education_level_band, cls?.level);
+    const defaults = {
+      maxScore: defaultMaxScoreForEducationBand(band),
+      coefficient: 1,
+    };
+
+    void getGradeEvaluationSettings(evaluationKeyFromContext(evaluation), defaults).then((res) => {
+      if (cancelled || !res || 'error' in res) return;
+      setEvaluation((prev) => {
+        if (
+          prev.classId === evaluation.classId &&
+          prev.subjectId === evaluation.subjectId &&
+          prev.examType === evaluation.examType &&
+          prev.semester === evaluation.semester &&
+          prev.academicYear === evaluation.academicYear &&
+          prev.maxScore === res.maxScore &&
+          prev.coefficient === res.coefficient
+        ) {
+          return prev;
+        }
+        return { ...prev, maxScore: res.maxScore, coefficient: res.coefficient };
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    evaluation.classId,
+    evaluation.subjectId,
+    evaluation.examType,
+    evaluation.semester,
+    evaluation.academicYear,
+    classes,
+  ]);
 
   const initialScores = useMemo(() => {
     if (!evaluation.classId || !evaluation.subjectId) return {};

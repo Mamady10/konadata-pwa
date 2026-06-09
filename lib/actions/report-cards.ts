@@ -161,7 +161,7 @@ async function loadReportCardContext(
   } | null;
   const classBand = parseEducationLevelBand(classRow?.education_level_band);
 
-  const [{ data: subjects }, { data: grades }] = await Promise.all([
+  const [{ data: subjects }, { data: grades }, { data: evaluations }] = await Promise.all([
     supabase
       .from('school_subjects')
       .select('id, name, coefficient, education_level_band')
@@ -176,7 +176,26 @@ async function loadReportCardContext(
       .eq('class_id', card.class_id)
       .eq('semester', card.semester)
       .eq('academic_year', card.academic_year),
+    supabase
+      .from('school_grade_evaluations')
+      .select('subject_id, exam_type, max_score, coefficient')
+      .eq('organization_id', orgId)
+      .eq('class_id', card.class_id)
+      .eq('semester', card.semester)
+      .eq('academic_year', card.academic_year),
   ]);
+
+  const { buildEvaluationMetaMap, resolveEvaluationMeta } = await import(
+    '@/lib/school/grade-evaluation-meta'
+  );
+  const evaluationMetaMap = buildEvaluationMetaMap(
+    (evaluations ?? []).map((e) => ({
+      subject_id: e.subject_id as string,
+      exam_type: e.exam_type as string,
+      max_score: e.max_score,
+      coefficient: e.coefficient,
+    }))
+  );
 
   const includedExamTypes = parseIncludedExamTypes(card.included_exam_types);
   const includedExamTypesLabel = formatIncludedExamTypesLabel(includedExamTypes);
@@ -195,13 +214,19 @@ async function loadReportCardContext(
       name: s.name as string,
       coefficient: Number(s.coefficient ?? 1),
     })),
-    (grades ?? []).map((g) => ({
-      subject_id: g.subject_id as string,
-      exam_type: g.exam_type as string | undefined,
-      score: Number(g.score),
-      max_score: Number(g.max_score),
-      school_subjects: g.school_subjects as { name?: string; coefficient?: number } | null,
-    })),
+    (grades ?? []).map((g) => {
+      const subjectId = g.subject_id as string;
+      const examType = (g.exam_type as string) ?? 'default';
+      const evalMeta = resolveEvaluationMeta(evaluationMetaMap, subjectId, examType);
+      return {
+        subject_id: subjectId,
+        exam_type: examType,
+        score: Number(g.score),
+        max_score: Number(g.max_score) || evalMeta.maxScore,
+        evaluation_coefficient: evalMeta.coefficient,
+        school_subjects: g.school_subjects as { name?: string; coefficient?: number } | null,
+      };
+    }),
     tpl.show_all_subjects,
     includedExamTypes,
     tpl.show_evaluation_details

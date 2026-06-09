@@ -21,6 +21,11 @@ export interface EvaluationKey {
   academicYear: string;
 }
 
+export interface EvaluationSettings {
+  maxScore: number;
+  coefficient: number;
+}
+
 export interface GradeGridEntry {
   studentId: string;
   score: number | null;
@@ -74,8 +79,69 @@ async function assertCanGradeEvaluation(
   return null;
 }
 
+export async function getGradeEvaluationSettings(
+  key: EvaluationKey,
+  defaults?: Partial<EvaluationSettings>
+): Promise<EvaluationSettings | { error: string }> {
+  const orgId = await requireOrgId();
+  const guard = await assertCanGradeEvaluation(orgId, key);
+  if (guard) return guard;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('school_grade_evaluations')
+    .select('max_score, coefficient')
+    .eq('organization_id', orgId)
+    .eq('class_id', key.classId)
+    .eq('subject_id', key.subjectId)
+    .eq('exam_type', key.examType.trim())
+    .eq('semester', key.semester.trim())
+    .eq('academic_year', key.academicYear.trim())
+    .maybeSingle();
+
+  const { normalizeEvaluationCoefficient, normalizeEvaluationMaxScore } = await import(
+    '@/lib/school/evaluation-defaults'
+  );
+
+  if (data) {
+    return {
+      maxScore: normalizeEvaluationMaxScore(
+        data.max_score,
+        defaults?.maxScore ?? 20
+      ),
+      coefficient: normalizeEvaluationCoefficient(data.coefficient),
+    };
+  }
+
+  return {
+    maxScore: normalizeEvaluationMaxScore(defaults?.maxScore, 20),
+    coefficient: normalizeEvaluationCoefficient(defaults?.coefficient ?? 1),
+  };
+}
+
+async function upsertEvaluationSettings(
+  orgId: string,
+  key: EvaluationKey,
+  settings: EvaluationSettings,
+  evaluationId: string
+): Promise<void> {
+  const { normalizeEvaluationCoefficient, normalizeEvaluationMaxScore } = await import(
+    '@/lib/school/evaluation-defaults'
+  );
+  const supabase = await createClient();
+  const maxScore = normalizeEvaluationMaxScore(settings.maxScore);
+  const coefficient = normalizeEvaluationCoefficient(settings.coefficient);
+
+  await supabase
+    .from('school_grade_evaluations')
+    .update({ max_score: maxScore, coefficient })
+    .eq('id', evaluationId)
+    .eq('organization_id', orgId);
+}
+
 export async function getOrCreateGradeEvaluation(
-  key: EvaluationKey
+  key: EvaluationKey,
+  settings?: Partial<EvaluationSettings>
 ): Promise<{ evaluationId: string } | { error: string }> {
   const orgId = await requireOrgId();
   const guard = await assertCanGradeEvaluation(orgId, key);
@@ -97,6 +163,12 @@ export async function getOrCreateGradeEvaluation(
 
   if (existing?.id) return { evaluationId: existing.id as string };
 
+  const { normalizeEvaluationCoefficient, normalizeEvaluationMaxScore } = await import(
+    '@/lib/school/evaluation-defaults'
+  );
+  const maxScore = normalizeEvaluationMaxScore(settings?.maxScore, 20);
+  const coefficient = normalizeEvaluationCoefficient(settings?.coefficient ?? 1);
+
   const { data: created, error } = await supabase
     .from('school_grade_evaluations')
     .insert({
@@ -106,6 +178,8 @@ export async function getOrCreateGradeEvaluation(
       exam_type: key.examType.trim(),
       semester: key.semester.trim(),
       academic_year: key.academicYear.trim(),
+      max_score: maxScore,
+      coefficient,
       created_by: session?.user?.id ?? null,
     })
     .select('id')
@@ -166,7 +240,7 @@ export interface SaveGradesBatchResult {
 
 export async function saveGradesBatch(
   key: EvaluationKey,
-  defaultMaxScore: number,
+  settings: EvaluationSettings,
   rows: GradeGridEntry[]
 ): Promise<SaveGradesBatchResult | { error: string }> {
   const orgId = await requireOrgId();
@@ -175,11 +249,15 @@ export async function saveGradesBatch(
 
   if (!rows.length) return { error: 'Aucune note à enregistrer.' };
 
-  const evalResult = await getOrCreateGradeEvaluation(key);
+  const evalResult = await getOrCreateGradeEvaluation(key, settings);
   if ('error' in evalResult) return evalResult;
+
+  await upsertEvaluationSettings(orgId, key, settings, evalResult.evaluationId);
 
   const supabase = await createClient();
   const existing = await getGradesForEvaluation(orgId, key);
+  const { normalizeEvaluationMaxScore } = await import('@/lib/school/evaluation-defaults');
+  const defaultMaxScore = normalizeEvaluationMaxScore(settings.maxScore);
 
   const result: SaveGradesBatchResult = { saved: 0, skipped: 0, errors: [] };
 
@@ -237,7 +315,7 @@ export async function saveGradesBatch(
 
 export async function importGradesFromFile(
   key: EvaluationKey,
-  defaultMaxScore: number,
+  settings: EvaluationSettings,
   importRows: GradeImportRow[],
   students: Array<{ id: string; matricule?: string; full_name: string }>
 ): Promise<SaveGradesBatchResult | { error: string }> {
@@ -271,11 +349,11 @@ export async function importGradesFromFile(
     grid.push({
       studentId,
       score: row.score,
-      maxScore: row.max_score ?? defaultMaxScore,
+      maxScore: row.max_score ?? settings.maxScore,
     });
   }
 
-  const batch = await saveGradesBatch(key, defaultMaxScore, grid);
+  const batch = await saveGradesBatch(key, settings, grid);
   if ('error' in batch) return batch;
   if (unmatched.length) {
     batch.errors.push(

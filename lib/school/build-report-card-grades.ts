@@ -14,6 +14,7 @@ interface GradeRow {
   exam_type?: string;
   score: number;
   max_score: number;
+  evaluation_coefficient?: number;
   school_subjects?: { name?: string; coefficient?: number } | null;
 }
 
@@ -107,13 +108,18 @@ export function buildReportCardGradeLines(
     const forAvg: GradeForAverage[] = subjectGrades
       .filter((g) => isGradeRecorded(g.score))
       .map((g) => ({
-      subjectId: g.subject_id,
-      examType: g.exam_type ?? 'default',
-      score: Number(g.score),
-      maxScore: Number(g.max_score) || 20,      coefficient: Number(
-        (g.school_subjects as { coefficient?: number })?.coefficient ?? sub.coefficient ?? 1
-      ),
-    }));
+        subjectId: g.subject_id,
+        examType: g.exam_type ?? 'default',
+        score: Number(g.score),
+        maxScore: Number(g.max_score) || 20,
+        coefficient: Number(
+          (g.school_subjects as { coefficient?: number })?.coefficient ?? sub.coefficient ?? 1
+        ),
+        evaluationCoefficient:
+          g.evaluation_coefficient != null && g.evaluation_coefficient > 0
+            ? g.evaluation_coefficient
+            : 1,
+      }));
     const avgMap = computeSubjectAverages(forAvg);    const avg = avgMap.get(sub.id);
     const evalCount = avg?.evaluationCount ?? subjectGrades.length;
 

@@ -6,7 +6,10 @@ export interface GradeForAverage {
   examType: string;
   score: number;
   maxScore: number;
+  /** Coefficient matière (moyenne générale). */
   coefficient: number;
+  /** Coefficient évaluation (moyenne de la matière). Défaut 1. */
+  evaluationCoefficient?: number;
 }
 
 export interface SubjectAverageResult {
@@ -21,31 +24,42 @@ export function normalizeScoreOn20(score: number, maxScore: number): number {
   return (Number(score) / max) * 20;
 }
 
-/** Moyenne arithmétique des évaluations saisies (0/20 inclus ; case vide exclue). */
+/** Moyenne pondérée des évaluations saisies (coef. éval. ; 0/20 inclus ; case vide exclue). */
 export function computeSubjectAverages(
   grades: GradeForAverage[]
 ): Map<string, SubjectAverageResult> {
-  const bySubject = new Map<string, { scores: number[]; coefficient: number }>();
+  const bySubject = new Map<
+    string,
+    { weightedSum: number; evalCoefSum: number; count: number; coefficient: number }
+  >();
 
   for (const g of grades) {
     if (!isGradeRecorded(g.score)) continue;
-    const on20 = normalizeScoreOn20(Number(g.score), g.maxScore);    const bucket = bySubject.get(g.subjectId) ?? {
-      scores: [],
+    const on20 = normalizeScoreOn20(Number(g.score), g.maxScore);
+    const evalCoef =
+      g.evaluationCoefficient != null && g.evaluationCoefficient > 0
+        ? g.evaluationCoefficient
+        : 1;
+    const bucket = bySubject.get(g.subjectId) ?? {
+      weightedSum: 0,
+      evalCoefSum: 0,
+      count: 0,
       coefficient: g.coefficient > 0 ? g.coefficient : 1,
     };
-    bucket.scores.push(on20);
+    bucket.weightedSum += on20 * evalCoef;
+    bucket.evalCoefSum += evalCoef;
+    bucket.count += 1;
     bucket.coefficient = g.coefficient > 0 ? g.coefficient : bucket.coefficient;
     bySubject.set(g.subjectId, bucket);
   }
 
   const result = new Map<string, SubjectAverageResult>();
   for (const [subjectId, data] of bySubject) {
-    if (data.scores.length === 0) continue;
-    const sum = data.scores.reduce((a, b) => a + b, 0);
+    if (data.count === 0 || data.evalCoefSum <= 0) continue;
     result.set(subjectId, {
       subjectId,
-      averageOn20: Math.round((sum / data.scores.length) * 100) / 100,
-      evaluationCount: data.scores.length,
+      averageOn20: Math.round((data.weightedSum / data.evalCoefSum) * 100) / 100,
+      evaluationCount: data.count,
       coefficient: data.coefficient,
     });
   }

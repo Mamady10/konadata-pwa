@@ -105,11 +105,10 @@ export function ResultatsGridTab({
       return;
     }
 
-    const result = await saveGradesBatch(
-      evaluationKeyFromContext(evaluation),
-      evaluation.maxScore,
-      rows
-    );
+    const result = await saveGradesBatch(evaluationKeyFromContext(evaluation), {
+      maxScore: evaluation.maxScore,
+      coefficient: evaluation.coefficient,
+    }, rows);
     setLoading(false);
 
     if (result && 'error' in result) {

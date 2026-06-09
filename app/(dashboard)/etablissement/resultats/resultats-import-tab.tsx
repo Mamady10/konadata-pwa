@@ -129,7 +129,7 @@ export function ResultatsImportTab({
     setLoading(true);
     const result = await importGradesFromFile(
       evaluationKeyFromContext(evaluation),
-      evaluation.maxScore,
+      { maxScore: evaluation.maxScore, coefficient: evaluation.coefficient },
       rows.slice(0, MAX_GRADE_IMPORT_ROWS),
       classStudents.map((s) => ({
         id: s.id,
