@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { LandingDashboardMockup } from '@/components/marketing/landing-dashboard-mockup';
+import { SECTOR_SKETCHES } from '@/components/marketing/landing-sector-sketches';
 import {
   LANDING_BRAND,
   LANDING_FEATURES,
@@ -21,10 +22,6 @@ import {
   ArrowRight,
   ClipboardList,
   Database,
-  GraduationCap,
-  Heart,
-  HardHat,
-  Store,
   Shield,
   Layers,
   Sparkles,
@@ -37,13 +34,6 @@ import {
   FileText,
   Globe,
 } from 'lucide-react';
-
-const SECTOR_ICONS = {
-  school: GraduationCap,
-  ngo: Heart,
-  btp: HardHat,
-  pme: Store,
-} as const;
 
 const PILL_ICONS = {
   shield: Shield,
@@ -291,8 +281,16 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
         </section>
 
         {/* Bloc unique : tout le reste sur la même page (scroll continu) */}
-        <section className="relative z-10 rounded-t-[2rem] sm:rounded-t-[2.5rem] bg-slate-50 text-slate-900 shadow-[0_-20px_60px_rgba(0,0,0,0.35)]">
-          <div className="mx-auto max-w-7xl px-4 py-12 sm:py-14 space-y-14 sm:space-y-16">
+        <section className="relative z-10 rounded-t-[2rem] sm:rounded-t-[2.5rem] bg-gradient-to-b from-slate-50 via-blue-50/40 to-teal-50/30 text-slate-900 shadow-[0_-20px_60px_rgba(0,0,0,0.35)] overflow-hidden">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-60"
+            aria-hidden
+            style={{
+              backgroundImage:
+                'radial-gradient(circle at 15% 20%, rgba(37,99,235,0.08) 0%, transparent 45%), radial-gradient(circle at 85% 60%, rgba(20,184,166,0.1) 0%, transparent 40%), radial-gradient(circle at 50% 90%, rgba(139,92,246,0.06) 0%, transparent 35%)',
+            }}
+          />
+          <div className="relative mx-auto max-w-7xl px-4 py-12 sm:py-14 space-y-14 sm:space-y-16">
             {/* Secteurs */}
             <div id="secteurs" className="scroll-mt-24">
               <div className="text-center max-w-2xl mx-auto mb-8">
@@ -305,18 +303,26 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 {LANDING_SECTORS.map((s) => {
-                  const Icon = SECTOR_ICONS[s.id];
+                  const Sketch = SECTOR_SKETCHES[s.id];
                   return (
-                    <Card key={s.id} className="border-0 shadow-md rounded-xl bg-white hover:shadow-lg transition-shadow">
+                    <Card
+                      key={s.id}
+                      className={`border shadow-md rounded-xl hover:shadow-lg transition-all hover:-translate-y-0.5 ${s.cardBg} ${s.cardBorder}`}
+                    >
                       <CardHeader className="pb-1 p-5">
-                        <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl ${s.iconBg} text-white mb-3`}>
-                          <Icon className="h-6 w-6" />
+                        <div
+                          className={`inline-flex h-14 w-14 items-center justify-center rounded-2xl ${s.iconBg} text-white mb-3 shadow-md`}
+                        >
+                          <Sketch className="h-8 w-8" />
                         </div>
                         <CardTitle className="text-lg">{s.title}</CardTitle>
                       </CardHeader>
                       <CardContent className="px-5 pb-5 pt-0">
                         <p className="text-sm text-muted-foreground leading-relaxed">{s.description}</p>
-                        <Link href={s.href} className="inline-flex items-center gap-1 mt-3 text-sm font-medium text-[#2563EB]">
+                        <Link
+                          href={s.href}
+                          className={`inline-flex items-center gap-1 mt-3 text-sm font-semibold ${s.accent} hover:opacity-80 transition-opacity`}
+                        >
                           Découvrir <ArrowRight className="h-3.5 w-3.5" />
                         </Link>
                       </CardContent>
@@ -347,8 +353,13 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
                 <h2 className="text-xl font-bold mb-6">Fonctionnalités clés</h2>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                   {LANDING_FEATURES.map((f) => (
-                    <div key={f.title} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                      <Sparkles className="h-4 w-4 text-cyan-600 mb-2" />
+                    <div
+                      key={f.title}
+                      className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-4 shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <div className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${f.iconBg} mb-2`}>
+                        <Sparkles className={`h-4 w-4 ${f.iconColor}`} />
+                      </div>
                       <h3 className="font-semibold text-sm">{f.title}</h3>
                       <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{f.description}</p>
                     </div>
@@ -389,12 +400,28 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
 
             {/* Contact — fin de la même page */}
             <div id="contact" className="scroll-mt-24 grid lg:grid-cols-2 gap-8 items-start pb-4">
-              <div>
+              <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-white via-blue-50/50 to-teal-50/40 p-6 shadow-sm">
                 <h2 className="text-xl sm:text-2xl font-bold mb-3">Demander une démo</h2>
-                <p className="text-sm text-muted-foreground mb-4">
+                <p className="text-sm text-muted-foreground mb-5">
                   Direction ou partenaire — nous répondons sous 48 h. Rapports IA disponibles en mode
                   local, sans OpenAI.
                 </p>
+                <div className="flex flex-wrap gap-3 mb-5">
+                  {LANDING_SECTORS.slice(0, 3).map((s) => {
+                    const Sketch = SECTOR_SKETCHES[s.id];
+                    return (
+                      <div
+                        key={s.id}
+                        className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${s.cardBorder} ${s.cardBg}`}
+                      >
+                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${s.iconBg} text-white`}>
+                          <Sketch className="h-5 w-5" />
+                        </div>
+                        <span className="text-xs font-semibold text-slate-700">{s.title}</span>
+                      </div>
+                    );
+                  })}
+                </div>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <li className="flex gap-2">
                     <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
@@ -406,7 +433,7 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
                   </li>
                 </ul>
               </div>
-              <Card className="shadow-lg border-0 rounded-xl">
+              <Card className="shadow-lg border border-slate-200/80 rounded-xl bg-white/90 backdrop-blur-sm">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Mail className="h-4 w-4 text-[#2563EB]" />
@@ -458,7 +485,7 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
             </div>
           </div>
 
-          <footer className="border-t border-slate-200 bg-white py-6 px-4">
+          <footer className="relative border-t border-slate-200/80 bg-gradient-to-r from-white via-blue-50/30 to-teal-50/20 py-6 px-4">
             <div className="mx-auto max-w-7xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
               <p>© {new Date().getFullYear()} {LANDING_BRAND.name}</p>
               <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">

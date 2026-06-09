@@ -35,7 +35,10 @@ export const LANDING_SECTORS = [
     title: 'Établissements',
     description:
       'Inscriptions, notes, bulletins et finances par classe. Modèles IA pour vos documents officiels.',
-    iconBg: 'bg-blue-600',
+    iconBg: 'bg-gradient-to-br from-blue-500 to-blue-700',
+    cardBg: 'bg-gradient-to-br from-blue-50/90 via-white to-sky-50/60',
+    cardBorder: 'border-blue-200/70',
+    accent: 'text-blue-600',
     href: LANDING_LINKS.registerOrganization,
   },
   {
@@ -43,7 +46,10 @@ export const LANDING_SECTORS = [
     title: 'ONG',
     description:
       'Projets, bénéficiaires, cartographie et rapports bailleurs — ou lancez un sondage seul sans abonnement complet.',
-    iconBg: 'bg-teal-500',
+    iconBg: 'bg-gradient-to-br from-teal-400 to-emerald-600',
+    cardBg: 'bg-gradient-to-br from-teal-50/90 via-white to-emerald-50/50',
+    cardBorder: 'border-teal-200/70',
+    accent: 'text-teal-600',
     href: LANDING_LINKS.registerSurveyOnly,
   },
   {
@@ -51,7 +57,10 @@ export const LANDING_SECTORS = [
     title: 'BTP & Industrie',
     description:
       'Chantiers, carburant, bons de livraison, stocks et rapports IA par site.',
-    iconBg: 'bg-amber-500',
+    iconBg: 'bg-gradient-to-br from-amber-400 to-orange-600',
+    cardBg: 'bg-gradient-to-br from-amber-50/90 via-white to-orange-50/50',
+    cardBorder: 'border-amber-200/70',
+    accent: 'text-amber-600',
     href: LANDING_LINKS.registerOrganization,
   },
   {
@@ -59,7 +68,10 @@ export const LANDING_SECTORS = [
     title: 'PME & Commerce',
     description:
       'Ventes, stocks et fournisseurs — module en déploiement pour votre gestion quotidienne.',
-    iconBg: 'bg-violet-600',
+    iconBg: 'bg-gradient-to-br from-violet-500 to-purple-700',
+    cardBg: 'bg-gradient-to-br from-violet-50/90 via-white to-purple-50/50',
+    cardBorder: 'border-violet-200/70',
+    accent: 'text-violet-600',
     href: LANDING_LINKS.registerOrganization,
   },
 ] as const;
@@ -76,21 +88,29 @@ export const LANDING_FEATURES = [
     title: 'Rapports IA archivés',
     description:
       'Synthèses par chantier, projet ou classe — archivage, copie, export et impression PDF.',
+    iconBg: 'bg-cyan-100',
+    iconColor: 'text-cyan-600',
   },
   {
     title: 'Modèles de documents',
     description:
       'Un exemple par type de livrable : l’équipe reçoit des consignes à chaque dépôt.',
+    iconBg: 'bg-blue-100',
+    iconColor: 'text-blue-600',
   },
   {
     title: 'Rôles & assignations',
     description:
       'Chaque collaborateur ne voit que son périmètre. Tableaux de bord sans données fictives.',
+    iconBg: 'bg-violet-100',
+    iconColor: 'text-violet-600',
   },
   {
     title: 'PWA & hors-ligne',
     description:
       'Installable sur mobile, cache 3G/4G et envoi des formulaires à la reconnexion.',
+    iconBg: 'bg-emerald-100',
+    iconColor: 'text-emerald-600',
   },
 ] as const;
 
