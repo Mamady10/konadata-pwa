@@ -21,12 +21,25 @@ export const LANDING_HERO_PILLS = [
 ] as const;
 
 export const LANDING_TRUST_PARTNERS = [
-  'UNICEF',
-  'Orange Money',
-  'Min. Éducation',
-  'Bailleurs',
-  'ONG locales',
-  'Entreprises BTP',
+  {
+    name: 'Premium Construction',
+    logo: '/partners/premco.png',
+    logoAlt: 'PREMCO — Premium Construction',
+  },
+  {
+    name: 'VCCOM',
+    logo: '/partners/vccom.png',
+    logoAlt: 'VCCOM — Communication, impression, consulting',
+  },
+  {
+    name: 'Loukhy',
+    logo: '/partners/loukhy.png',
+    logoAlt: 'Loukhy',
+  },
+  { name: 'Min. Éducation' },
+  { name: 'Bailleurs' },
+  { name: 'ONG locales' },
+  { name: 'Entreprises BTP' },
 ] as const;
 
 export const LANDING_SECTORS = [

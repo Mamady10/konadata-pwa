@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -270,12 +271,31 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
             <p className="text-center text-[10px] uppercase tracking-widest text-white/35 mb-3">
               Ils nous font confiance
             </p>
-            <div className="flex flex-wrap justify-center gap-x-8 gap-y-2">
-              {LANDING_TRUST_PARTNERS.map((name) => (
-                <span key={name} className="text-xs sm:text-sm font-semibold text-white/25">
-                  {name}
-                </span>
-              ))}
+            <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-4 sm:gap-x-10">
+              {LANDING_TRUST_PARTNERS.map((partner) =>
+                'logo' in partner && partner.logo ? (
+                  <div
+                    key={partner.name}
+                    className="flex h-10 sm:h-12 items-center justify-center rounded-lg bg-white/95 px-3 py-1.5 shadow-sm"
+                    title={partner.name}
+                  >
+                    <Image
+                      src={partner.logo}
+                      alt={partner.logoAlt ?? partner.name}
+                      width={120}
+                      height={40}
+                      className="h-7 sm:h-8 w-auto max-w-[110px] sm:max-w-[130px] object-contain object-center"
+                    />
+                  </div>
+                ) : (
+                  <span
+                    key={partner.name}
+                    className="text-xs sm:text-sm font-semibold text-white/30"
+                  >
+                    {partner.name}
+                  </span>
+                )
+              )}
             </div>
           </div>
         </section>
