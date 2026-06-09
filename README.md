@@ -43,5 +43,6 @@ Ouvrir [http://localhost:3000](http://localhost:3000).
 
 ## Déploiement (GitHub + Vercel)
 
-- Guide complet : [docs/DEPLOIEMENT-GITHUB-VERCEL.md](docs/DEPLOIEMENT-GITHUB-VERCEL.md)
+- **Mise en ligne pas à pas (Supabase, Resend, domaine)** : [docs/MISE-EN-LIGNE-COMPLETE.md](docs/MISE-EN-LIGNE-COMPLETE.md)
+- Guide Git/Vercel : [docs/DEPLOIEMENT-GITHUB-VERCEL.md](docs/DEPLOIEMENT-GITHUB-VERCEL.md)
 - Pousser une mise à jour : `.\scripts\git-push.ps1 -Message "votre message"`
