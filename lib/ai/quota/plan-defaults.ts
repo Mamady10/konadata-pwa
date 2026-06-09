@@ -1,4 +1,8 @@
 import type { AiPlanTier } from '@/lib/ai/quota/types';
+import {
+  PLATFORM_V1_AI_OFFERS_ENABLED,
+  PLATFORM_V1_DEFAULT_AI_TIER,
+} from '@/lib/platform/v1-product';
 
 export type SelectableAiPlanTier = Exclude<AiPlanTier, 'platform' | 'essentiel'>;
 
@@ -43,11 +47,25 @@ export const AI_PLAN_DEFAULTS: Record<SelectableAiPlanTier, AiPlanDefaults> = {
   },
 };
 
-export const SELECTABLE_AI_PLAN_TIERS: SelectableAiPlanTier[] = ['standard', 'premium', 'trial'];
+export const SELECTABLE_AI_PLAN_TIERS: SelectableAiPlanTier[] = PLATFORM_V1_AI_OFFERS_ENABLED
+  ? ['standard', 'premium', 'trial']
+  : [];
 
 export function getAiPlanDefaults(tier: string): AiPlanDefaults {
   const key = tier as SelectableAiPlanTier;
-  return AI_PLAN_DEFAULTS[key] ?? AI_PLAN_DEFAULTS.standard;
+  if (AI_PLAN_DEFAULTS[key]) return AI_PLAN_DEFAULTS[key];
+  if (tier === PLATFORM_V1_DEFAULT_AI_TIER || !PLATFORM_V1_AI_OFFERS_ENABLED) {
+    return {
+      tier: 'standard',
+      label: 'Essentiel (sans IA)',
+      monthlyCredits: 0,
+      maxRequestsPerDay: 0,
+      visionEnabled: false,
+      visionPagesMonth: 0,
+      description: 'Plateforme V1 — gestion métier sans assistant KonaAI.',
+    };
+  }
+  return AI_PLAN_DEFAULTS.standard;
 }
 
 export function resolveAiTierForAccessMode(

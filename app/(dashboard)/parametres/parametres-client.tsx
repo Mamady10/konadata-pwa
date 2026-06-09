@@ -333,9 +333,8 @@ export function ParametresClient({
               )}
               {aiQuota.creditsTotal === 0 ? (
                 <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                  Votre offre actuelle n&apos;inclut pas KonaAI. Passez à{' '}
-                  <strong>Standard</strong> ou <strong>Premium</strong> pour activer le chat, les
-                  rapports et l&apos;OCR manuscrit.
+                  Votre offre actuelle est <strong>Essentiel (sans IA)</strong>. L&apos;assistant
+                  KonaAI (chat, rapports automatiques, OCR) sera proposé dans une prochaine version.
                 </div>
               ) : (
                 <>
@@ -403,7 +402,7 @@ export function ParametresClient({
                 aiQuota.creditsTotal > 0 &&
                 aiQuota.creditsRemaining < aiQuota.creditsTotal * 0.15 && (
                   <Button asChild variant="outline" size="sm">
-                    <Link href="/parametres/facturation">Augmenter le quota (Premium)</Link>
+                    <Link href="/parametres/facturation">Voir la facturation</Link>
                   </Button>
                 )}
             </>

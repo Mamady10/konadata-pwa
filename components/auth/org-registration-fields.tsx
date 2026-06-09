@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { HEARD_FROM_OPTIONS } from '@/lib/org/org-registration-profile';
 import { AiSubscriptionPlanPicker } from '@/components/auth/ai-subscription-plan-picker';
+import { PLATFORM_V1_AI_OFFERS_ENABLED } from '@/lib/platform/v1-product';
 import type { OrganizationType } from '@/types/database';
 
 const fieldClass =
@@ -194,7 +195,14 @@ export function OrgRegistrationFields({ orgType, hideDeclaredPhone = false }: Pr
         </div>
       )}
 
-      <AiSubscriptionPlanPicker allowTrial={orgType === 'school'} />
+      {PLATFORM_V1_AI_OFFERS_ENABLED ? (
+        <AiSubscriptionPlanPicker allowTrial={orgType === 'school'} />
+      ) : (
+        <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-muted-foreground">
+          Offre actuelle : <strong>plateforme V1</strong> (gestion métier sans assistant KonaAI).
+          Les paliers IA seront proposés ultérieurement.
+        </p>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="additional_notes">Informations complémentaires</Label>

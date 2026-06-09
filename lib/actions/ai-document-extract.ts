@@ -138,7 +138,7 @@ export async function extractRosterFromStoredDocument(
     return {
       error:
         processed.message ??
-        'Aucun texte extrait. Vérifiez KonaAI Vision (offre Standard+) et la qualité du scan.',
+        'Aucun texte extrait. Vérifiez la qualité du scan (KonaAI Vision sera disponible ultérieurement).',
     };
   }
 

@@ -29,7 +29,7 @@ export function AnalysteIAView({ config, configError }: Props) {
         </h1>
         <p className="text-muted-foreground">
           {config?.widgetVisible === false
-            ? 'Réservé aux directeurs dont l’offre IA a été activée par KonaData (palier Standard, Premium ou Essai).'
+            ? 'Réservé aux directeurs — l’assistant KonaAI arrive dans une prochaine version (V1 = plateforme sans IA).'
             : `Connecté aux données de ${config?.orgName ?? 'votre organisation'}`}
         </p>
       </div>
@@ -39,7 +39,7 @@ export function AnalysteIAView({ config, configError }: Props) {
           <CardContent className="p-4 text-sm text-amber-900">
             Le chat flottant n&apos;est pas affiché : offre actuelle{' '}
             <strong>{config.aiOfferTierLabel}</strong>. Contactez KonaData pour activer un palier avec
-            assistant (Standard, Premium ou Essai).
+            assistant KonaAI (bientôt disponible).
           </CardContent>
         </Card>
       )}

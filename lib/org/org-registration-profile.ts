@@ -1,4 +1,10 @@
 import type { OrganizationType } from '@/types/database';
+import {
+  PLATFORM_V1_AI_OFFERS_ENABLED,
+  PLATFORM_V1_DEFAULT_AI_TIER,
+  PLATFORM_V1_DEFAULT_AI_CREDITS,
+  PLATFORM_V1_DEFAULT_AI_REQUESTS_PER_DAY,
+} from '@/lib/platform/v1-product';
 
 export interface RequestedAiPlan {
   tier: string;
@@ -52,7 +58,9 @@ export function buildApplicationProfileFromFormData(
   };
   const str = (key: string) => (formData.get(key) as string)?.trim() || undefined;
 
-  const requestedTier = (formData.get('requested_ai_tier') as string)?.trim() || 'standard';
+  const requestedTier = PLATFORM_V1_AI_OFFERS_ENABLED
+    ? (formData.get('requested_ai_tier') as string)?.trim() || 'standard'
+    : PLATFORM_V1_DEFAULT_AI_TIER;
   const requestedCreditsRaw = formData.get('requested_ai_monthly_credits') as string;
   const requestedRequestsRaw = formData.get('requested_ai_max_requests_per_day') as string;
   const requestedCredits = requestedCreditsRaw ? parseInt(requestedCreditsRaw, 10) : null;
@@ -67,11 +75,23 @@ export function buildApplicationProfileFromFormData(
     heard_from: str('heard_from'),
     expected_go_live: str('expected_go_live'),
     additional_notes: str('additional_notes'),
-    requested_ai_plan: {
-      tier: requestedTier,
-      monthly_credits: Number.isFinite(requestedCredits) ? requestedCredits! : 800,
-      max_requests_per_day: Number.isFinite(requestedRequests) ? requestedRequests! : 80,
-    },
+    ...(PLATFORM_V1_AI_OFFERS_ENABLED || requestedTier !== PLATFORM_V1_DEFAULT_AI_TIER
+      ? {
+          requested_ai_plan: {
+            tier: requestedTier,
+            monthly_credits: Number.isFinite(requestedCredits)
+              ? requestedCredits!
+              : PLATFORM_V1_AI_OFFERS_ENABLED
+                ? 800
+                : PLATFORM_V1_DEFAULT_AI_CREDITS,
+            max_requests_per_day: Number.isFinite(requestedRequests)
+              ? requestedRequests!
+              : PLATFORM_V1_AI_OFFERS_ENABLED
+                ? 80
+                : PLATFORM_V1_DEFAULT_AI_REQUESTS_PER_DAY,
+          },
+        }
+      : {}),
   };
 
   if (orgType === 'school') {

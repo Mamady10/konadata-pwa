@@ -205,7 +205,7 @@ export function answerSchoolOfflineFaq(
       '**Documents & rapports**',
       '• Déposez vos fichiers dans **Data Factory** (PDF, Word, Excel) pour la recherche interne.',
       `• Rapports structurés : **${reportPath}**`,
-      '• Avec l’offre KonaAI (Standard+), rédaction automatique et OCR sur scans.',
+      '• KonaAI (assistant IA) sera proposé ultérieurement — rédaction automatique et OCR sur scans.',
     ].join('\n');
   }
 

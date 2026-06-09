@@ -290,7 +290,7 @@ export function OrganisationsClient({ rows }: Props) {
                       {getAiPlanDefaults(
                         org.ai_plan_tier ??
                           (org.application_profile as OrgApplicationProfile)?.requested_ai_plan?.tier ??
-                          'standard'
+                          'essentiel'
                       ).label}
                     </strong>
                     {' '}
@@ -336,7 +336,7 @@ export function OrganisationsClient({ rows }: Props) {
                       e.preventDefault();
                       const fd = new FormData(e.currentTarget);
                       saveOffer(org.id, org.type, {
-                        tier: String(fd.get('ai_plan_tier') ?? 'standard'),
+                        tier: String(fd.get('ai_plan_tier') ?? 'essentiel'),
                         monthlyCredits: Number(fd.get('ai_monthly_credits')) || 0,
                         maxRequestsPerDay: Number(fd.get('ai_max_requests_per_day')) || 0,
                       });

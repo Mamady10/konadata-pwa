@@ -9,6 +9,12 @@ import {
 } from '@/lib/org/org-registration-shared';
 import type { OrganizationType } from '@/types/database';
 import { sendOrgRegistrationNotifyEmail } from '@/lib/email/send-org-registration-notify';
+import {
+  PLATFORM_V1_AI_OFFERS_ENABLED,
+  PLATFORM_V1_DEFAULT_AI_TIER,
+  PLATFORM_V1_DEFAULT_AI_CREDITS,
+  PLATFORM_V1_DEFAULT_AI_REQUESTS_PER_DAY,
+} from '@/lib/platform/v1-product';
 
 function mapOrgRpcError(message: string): string | null {
   const m = message.toLowerCase();
@@ -120,14 +126,24 @@ export async function completeOrganizationRegistration(
   }
 
   const requestedPlan = applicationProfile.requested_ai_plan;
-  if (requestedPlan) {
+  const aiPlanUpdate = PLATFORM_V1_AI_OFFERS_ENABLED
+    ? requestedPlan
+      ? {
+          ai_plan_tier: requestedPlan.tier,
+          ai_monthly_credits: requestedPlan.monthly_credits,
+          ai_max_requests_per_day: requestedPlan.max_requests_per_day,
+        }
+      : null
+    : {
+        ai_plan_tier: PLATFORM_V1_DEFAULT_AI_TIER,
+        ai_monthly_credits: PLATFORM_V1_DEFAULT_AI_CREDITS,
+        ai_max_requests_per_day: PLATFORM_V1_DEFAULT_AI_REQUESTS_PER_DAY,
+      };
+
+  if (aiPlanUpdate) {
     await supabase
       .from('organization_billing_offers')
-      .update({
-        ai_plan_tier: requestedPlan.tier,
-        ai_monthly_credits: requestedPlan.monthly_credits,
-        ai_max_requests_per_day: requestedPlan.max_requests_per_day,
-      })
+      .update(aiPlanUpdate)
       .eq('organization_id', orgId);
   }
 
