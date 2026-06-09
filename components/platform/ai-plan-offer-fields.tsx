@@ -30,7 +30,29 @@ interface Props {
   requestedRequests?: number | null;
 }
 
-export function AiPlanOfferFields({
+function AiPlanOfferFieldsV1Disabled() {
+  return (
+    <div className="sm:col-span-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-muted-foreground">
+      <p className="font-medium text-foreground flex items-center gap-2">
+        <Bot className="h-4 w-4 text-slate-500" />
+        KonaAI — non proposé en V1
+      </p>
+      <p className="mt-1 text-xs">
+        Palier <strong>Essentiel (sans IA)</strong> appliqué automatiquement. Standard et Premium
+        seront réactivés avec la commercialisation de l&apos;assistant.
+      </p>
+      <input type="hidden" name="ai_plan_tier" value={PLATFORM_V1_DEFAULT_AI_TIER} />
+      <input type="hidden" name="ai_monthly_credits" value={PLATFORM_V1_DEFAULT_AI_CREDITS} />
+      <input
+        type="hidden"
+        name="ai_max_requests_per_day"
+        value={PLATFORM_V1_DEFAULT_AI_REQUESTS_PER_DAY}
+      />
+    </div>
+  );
+}
+
+function AiPlanOfferFieldsEnabled({
   orgType,
   trialMode,
   initialTier,
@@ -51,28 +73,6 @@ export function AiPlanOfferFields({
     : requestedTier && tiers.includes(requestedTier as SelectableAiPlanTier)
       ? requestedTier
       : 'standard') as SelectableAiPlanTier;
-
-  if (!PLATFORM_V1_AI_OFFERS_ENABLED) {
-    return (
-      <div className="sm:col-span-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-muted-foreground">
-        <p className="font-medium text-foreground flex items-center gap-2">
-          <Bot className="h-4 w-4 text-slate-500" />
-          KonaAI — non proposé en V1
-        </p>
-        <p className="mt-1 text-xs">
-          Palier <strong>Essentiel (sans IA)</strong> appliqué automatiquement. Standard et Premium
-          seront réactivés avec la commercialisation de l&apos;assistant.
-        </p>
-        <input type="hidden" name="ai_plan_tier" value={PLATFORM_V1_DEFAULT_AI_TIER} />
-        <input type="hidden" name="ai_monthly_credits" value={PLATFORM_V1_DEFAULT_AI_CREDITS} />
-        <input
-          type="hidden"
-          name="ai_max_requests_per_day"
-          value={PLATFORM_V1_DEFAULT_AI_REQUESTS_PER_DAY}
-        />
-      </div>
-    );
-  }
 
   const [tier, setTier] = useState<SelectableAiPlanTier>(defaultTier);
   const effectiveTier = resolveAiTierForAccessMode(
@@ -180,13 +180,16 @@ export function AiPlanOfferFields({
         appliqué à l&apos;activation (paiement ou essai).
       </p>
 
-      <input
-        type="hidden"
-        name="ai_plan_tier"
-        value={trialMode ? 'trial' : tier}
-      />
+      <input type="hidden" name="ai_plan_tier" value={trialMode ? 'trial' : tier} />
       <input type="hidden" name="ai_monthly_credits" value={credits} />
       <input type="hidden" name="ai_max_requests_per_day" value={requests} />
     </div>
   );
+}
+
+export function AiPlanOfferFields(props: Props) {
+  if (!PLATFORM_V1_AI_OFFERS_ENABLED) {
+    return <AiPlanOfferFieldsV1Disabled />;
+  }
+  return <AiPlanOfferFieldsEnabled {...props} />;
 }
