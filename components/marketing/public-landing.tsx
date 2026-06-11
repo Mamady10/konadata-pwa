@@ -278,7 +278,7 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
                 'logo' in partner && partner.logo ? (
                   <div
                     key={partner.name}
-                    className="flex h-10 sm:h-12 items-center justify-center rounded-lg bg-white/95 px-3 py-1.5 shadow-sm"
+                    className="flex h-10 sm:h-12 items-center justify-center rounded-lg bg-white/10 border border-white/15 px-3 py-1.5 shadow-sm backdrop-blur-sm"
                     title={partner.name}
                   >
                     <Image
@@ -329,13 +329,14 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
                   return (
                     <Card
                       key={s.id}
-                      className={`border shadow-md rounded-xl hover:shadow-lg transition-all hover:-translate-y-0.5 ${s.cardBg} ${s.cardBorder}`}
+                      className={`overflow-hidden border shadow-md rounded-xl hover:shadow-xl transition-all hover:-translate-y-1 ${s.cardBg} ${s.cardBorder}`}
                     >
+                      <div className={`h-1.5 bg-gradient-to-r ${s.accentBar}`} aria-hidden />
                       <CardHeader className="pb-1 p-5">
                         <div
-                          className={`inline-flex h-14 w-14 items-center justify-center rounded-2xl ${s.iconBg} text-white mb-3 shadow-md`}
+                          className={`inline-flex h-14 w-14 items-center justify-center rounded-2xl ${s.iconBg} ${s.iconColor} ${s.iconRing} ${s.iconShadow} mb-3`}
                         >
-                          <Sketch className="h-8 w-8" />
+                          <Sketch className="h-8 w-8 drop-shadow-sm" />
                         </div>
                         <CardTitle className="text-lg">{s.title}</CardTitle>
                       </CardHeader>
@@ -434,9 +435,11 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
                     return (
                       <div
                         key={s.id}
-                        className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${s.cardBorder} ${s.cardBg}`}
+                        className={`flex items-center gap-2 rounded-xl border-2 px-3 py-2 ${s.cardBorder} ${s.cardBg}`}
                       >
-                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${s.iconBg} text-white`}>
+                        <div
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${s.iconBg} ${s.iconColor} ${s.iconShadow}`}
+                        >
                           <Sketch className="h-5 w-5" />
                         </div>
                         <span className="text-xs font-semibold text-slate-700">{s.title}</span>
