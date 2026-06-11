@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Affiche KonaData — Écoles &amp; partenaires</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a192f;
+      --bg-soft: #112240;
+      --cyan: #22d3ee;
+      --blue: #2563eb;
+      --teal: #2dd4bf;
+      --white: #f8fafc;
+      --muted: rgba(248, 250, 252, 0.72);
+      --dim: rgba(248, 250, 252, 0.45);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #1e293b;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      gap: 20px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      color: var(--white);
+      font-size: 14px;
+    }
+
+    .toolbar button {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-weight: 600;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      color: #fff;
+    }
+
+    .toolbar a {
+      color: var(--cyan);
+      text-decoration: none;
+    }
+
+    /* Affiche A4 portrait */
+    .poster {
+      width: 210mm;
+      min-height: 297mm;
+      background: var(--bg);
+      color: var(--white);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .poster::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 100% 0%, rgba(34, 211, 238, 0.18), transparent 55%),
+        radial-gradient(ellipse 60% 40% at 0% 100%, rgba(37, 99, 235, 0.22), transparent 50%);
+      pointer-events: none;
+    }
+
+    .grid-bg {
+      position: absolute;
+      inset: 0;
+      opacity: 0.04;
+      background-image:
+        linear-gradient(rgba(255,255,255,.12) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.12) 1px, transparent 1px);
+      background-size: 28px 28px;
+      pointer-events: none;
+    }
+
+    .inner {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 14mm 14mm 12mm;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10mm;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 18px;
+      letter-spacing: -0.5px;
+      box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
+    }
+
+    .brand-name {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      line-height: 1;
+    }
+
+    .brand-name span { color: var(--cyan); }
+
+    .badge {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(45, 212, 191, 0.35);
+      background: rgba(45, 212, 191, 0.12);
+      color: var(--teal);
+      white-space: nowrap;
+    }
+
+    .hero {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 68mm;
+      gap: 10mm;
+      align-items: start;
+    }
+
+    .slogan {
+      font-size: 26px;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin-bottom: 5mm;
+    }
+
+    .slogan em {
+      font-style: normal;
+      background: linear-gradient(90deg, var(--cyan), var(--teal), var(--blue));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .lead {
+      font-size: 13.5px;
+      line-height: 1.55;
+      color: var(--muted);
+      margin-bottom: 7mm;
+      max-width: 95%;
+    }
+
+    .features {
+      list-style: none;
+      display: grid;
+      gap: 4mm;
+      margin-bottom: 8mm;
+    }
+
+    .features li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 12.5px;
+      line-height: 1.45;
+      color: var(--white);
+    }
+
+    .features li::before {
+      content: '';
+      flex-shrink: 0;
+      width: 8px;
+      height: 8px;
+      margin-top: 5px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+    }
+
+    .sectors {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .sector-pill {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--muted);
+    }
+
+    .qr-block {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      padding: 6mm;
+      text-align: center;
+      backdrop-filter: blur(8px);
+    }
+
+    .qr-block h2 {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      margin-bottom: 4mm;
+    }
+
+    .qr-frame {
+      background: #fff;
+      border-radius: 12px;
+      padding: 4mm;
+      display: inline-block;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+    }
+
+    .qr-frame img {
+      display: block;
+      width: 52mm;
+      height: 52mm;
+      image-rendering: pixelated;
+    }
+
+    .qr-url {
+      margin-top: 4mm;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--white);
+      word-break: break-all;
+    }
+
+    .qr-hint {
+      margin-top: 2mm;
+      font-size: 9.5px;
+      color: var(--dim);
+      line-height: 1.4;
+    }
+
+    .footer {
+      margin-top: auto;
+      padding-top: 8mm;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .footer-left {
+      font-size: 10px;
+      color: var(--dim);
+      line-height: 1.5;
+    }
+
+    .footer-left strong {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .partners-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--dim);
+      margin-bottom: 4px;
+    }
+
+    .partner-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .partner-tags span {
+      font-size: 9px;
+      font-weight: 600;
+      color: rgba(248, 250, 252, 0.55);
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.05);
+    }
+
+    @media print {
+      body {
+        background: #fff;
+        padding: 0;
+      }
+      .toolbar { display: none !important; }
+      .poster {
+        box-shadow: none;
+        width: 210mm;
+        min-height: 297mm;
+        page-break-after: avoid;
+      }
+      @page {
+        size: A4 portrait;
+        margin: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button type="button" onclick="window.print()">Imprimer / Enregistrer en PDF</button>
+    <a href="/marketing/affiche-konadata-a4.png" download>Télécharger PNG</a>
+    <a href="/marketing/affiche-konadata-ecoles.html">Version écoles uniquement</a>
+    <span>Format A4 — affichage écoles &amp; partenaires</span>
+  </div>
+
+  <article class="poster" id="poster">
+    <div class="grid-bg" aria-hidden="true"></div>
+    <div class="inner">
+      <header class="header">
+        <div class="brand">
+          <div class="logo" aria-hidden="true">KD</div>
+          <div class="brand-name"><span>KONA</span>DATA</div>
+        </div>
+        <div class="badge">Guinée · 3G/4G · PWA</div>
+      </header>
+
+      <div class="hero">
+        <div class="content">
+          <h1 class="slogan">
+            Votre établissement, <em>connecté et organisé</em> — inscriptions, notes, bulletins et finances en un seul outil.
+          </h1>
+          <p class="lead">
+            <strong>KonaData</strong> est la plateforme SaaS de gestion de données pensée pour le terrain guinéen :
+            simple sur mobile, sécurisée dans le cloud, utilisable même avec une connexion limitée.
+          </p>
+          <ul class="features">
+            <li><strong>Inscriptions &amp; scolarité</strong> — candidatures, réinscriptions, suivi des paiements familles</li>
+            <li><strong>Notes &amp; bulletins</strong> — saisie par les enseignants, moyennes automatiques, PDF officiels</li>
+            <li><strong>Direction &amp; comptabilité</strong> — tableaux de bord, finances par classe, rapports</li>
+            <li><strong>Assistant KonaAI</strong> — aide à la saisie, analyse et production de rapports (option)</li>
+          </ul>
+          <div class="sectors">
+            <span class="sector-pill">Écoles</span>
+            <span class="sector-pill">ONG</span>
+            <span class="sector-pill">BTP</span>
+            <span class="sector-pill">PME</span>
+          </div>
+        </div>
+
+        <aside class="qr-block">
+          <h2>Accès rapide</h2>
+          <div class="qr-frame">
+            <img
+              src="/konadata-qr.png"
+              width="512"
+              height="512"
+              alt="QR code — connexion KonaData"
+            />
+          </div>
+          <p class="qr-url">www.konadatagn.com</p>
+          <p class="qr-hint">
+            Scannez avec l'appareil photo de votre téléphone pour ouvrir la page de connexion.
+            Installez ensuite l'application sur votre écran d'accueil (Safari ou Chrome).
+          </p>
+        </aside>
+      </div>
+
+      <footer class="footer">
+        <div class="footer-left">
+          <strong>Email :</strong> contact@konadatagn.com<br />
+          <strong style="color:#25D366">WhatsApp :</strong> <span style="color:#25D366">+224 628 36 04 35 · +224 627 71 77 85</span><br />
+          Plateforme multi-secteur · Données hébergées de façon sécurisée · Support en français
+        </div>
+        <div>
+          <div class="partners-label">Ils nous font confiance</div>
+          <div class="partner-tags">
+            <span>PREMCO</span>
+            <span>VCCOM</span>
+            <span>Loukhy</span>
+            <span>Établissements</span>
+            <span>ONG</span>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </article>
+</body>
+</html>

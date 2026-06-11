@@ -28,29 +28,45 @@ export default async function ParametresPage() {
     role === 'org_admin' || role === 'platform_admin' || role === 'deputy_director';
   const canManageBulletinTemplate =
     role === 'org_admin' || role === 'platform_admin' || role === 'deputy_director';
+  const orgId = session.profile?.organization_id;
+  const isPlatformAdmin = role === 'platform_admin';
   const orgType = (session.profile?.organizations as { type?: string } | null)?.type;
+  const hasOrg = Boolean(orgId);
 
-  const quotaResult = await getMyOrganizationAiQuota();
-  const aiQuota = 'error' in quotaResult ? null : quotaResult;
-  const aiQuotaError = 'error' in quotaResult ? quotaResult.error : undefined;
+  let aiQuota = null;
+  let aiQuotaError: string | undefined;
+  let privacy: Awaited<ReturnType<typeof getOrganizationPrivacySettings>> | null = null;
 
-  const privacyResult = await getOrganizationPrivacySettings();
-  const privacy = 'error' in privacyResult ? null : privacyResult;
+  if (hasOrg) {
+    try {
+      const quotaResult = await getMyOrganizationAiQuota();
+      aiQuota = quotaResult;
+    } catch (e) {
+      aiQuotaError = e instanceof Error ? e.message : 'Quota indisponible';
+    }
+
+    const privacyResult = await getOrganizationPrivacySettings();
+    privacy = 'error' in privacyResult ? null : privacyResult;
+    if ('error' in privacyResult) {
+      aiQuotaError = aiQuotaError ?? privacyResult.error;
+    }
+  }
 
   return (
     <ParametresClient
       phone={phone}
-      canManageTemplates={canManageTemplates}
-      canManageBilling={canManageBilling}
+      isPlatformAdmin={isPlatformAdmin}
+      canManageTemplates={canManageTemplates && hasOrg}
+      canManageBilling={canManageBilling && hasOrg}
       canManageStudentPayments={canManageStudentPayments && orgType === 'school'}
       canManageMatricules={canManageMatricules && orgType === 'school'}
       canManageBulletinTemplate={canManageBulletinTemplate && orgType === 'school'}
       canManageNgoSurveys={canManageNgoSurveys && orgType === 'ngo'}
       aiQuota={aiQuota}
-      aiQuotaError={aiQuotaError}
+      aiQuotaError={hasOrg ? aiQuotaError : undefined}
       konaAiDisabled={privacy?.konaAiDisabled ?? false}
       dpaUpToDate={privacy?.dpaUpToDate ?? false}
-      canManagePrivacy={canManageBilling}
+      canManagePrivacy={canManageBilling && hasOrg}
     />
   );
 }

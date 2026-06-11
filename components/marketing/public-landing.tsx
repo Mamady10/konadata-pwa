@@ -19,6 +19,7 @@ import {
   LANDING_AI_STRIP,
 } from '@/lib/marketing/landing-content';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
+import { KONADATA_CONTACT, whatsAppUrl } from '@/lib/marketing/contact';
 import {
   ArrowRight,
   ClipboardList,
@@ -29,6 +30,7 @@ import {
   Wifi,
   CheckCircle2,
   Mail,
+  MessageCircle,
   Zap,
   TrendingUp,
   ScanLine,
@@ -452,6 +454,31 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
                     École, ONG, BTP — un lien, une plateforme
                   </li>
                 </ul>
+                <div className="mt-6 space-y-2 rounded-xl border border-emerald-200/80 bg-emerald-50/50 p-4">
+                  <p className="text-xs font-semibold text-emerald-800 flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4" />
+                    WhatsApp direct
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {KONADATA_CONTACT.whatsapp.map((w) => (
+                      <a
+                        key={w.waMe}
+                        href={whatsAppUrl(w.waMe, 'Bonjour KonaData — je souhaite une démo.')}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium text-emerald-700 hover:text-emerald-900 underline underline-offset-2"
+                      >
+                        {w.display}
+                      </a>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Ou écrivez à{' '}
+                    <a href={`mailto:${KONADATA_CONTACT.email}`} className="text-primary underline">
+                      {KONADATA_CONTACT.email}
+                    </a>
+                  </p>
+                </div>
               </div>
               <Card className="shadow-lg border border-slate-200/80 rounded-xl bg-white/90 backdrop-blur-sm">
                 <CardHeader className="pb-3">

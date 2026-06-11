@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, CalendarRange, CreditCard, GraduationCap, Save } from 'lucide-react';
+import { ArrowLeft, CalendarRange, CreditCard, GraduationCap, MessageCircle, Save } from 'lucide-react';
 import { updateStudentPaymentOperationalSettings } from '@/lib/actions/student-payments';
 import { updateSchoolOrgSettings } from '@/lib/actions/school-settings';
 import type { SchoolOrgSettings } from '@/lib/school/school-org-settings';
@@ -55,6 +55,7 @@ export function PaiementsElevesClient({
       orange_money_enabled: settings.orange_money_enabled,
       orange_money_merchant_phone: settings.orange_money_merchant_phone,
       orange_money_merchant_label: settings.orange_money_merchant_label,
+      tuition_whatsapp_reminder_enabled: settings.tuition_whatsapp_reminder_enabled,
     });
     if (res.error) {
       setLoading(false);
@@ -204,6 +205,27 @@ export function PaiementsElevesClient({
                   disabled={!settings.enabled || !settings.orange_money_enabled}
                 />
               </div>
+            </div>
+          </div>
+
+          <div className="space-y-3 rounded-lg border border-emerald-200/60 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-emerald-600" />
+                  Rappel WhatsApp J-1 avant échéance
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Un seul message la veille de chaque tranche, aux tuteurs ayant accepté les
+                  notifications (consentement SMS sur la fiche élève). Nécessite WhatsApp Meta
+                  configuré sur la plateforme.
+                </p>
+              </div>
+              <Switch
+                checked={settings.tuition_whatsapp_reminder_enabled}
+                onCheckedChange={(v) => patch({ tuition_whatsapp_reminder_enabled: v })}
+                disabled={!settings.enabled}
+              />
             </div>
           </div>
 

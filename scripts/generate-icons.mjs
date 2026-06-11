@@ -9,7 +9,8 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ICONS_DIR = join(__dirname, '..', 'public', 'icons');
-const BRAND_COLOR = '#0D192F';
+const BRAND_COLOR = '#0A192F';
+const ACCENT_COLOR = '#2563EB';
 
 async function createIcon(size) {
   const svg = `
@@ -20,11 +21,11 @@ async function createIcon(size) {
         y="54%"
         dominant-baseline="middle"
         text-anchor="middle"
-        fill="#3B82F6"
+        fill="${ACCENT_COLOR}"
         font-family="system-ui, sans-serif"
         font-weight="700"
-        font-size="${Math.round(size * 0.28)}"
-      >GN</text>
+        font-size="${Math.round(size * 0.22)}"
+      >KD</text>
     </svg>
   `;
 

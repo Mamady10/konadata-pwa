@@ -37,6 +37,7 @@ import { useActionState } from 'react';
 
 interface Props {
   phone?: string | null;
+  isPlatformAdmin?: boolean;
   canManageTemplates?: boolean;
   canManageBilling?: boolean;
   canManageStudentPayments?: boolean;
@@ -75,6 +76,7 @@ function QuotaBar({ used, total, label }: { used: number; total: number; label: 
 
 export function ParametresClient({
   phone,
+  isPlatformAdmin,
   canManageTemplates,
   canManageBilling,
   canManageStudentPayments,
@@ -103,8 +105,36 @@ export function ParametresClient({
     <div className="space-y-6 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Paramètres</h1>
-        <p className="text-muted-foreground">Configuration de votre compte et de la plateforme</p>
+        <p className="text-muted-foreground">
+          {isPlatformAdmin && !organization
+            ? 'Compte CEO KonaData — gestion plateforme'
+            : 'Configuration de votre compte et de la plateforme'}
+        </p>
       </div>
+
+      {isPlatformAdmin && !organization && (
+        <Card className="border-primary/30 bg-primary/[0.03]">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-primary" />
+              Espace CEO KonaData
+            </CardTitle>
+            <CardDescription>
+              Votre compte n&apos;est rattaché à aucune école ou organisation. Les réglages
+              d&apos;établissement (facturation, bulletins, paiements élèves) se gèrent depuis le
+              compte directeur de chaque organisation.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <Button asChild className="bg-[#2563EB]">
+              <Link href="/organisations">Gérer les organisations</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/dashboard">Tableau de bord plateforme</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {canManageNgoSurveys && (
         <Card className="border-teal-500/30">
@@ -252,6 +282,7 @@ export function ParametresClient({
         </Card>
       )}
 
+      {!(isPlatformAdmin && !organization) && (
       <Card className="border-slate-500/30">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -281,7 +312,9 @@ export function ParametresClient({
           </Button>
         </CardContent>
       </Card>
+      )}
 
+      {!(isPlatformAdmin && !organization) && (
       <Card className="border-violet-500/30">
         <CardHeader>
           <div className="flex items-start justify-between gap-3">
@@ -409,6 +442,7 @@ export function ParametresClient({
           )}
         </CardContent>
       </Card>
+      )}
 
       {canManageBilling && (
         <Card className="border-amber-500/30">

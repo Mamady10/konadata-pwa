@@ -27,6 +27,8 @@ export interface StudentPaymentSettings {
   orange_money_enabled: boolean;
   orange_money_merchant_phone: string | null;
   orange_money_merchant_label: string | null;
+  /** Rappel WhatsApp J-1 avant chaque tranche (désactivé par défaut). */
+  tuition_whatsapp_reminder_enabled: boolean;
 }
 
 export interface TuitionBalance {
@@ -50,6 +52,7 @@ export const DEFAULT_STUDENT_PAYMENT_SETTINGS: StudentPaymentSettings = {
   orange_money_enabled: true,
   orange_money_merchant_phone: null,
   orange_money_merchant_label: null,
+  tuition_whatsapp_reminder_enabled: false,
 };
 
 function parseInstallments(raw: unknown): TuitionInstallment[] {
@@ -141,6 +144,7 @@ export function parseStudentPaymentSettings(raw: unknown): StudentPaymentSetting
       o.orange_money_merchant_phone != null ? String(o.orange_money_merchant_phone) : null,
     orange_money_merchant_label:
       o.orange_money_merchant_label != null ? String(o.orange_money_merchant_label) : null,
+    tuition_whatsapp_reminder_enabled: Boolean(o.tuition_whatsapp_reminder_enabled),
   };
 }
 

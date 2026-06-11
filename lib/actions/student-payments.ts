@@ -95,6 +95,7 @@ export type StudentPaymentOperationalPatch = Pick<
   | 'orange_money_enabled'
   | 'orange_money_merchant_phone'
   | 'orange_money_merchant_label'
+  | 'tuition_whatsapp_reminder_enabled'
 >;
 
 /** Tarifs et tranches : uniquement via Paramètres → Année scolaire. */

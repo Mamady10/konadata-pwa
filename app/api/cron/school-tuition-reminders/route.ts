@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
-import { sendTuitionReminderSms } from '@/lib/school/send-tuition-reminder';
+import { sendTuitionReminderWhatsApp } from '@/lib/school/send-tuition-reminder';
 import { normalizeGuineaPhone } from '@/lib/survey/phone';
 
 export const runtime = 'nodejs';
@@ -29,10 +29,11 @@ type ReminderRow = {
   academic_year: string;
 };
 
-async function processKind(kind: '7d' | '1d' | 'due' | 'overdue') {
+/** Un seul rappel WhatsApp : J-1 avant chaque tranche (établissements ayant activé l'option). */
+async function processWhatsAppReminders() {
   const supabase = await createServiceClient();
   const { data, error } = await supabase.rpc('list_school_tuition_reminder_targets', {
-    p_reminder_kind: kind,
+    p_reminder_kind: '1d',
   });
 
   if (error) throw new Error(error.message);
@@ -40,6 +41,7 @@ async function processKind(kind: '7d' | '1d' | 'due' | 'overdue') {
   const rows = (data ?? []) as ReminderRow[];
   let sent = 0;
   let failed = 0;
+  let skipped = 0;
 
   for (const row of rows) {
     const phoneE164 = normalizeGuineaPhone(row.guardian_phone);
@@ -48,7 +50,7 @@ async function processKind(kind: '7d' | '1d' | 'due' | 'overdue') {
       continue;
     }
 
-    const smsRes = await sendTuitionReminderSms({
+    const waRes = await sendTuitionReminderWhatsApp({
       phoneE164,
       guardianName: row.guardian_name,
       studentName: row.student_name,
@@ -56,13 +58,16 @@ async function processKind(kind: '7d' | '1d' | 'due' | 'overdue') {
       installmentLabel: row.installment_label,
       dueDate: row.due_date,
       remainingGnf: Number(row.remaining_gnf ?? 0),
-      reminderKind: kind,
     });
 
-    if (!smsRes.ok) {
-      console.error('[cron/tuition-reminders]', row.student_id, smsRes.error);
+    if (!waRes.ok) {
+      console.error('[cron/tuition-reminders]', row.student_id, waRes.error);
       failed += 1;
       continue;
+    }
+
+    if (waRes.skipped) {
+      skipped += 1;
     }
 
     await supabase.from('school_tuition_reminder_log').insert({
@@ -70,7 +75,7 @@ async function processKind(kind: '7d' | '1d' | 'due' | 'overdue') {
       student_id: row.student_id,
       enrollment_id: row.enrollment_id,
       installment_index: row.installment_index,
-      reminder_kind: kind,
+      reminder_kind: '1d',
       phone_e164: phoneE164,
       academic_year: row.academic_year,
     });
@@ -78,7 +83,7 @@ async function processKind(kind: '7d' | '1d' | 'due' | 'overdue') {
     sent += 1;
   }
 
-  return { kind, sent, failed, total: rows.length };
+  return { channel: 'whatsapp', kind: '1d', sent, failed, skipped, total: rows.length };
 }
 
 export async function GET(request: NextRequest) {
@@ -87,14 +92,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const results = await Promise.all([
-      processKind('7d'),
-      processKind('1d'),
-      processKind('due'),
-      processKind('overdue'),
-    ]);
-
-    return NextResponse.json({ ok: true, results });
+    const result = await processWhatsAppReminders();
+    return NextResponse.json({ ok: true, result });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Erreur cron' },

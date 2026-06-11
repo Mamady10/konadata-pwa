@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run generate:icons && next build",
     "start": "next start",
     "lint": "next lint",
     "generate:icons": "node scripts/generate-icons.mjs",
+    "generate:poster": "node scripts/generate-konadata-poster.mjs",
     "test:supabase": "node scripts/test-supabase.mjs",
     "validate:backend": "node scripts/validate-backend.mjs",
     "audit:rls": "node scripts/audit-rls.mjs",

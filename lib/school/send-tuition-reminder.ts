@@ -1,4 +1,4 @@
-import { sendTransactionalSms } from '@/lib/auth/send-auth-otp';
+import { sendWhatsAppOtpMessage } from '@/lib/integrations/whatsapp';
 import { formatCurrency } from '@/lib/utils';
 
 export interface TuitionReminderPayload {
@@ -9,7 +9,6 @@ export interface TuitionReminderPayload {
   installmentLabel: string;
   dueDate: string;
   remainingGnf: number;
-  reminderKind: '7d' | '1d' | 'due' | 'overdue';
 }
 
 function formatDueDate(iso: string): string {
@@ -31,32 +30,26 @@ function appBaseUrl(): string {
   );
 }
 
-export function buildTuitionReminderSms(p: TuitionReminderPayload): string {
+export function buildTuitionReminderWhatsAppMessage(p: TuitionReminderPayload): string {
   const who = p.guardianName?.trim() ? p.guardianName.trim() : 'Bonjour';
-  const when =
-    p.reminderKind === 'overdue'
-      ? `échéance dépassée (${formatDueDate(p.dueDate)})`
-      : p.reminderKind === 'due'
-        ? "aujourd'hui"
-        : p.reminderKind === '1d'
-          ? 'demain'
-          : `le ${formatDueDate(p.dueDate)}`;
 
   return (
     `${who} — KonaData / ${p.orgName}\n` +
-    `Rappel scolarité ${p.studentName}: tranche « ${p.installmentLabel} » ${when}.\n` +
-    `Solde restant: ${formatCurrency(p.remainingGnf)}.\n` +
-    `Payer: ${appBaseUrl()}/payer-scolarite · Suivi: ${appBaseUrl()}/suivi-scolarite`
+    `Rappel scolarité (${p.studentName}) : tranche « ${p.installmentLabel} » due demain (${formatDueDate(p.dueDate)}).\n` +
+    `Solde restant : ${formatCurrency(p.remainingGnf)}.\n` +
+    `Payer : ${appBaseUrl()}/payer-scolarite\n` +
+    `Suivi : ${appBaseUrl()}/suivi-scolarite`
   );
 }
 
-export async function sendTuitionReminderSms(
+/** Rappel unique J-1 — WhatsApp (Meta Cloud API). */
+export async function sendTuitionReminderWhatsApp(
   payload: TuitionReminderPayload
 ): Promise<{ ok: boolean; error?: string; skipped?: boolean }> {
-  const body = buildTuitionReminderSms(payload);
-  const res = await sendTransactionalSms(payload.phoneE164, body);
+  const body = buildTuitionReminderWhatsAppMessage(payload);
+  const res = await sendWhatsAppOtpMessage(payload.phoneE164, body);
   if (!res.ok && res.skipped) {
-    console.log(`[tuition-reminder DEV] ${payload.phoneE164}: ${body}`);
+    console.log(`[tuition-reminder WhatsApp DEV] ${payload.phoneE164}: ${body}`);
     return { ok: true, skipped: true };
   }
   return res;
