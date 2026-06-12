@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Database, Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import { Database, Mail, Lock, ArrowRight, AlertCircle, Phone } from 'lucide-react';
 import { AuthMethodToggle, type AuthMethod } from '@/components/auth/auth-method-toggle';
-import { PhoneOtpPanel } from '@/components/auth/phone-otp-panel';
-import { redirectAfterPhoneAuth } from '@/lib/auth/post-phone-auth-client';
+import { phoneToSyntheticEmail } from '@/lib/auth/phone-email';
+import { normalizeGuineaPhone } from '@/lib/survey/phone';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -68,6 +68,68 @@ export default function LoginForm({ accountSwitched = false }: LoginFormProps) {
     window.location.href = LANDING_LINKS.inscriptionEtablissement;
   }
 
+  async function handlePhoneSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData(e.currentTarget);
+      const phoneRaw = String(formData.get('phone') ?? '').trim();
+      const password = String(formData.get('password') ?? '');
+      const phoneE164 = normalizeGuineaPhone(phoneRaw);
+      if (!phoneE164) {
+        setError('Numéro invalide. Format : 6XX XX XX XX (Guinée).');
+        return;
+      }
+
+      const supabase = createClient();
+      const email = phoneToSyntheticEmail(phoneE164);
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (authError) {
+        setError(
+          authError.message.toLowerCase().includes('invalid login')
+            ? 'Numéro ou mot de passe incorrect. Utilisez « Mot de passe oublié » si besoin.'
+            : authError.message
+        );
+        return;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('profiles')
+          .update({ last_login_at: new Date().toISOString() })
+          .eq('id', user.id);
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organization_id, role, onboarding_path, organizations(type)')
+          .eq('id', user.id)
+          .single();
+
+        const accountIntent = user.user_metadata?.account_intent as string | undefined;
+        const orgType = (profile?.organizations as { type?: OrganizationType } | null)?.type;
+        const hasEnrollmentHistory = await learnerHasEnrollmentHistory(supabase, user.id);
+        const destination = resolvePostAuthDestination({
+          organizationId: profile?.organization_id,
+          role: profile?.role as AppRole | undefined,
+          orgType,
+          accountIntent,
+          onboardingPath: profile?.onboarding_path as string | undefined,
+          redirectParam,
+          hasEnrollmentHistory,
+        });
+
+        router.refresh();
+        window.location.replace(destination);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -85,11 +147,11 @@ export default function LoginForm({ accountSwitched = false }: LoginFormProps) {
       const msg = authError.message.toLowerCase();
       if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
         setError(
-          'Compte créé mais email non confirmé. Ouvrez le lien reçu sur kabamkpro@gmail.com (vérifiez les spams), ou demandez la confirmation dans Supabase → Authentication → Users.'
+          'Compte non confirmé. Utilisez « Mot de passe oublié » pour recevoir un lien par email.'
         );
       } else if (msg.includes('invalid login credentials')) {
         setError(
-          'Identifiants refusés. Causes fréquentes : mot de passe incorrect, ou compte non confirmé par email (lien Supabase). Utilisez « Mot de passe oublié » ou confirmez le compte dans Supabase.'
+          'Email ou mot de passe incorrect. Utilisez « Mot de passe oublié » pour réinitialiser.'
         );
       } else {
         setError(authError.message);
@@ -193,15 +255,31 @@ export default function LoginForm({ accountSwitched = false }: LoginFormProps) {
               )}
               <AuthMethodToggle value={authMethod} onChange={setAuthMethod} />
               {authMethod === 'phone' ? (
-                <PhoneOtpPanel
-                  purpose="login"
-                  submitLabel="Se connecter"
-                  onVerified={async () => {
-                    const destination = await redirectAfterPhoneAuth(redirectParam);
-                    router.refresh();
-                    window.location.replace(destination);
-                  }}
-                />
+                <form onSubmit={handlePhoneSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="login-phone">Téléphone</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input id="login-phone" name="phone" type="tel" placeholder="6XX XX XX XX" className="pl-9" required autoComplete="tel" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="login-phone-password">Mot de passe</Label>
+                      <Link href={LANDING_LINKS.forgotPassword} className="text-xs text-primary hover:underline">
+                        Mot de passe oublié ?
+                      </Link>
+                    </div>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input id="login-phone-password" name="password" type="password" placeholder="••••••••" className="pl-9" required autoComplete="current-password" />
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full bg-[#2563EB] hover:bg-[#2563EB]/90" disabled={loading}>
+                    {loading ? 'Connexion...' : 'Se connecter'}
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </form>
               ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">

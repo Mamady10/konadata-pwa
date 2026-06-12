@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { hashOtpCode } from '@/lib/survey/security-hash';
 import {
-  createPhoneAuthUser,
   establishSessionForEmail,
   findProfileByPhone,
   syncProfilePhone,
@@ -63,37 +62,31 @@ export async function POST(request: NextRequest) {
     }
 
     const phoneE164 = challenge.phone_e164 as string;
-    const purpose = challenge.purpose as 'login' | 'signup';
-
-    let email: string;
-    let isNewUser = false;
+    const purpose = challenge.purpose as 'login' | 'signup' | 'recovery';
 
     if (purpose === 'signup') {
-      if (!fullName) {
-        return NextResponse.json({ error: 'Nom complet requis pour l\'inscription' }, { status: 400 });
-      }
-      const created = await createPhoneAuthUser({
-        phoneE164,
-        fullName,
-        accountIntent,
-        signupIntent,
-      });
-      if ('error' in created) {
-        return NextResponse.json({ error: created.error }, { status: 400 });
-      }
-      email = created.email;
-      isNewUser = true;
+      return NextResponse.json(
+        { error: 'Inscription par OTP désactivée. Créez un compte avec mot de passe.' },
+        { status: 410 }
+      );
+    }
+
+    if (purpose === 'recovery') {
+      return NextResponse.json(
+        { error: 'Utilisez la page mot de passe oublié pour définir un nouveau mot de passe.' },
+        { status: 400 }
+      );
+    }
+
+    const existing = await findProfileByPhone(supabase, phoneE164);
+    if (!existing) {
+      return NextResponse.json({ error: 'Compte introuvable' }, { status: 404 });
+    }
+    const email = existing.email;
+    if (fullName) {
+      await syncProfilePhone(existing.id, phoneE164, fullName);
     } else {
-      const existing = await findProfileByPhone(supabase, phoneE164);
-      if (!existing) {
-        return NextResponse.json({ error: 'Compte introuvable' }, { status: 404 });
-      }
-      email = existing.email;
-      if (fullName) {
-        await syncProfilePhone(existing.id, phoneE164, fullName);
-      } else {
-        await syncProfilePhone(existing.id, phoneE164);
-      }
+      await syncProfilePhone(existing.id, phoneE164);
     }
 
     await supabase
@@ -108,7 +101,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      isNewUser,
       phoneE164,
     });
   } catch (e) {

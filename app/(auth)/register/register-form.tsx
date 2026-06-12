@@ -9,9 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Database, Mail, Lock, User, Building2, ArrowRight, AlertCircle, KeyRound, GraduationCap } from 'lucide-react';
+import { Database, Mail, Lock, User, Building2, ArrowRight, AlertCircle, KeyRound, GraduationCap, Phone } from 'lucide-react';
 import { AuthMethodToggle, type AuthMethod } from '@/components/auth/auth-method-toggle';
-import { PhoneOtpPanel } from '@/components/auth/phone-otp-panel';
+import { registerAccount } from '@/lib/auth/register-client';
 import { motion } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { completeOrganizationRegistration } from '@/lib/actions/org-registration';
@@ -134,188 +134,6 @@ export default function RegisterForm() {
     return 'director';
   }
 
-  async function handlePhoneVerified() {
-    setError(null);
-    setLoading(true);
-    const name = fullName.trim();
-    if (!name) {
-      setError('Indiquez votre nom complet.');
-      setLoading(false);
-      return;
-    }
-    const effectiveMode =
-      searchParams.get('mode') === 'learner' ? 'learner' : mode;
-
-    try {
-      if (effectiveMode === 'join') {
-        await finishJoinAfterAuth(name);
-        return;
-      }
-      if (effectiveMode === 'learner') {
-        await finishLearnerAfterAuth(name);
-        return;
-      }
-      if (effectiveMode === 'create') {
-        const form = formElRef.current;
-        if (!form) {
-          setError('Formulaire introuvable.');
-          return;
-        }
-        await finishOrganizationAfterAuth(form, name);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function completeJoinWithCode(email: string, password: string, fullName: string) {
-    const pendingCode = getPendingAccessCode();
-    if (!pendingCode) {
-      setError('Code d\'accès manquant. Retournez sur /rejoindre pour le saisir.');
-      setLoading(false);
-      return;
-    }
-
-    const supabase = createClient();
-
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName, account_intent: 'staff' },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/rejoindre`,
-      },
-    });
-
-    if (signUpError) {
-      setError(signUpError.message);
-      setLoading(false);
-      return;
-    }
-
-    if (data.user) {
-      await supabase.from('profiles').update({ full_name: fullName }).eq('id', data.user.id);
-    }
-
-    let hasSession = Boolean(data.session);
-
-    if (!hasSession) {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (!signInError) hasSession = true;
-    }
-
-    if (!hasSession) {
-      setInfo(
-        `Compte créé pour ${email}. Un email de confirmation Supabase a peut-être été envoyé — cliquez le lien avant de vous connecter.`
-      );
-      setLoading(false);
-      return;
-    }
-
-    const result = await redeemAccessCodeClient(pendingCode);
-    if (result.error) {
-      setError(result.error);
-      setLoading(false);
-      return;
-    }
-
-    clearPendingAccessCode();
-    window.location.href = homeForOrgType(result.organizationType);
-  }
-
-  async function completeLearnerSignUp(email: string, password: string, fullName: string) {
-    const supabase = createClient();
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName, account_intent: 'learner' },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(LANDING_LINKS.inscriptionEtablissement)}`,
-      },
-    });
-
-    if (signUpError) {
-      setError(signUpError.message);
-      setLoading(false);
-      return;
-    }
-
-    const rpc1 = await ensureLearnerProfile(supabase);
-    if (rpc1.error) {
-      setError(rpc1.error);
-      setLoading(false);
-      return;
-    }
-
-    let hasSession = Boolean(data.session);
-    if (!hasSession) {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (!signInError) {
-        hasSession = true;
-        await ensureLearnerProfile(supabase);
-      }
-    }
-
-    if (!hasSession) {
-      setInfo(
-        `Compte candidat créé pour ${email}. Confirmez l’email si demandé, puis connectez-vous — vous serez guidé vers le choix de votre établissement.`
-      );
-      setLoading(false);
-      return;
-    }
-
-    window.location.href = LANDING_LINKS.inscriptionEtablissement;
-  }
-
-  async function completeOrganizationCreate(
-    email: string,
-    password: string,
-    fullName: string,
-    form: HTMLFormElement
-  ) {
-    const supabase = createClient();
-    const formData = new FormData(form);
-    formData.set('organization_type', orgType);
-    formData.set('email', email);
-    formData.set('full_name', fullName);
-
-    const billingNext = ORG_REGISTRATION_SUCCESS_PATH;
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName, account_intent: 'director' },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(billingNext)}`,
-      },
-    });
-
-    if (signUpError) {
-      setError(signUpError.message);
-      return;
-    }
-
-    let hasSession = Boolean(data.session);
-    if (!hasSession) {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInError) {
-        setInfo(
-          `Compte créé pour ${email}. Si Supabase demande une confirmation par email, cliquez le lien reçu puis reconnectez-vous — vous accéderez ensuite à Paramètres → Facturation en attente d’analyse KonaData.`
-        );
-        return;
-      }
-      hasSession = true;
-    }
-
-    const result = await completeOrganizationRegistration(formData);
-    if ('error' in result && result.error) {
-      setError(result.error);
-      return;
-    }
-    if ('success' in result && result.success) {
-      window.location.href = result.redirectTo;
-    }
-  }
-
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -323,26 +141,40 @@ export default function RegisterForm() {
     setInfo(null);
 
     const formData = new FormData(e.currentTarget);
-    const email = (formData.get('email') as string).trim();
-    const password = formData.get('password') as string;
-    const fullName = formData.get('full_name') as string;
+    const password = String(formData.get('password') ?? '');
+    const fullName = String(formData.get('full_name') ?? '').trim();
     const effectiveMode =
       searchParams.get('mode') === 'learner' ? 'learner' : mode;
 
-    if (effectiveMode === 'join') {
-      await completeJoinWithCode(email, password, fullName);
-      return;
-    }
+    const registered = await registerAccount({
+      method: authMethod,
+      email: authMethod === 'email' ? String(formData.get('email') ?? '').trim() : undefined,
+      phone: authMethod === 'phone' ? String(formData.get('phone') ?? '').trim() : undefined,
+      password,
+      fullName,
+      accountIntent: accountIntentForMode(effectiveMode),
+    });
 
-    if (effectiveMode === 'learner') {
-      await completeLearnerSignUp(email, password, fullName);
-      return;
-    }
-
-    if (effectiveMode === 'create') {
-      await completeOrganizationCreate(email, password, fullName, e.currentTarget);
+    if ('error' in registered && registered.error) {
+      setError(registered.error);
       setLoading(false);
       return;
+    }
+
+    try {
+      if (effectiveMode === 'join') {
+        await finishJoinAfterAuth(fullName);
+        return;
+      }
+      if (effectiveMode === 'learner') {
+        await finishLearnerAfterAuth(fullName);
+        return;
+      }
+      if (effectiveMode === 'create') {
+        await finishOrganizationAfterAuth(e.currentTarget, fullName);
+      }
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -426,11 +258,7 @@ export default function RegisterForm() {
               </div>
             )}
             <AuthMethodToggle value={authMethod} onChange={setAuthMethod} />
-            <form
-              ref={formElRef}
-              onSubmit={authMethod === 'email' ? handleSubmit : (e) => e.preventDefault()}
-              className="space-y-4"
-            >
+            <form ref={formElRef} onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="full_name">Nom complet</Label>
                 <div className="relative">
@@ -474,56 +302,42 @@ export default function RegisterForm() {
                   />
                 </>
               )}
-              {authMethod === 'email' && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input id="email" name="email" type="email" className="pl-9" placeholder="vous@organisation.gn" required />
-                    </div>
+              {authMethod === 'email' ? (
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input id="email" name="email" type="email" className="pl-9" placeholder="vous@organisation.gn" required />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Mot de passe</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input id="password" name="password" type="password" className="pl-9" placeholder="Min. 8 caractères" minLength={8} required />
-                    </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Téléphone</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input id="phone" name="phone" type="tel" className="pl-9" placeholder="6XX XX XX XX" required autoComplete="tel" />
                   </div>
-                  <Button type="submit" className="w-full bg-[#2563EB] hover:bg-[#2563EB]/90" disabled={loading}>
-                    {loading
-                      ? 'Création...'
-                      : mode === 'join'
-                        ? 'Créer et rejoindre'
-                        : mode === 'learner'
-                          ? 'Créer mon compte'
-                          : 'Créer mon organisation'}
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </>
+                  <p className="text-xs text-muted-foreground">Numéro guinéen — utilisé pour la connexion et la récupération du mot de passe.</p>
+                </div>
               )}
-            </form>
-            {authMethod === 'phone' && (
-              <div className="mt-4 pt-4 border-t border-dashed">
-                <p className="text-sm text-muted-foreground mb-3">
-                  Vérifiez votre numéro par SMS ou WhatsApp — pas besoin d&apos;adresse email.
-                </p>
-                <PhoneOtpPanel
-                  purpose="signup"
-                  fullName={fullName}
-                  accountIntent={accountIntentForMode(mode)}
-                  submitLabel={
-                    mode === 'join'
-                      ? 'Créer et rejoindre'
-                      : mode === 'learner'
-                        ? 'Créer mon compte'
-                        : 'Créer mon organisation'
-                  }
-                  disabled={loading || !fullName.trim()}
-                  onVerified={handlePhoneVerified}
-                />
+              <div className="space-y-2">
+                <Label htmlFor="password">Mot de passe</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input id="password" name="password" type="password" className="pl-9" placeholder="Min. 8 caractères" minLength={8} required autoComplete="new-password" />
+                </div>
               </div>
-            )}
+              <Button type="submit" className="w-full bg-[#2563EB] hover:bg-[#2563EB]/90" disabled={loading}>
+                {loading
+                  ? 'Création...'
+                  : mode === 'join'
+                    ? 'Créer et rejoindre'
+                    : mode === 'learner'
+                      ? 'Créer mon compte'
+                      : 'Créer mon organisation'}
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </form>
             {mode === 'join' && (
               <p className="mt-4 text-xs text-center text-muted-foreground">
                 Code pas encore saisi ?{' '}

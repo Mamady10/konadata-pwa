@@ -1,4 +1,4 @@
-export type PhoneOtpPurpose = 'login' | 'signup';
+export type PhoneOtpPurpose = 'login' | 'signup' | 'recovery';
 export type PhoneOtpChannel = 'sms' | 'whatsapp';
 
 export interface RequestPhoneOtpResult {
@@ -47,4 +47,19 @@ export async function verifyPhoneOtp(params: {
   const data = await res.json();
   if (!res.ok) return { error: data.error ?? 'Vérification impossible' };
   return data as VerifyPhoneOtpResult;
+}
+
+export async function resetPasswordWithPhoneOtp(params: {
+  challengeId: string;
+  code: string;
+  password: string;
+}): Promise<{ success?: boolean; error?: string }> {
+  const res = await fetch('/api/auth/phone/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  const data = await res.json();
+  if (!res.ok) return { error: data.error ?? 'Réinitialisation impossible' };
+  return { success: true };
 }

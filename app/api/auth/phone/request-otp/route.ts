@@ -47,7 +47,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Numéro de téléphone requis' }, { status: 400 });
     }
 
-    const purpose = purposeRaw === 'signup' ? 'signup' : 'login';
+    const purpose =
+      purposeRaw === 'recovery' ? 'recovery' : purposeRaw === 'signup' ? 'signup' : 'login';
     const phoneE164 = normalizeGuineaPhone(phoneRaw);
     if (!phoneE164) {
       return NextResponse.json(
@@ -67,6 +68,12 @@ export async function POST(request: NextRequest) {
     if (purpose === 'login' && !existing) {
       return NextResponse.json(
         { error: 'Aucun compte avec ce numéro. Créez un compte d\'abord.' },
+        { status: 404 }
+      );
+    }
+    if (purpose === 'recovery' && !existing) {
+      return NextResponse.json(
+        { error: 'Aucun compte avec ce numéro. Créez un compte ou vérifiez le numéro.' },
         { status: 404 }
       );
     }

@@ -1,4 +1,3 @@
-import { randomBytes } from 'crypto';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { phoneToSyntheticEmail } from '@/lib/auth/phone-email';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -34,17 +33,17 @@ export async function findProfileByPhone(
 
 export async function createPhoneAuthUser(params: {
   phoneE164: string;
+  password: string;
   fullName: string;
   accountIntent?: string;
   signupIntent?: string;
 }): Promise<{ userId: string; email: string } | { error: string }> {
   const service = await createServiceClient();
   const email = phoneToSyntheticEmail(params.phoneE164);
-  const password = randomBytes(32).toString('hex');
 
   const { data, error } = await service.auth.admin.createUser({
     email,
-    password,
+    password: params.password,
     email_confirm: true,
     phone: params.phoneE164,
     phone_confirm: true,
@@ -113,4 +112,14 @@ export async function syncProfilePhone(
   const patch: Record<string, string> = { phone: phoneE164 };
   if (fullName?.trim()) patch.full_name = fullName.trim();
   await service.from('profiles').update(patch).eq('id', userId);
+}
+
+export async function updateAuthUserPassword(
+  userId: string,
+  password: string
+): Promise<{ ok: true } | { error: string }> {
+  const service = await createServiceClient();
+  const { error } = await service.auth.admin.updateUserById(userId, { password });
+  if (error) return { error: error.message };
+  return { ok: true };
 }

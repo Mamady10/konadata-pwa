@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { AuthMethodToggle, type AuthMethod } from '@/components/auth/auth-method-toggle';
-import { PhoneOtpPanel } from '@/components/auth/phone-otp-panel';
+import { registerAccount } from '@/lib/auth/register-client';
+import { normalizeGuineaPhone } from '@/lib/survey/phone';
 import { AuthBackHome } from '@/components/auth/auth-back-home';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
 import { completeSurveyOnlyRegistration } from '@/lib/actions/survey-only-registration';
@@ -41,94 +42,49 @@ export default function RegisterSurveyOnlyPage() {
     setInfo(null);
 
     const fd = new FormData(e.currentTarget);
-    const email = (fd.get('email') as string).trim();
-    const password = fd.get('password') as string;
-    const fullName = (fd.get('full_name') as string).trim();
+    const password = String(fd.get('password') ?? '');
+    const name = String(fd.get('full_name') ?? '').trim();
 
-    const supabase = createClient();
-
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
+    const registered = await registerAccount({
+      method: authMethod,
+      email: authMethod === 'email' ? String(fd.get('email') ?? '').trim() : undefined,
+      phone: authMethod === 'phone' ? String(fd.get('phone') ?? '').trim() : undefined,
       password,
-      options: {
-        data: {
-          full_name: fullName,
-          account_intent: 'director',
-          signup_intent: 'survey_only',
-        },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent('/register/sondage')}`,
-      },
+      fullName: name,
+      accountIntent: 'director',
+      signupIntent: 'survey_only',
     });
 
-    if (signUpError) {
-      setError(signUpError.message);
+    if ('error' in registered && registered.error) {
+      setError(registered.error);
       setLoading(false);
       return;
     }
 
-    let hasSession = Boolean(data.session);
-    if (!hasSession) {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (!signInError) hasSession = true;
+    if (authMethod === 'phone') {
+      const phoneE164 = normalizeGuineaPhone(String(fd.get('phone') ?? ''));
+      if (phoneE164) fd.set('declared_phone', phoneE164);
     }
 
-    if (!hasSession) {
-      setInfo(
-        'Compte créé. Confirmez votre email si nécessaire, reconnectez-vous puis revenez sur cette page pour finaliser votre sondage.'
-      );
-      setLoading(false);
-      return;
-    }
-
-    const result = await completeSurveyOnlyRegistration(fd);
-    if ('error' in result && result.error) {
-      setError(result.error);
-      setLoading(false);
-      return;
-    }
-
-    if ('success' in result && result.success) {
-      if (result.ceoNotifyWarning) {
-        setInfo(`Sondage créé. Note : ${result.ceoNotifyWarning}`);
-      }
-      window.location.href = result.redirectTo;
-    }
-  }
-
-  async function handlePhoneVerified() {
-    setError(null);
-    setLoading(true);
-    const name = fullName.trim();
-    if (!name) {
-      setError('Indiquez votre nom complet.');
-      setLoading(false);
-      return;
-    }
-    const form = formRef.current;
-    if (!form) {
-      setError('Formulaire introuvable.');
-      setLoading(false);
-      return;
-    }
-    const fd = new FormData(form);
-    fd.set('full_name', name);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (user?.email) fd.set('email', user.email);
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('phone')
-      .eq('id', user?.id ?? '')
-      .maybeSingle();
-    if (profile?.phone) {
-      fd.set('declared_phone', profile.phone as string);
+    if (!fd.get('declared_phone')) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('phone')
+        .eq('id', user?.id ?? '')
+        .maybeSingle();
+      if (profile?.phone) fd.set('declared_phone', profile.phone as string);
     }
+
     const result = await completeSurveyOnlyRegistration(fd);
     setLoading(false);
     if ('error' in result && result.error) {
       setError(result.error);
       return;
     }
+
     if ('success' in result && result.success) {
       if (result.ceoNotifyWarning) {
         setInfo(`Sondage créé. Note : ${result.ceoNotifyWarning}`);
@@ -180,11 +136,7 @@ export default function RegisterSurveyOnlyPage() {
             )}
 
             <AuthMethodToggle value={authMethod} onChange={setAuthMethod} />
-            <form
-              ref={formRef}
-              onSubmit={authMethod === 'email' ? handleSubmit : (e) => e.preventDefault()}
-              className="space-y-8"
-            >
+            <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
               <section className="space-y-4">
                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                   Votre compte
@@ -204,7 +156,7 @@ export default function RegisterSurveyOnlyPage() {
                       />
                     </div>
                   </div>
-                  {authMethod === 'email' && (
+                  {authMethod === 'email' ? (
                     <>
                       <div className="space-y-2">
                         <Label htmlFor="email">Email *</Label>
@@ -219,6 +171,30 @@ export default function RegisterSurveyOnlyPage() {
                           <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                           <Input
                             id="password"
+                            name="password"
+                            type="password"
+                            className="pl-9"
+                            minLength={8}
+                            required
+                          />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label htmlFor="phone">Téléphone *</Label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input id="phone" name="phone" type="tel" className="pl-9" required placeholder="6XX XX XX XX" />
+                        </div>
+                      </div>
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label htmlFor="password_phone">Mot de passe *</Label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            id="password_phone"
                             name="password"
                             type="password"
                             className="pl-9"
@@ -334,33 +310,15 @@ export default function RegisterSurveyOnlyPage() {
                 </div>
               </section>
 
-              {authMethod === 'email' && (
-                <Button
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-teal-500 to-[#2563EB] border-0"
-                  disabled={loading}
-                >
-                  {loading ? 'Création en cours…' : 'Créer mon compte et mon sondage'}
-                  <ArrowRight className="h-4 w-4 ml-1" />
-                </Button>
-              )}
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-r from-teal-500 to-[#2563EB] border-0"
+                disabled={loading}
+              >
+                {loading ? 'Création en cours…' : 'Créer mon compte et mon sondage'}
+                <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
             </form>
-            {authMethod === 'phone' && (
-              <div className="mt-4 pt-4 border-t border-dashed space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  Vérifiez votre numéro par SMS ou WhatsApp — il servira aussi de contact organisation.
-                </p>
-                <PhoneOtpPanel
-                  purpose="signup"
-                  fullName={fullName}
-                  accountIntent="director"
-                  signupIntent="survey_only"
-                  submitLabel="Créer mon compte et mon sondage"
-                  disabled={loading || !fullName.trim()}
-                  onVerified={handlePhoneVerified}
-                />
-              </div>
-            )}
 
             <p className="mt-6 text-center text-sm text-muted-foreground">
               Besoin de toute la plateforme ONG ?{' '}

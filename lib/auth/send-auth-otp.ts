@@ -66,9 +66,14 @@ export async function sendAuthOtp(
   phoneE164: string,
   code: string,
   channel: OtpChannel,
-  purpose: 'login' | 'signup'
+  purpose: 'login' | 'signup' | 'recovery'
 ): Promise<SendAuthOtpResult> {
-  const action = purpose === 'login' ? 'connexion' : 'inscription';
+  const action =
+    purpose === 'recovery'
+      ? 'réinitialisation mot de passe'
+      : purpose === 'login'
+        ? 'connexion'
+        : 'inscription';
   const message = `KonaData — Code ${action} : ${code}. Valide 10 minutes. Ne partagez pas ce code.`;
 
   if (channel === 'whatsapp') {
