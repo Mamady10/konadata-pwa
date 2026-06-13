@@ -41,55 +41,59 @@ export default function RegisterSurveyOnlyPage() {
     setError(null);
     setInfo(null);
 
-    const fd = new FormData(e.currentTarget);
-    const password = String(fd.get('password') ?? '');
-    const name = String(fd.get('full_name') ?? '').trim();
+    try {
+      const fd = new FormData(e.currentTarget);
+      const password = String(fd.get('password') ?? '');
+      const name = String(fd.get('full_name') ?? '').trim();
 
-    const registered = await registerAccount({
-      method: authMethod,
-      email: authMethod === 'email' ? String(fd.get('email') ?? '').trim() : undefined,
-      phone: authMethod === 'phone' ? String(fd.get('phone') ?? '').trim() : undefined,
-      password,
-      fullName: name,
-      accountIntent: 'director',
-      signupIntent: 'survey_only',
-    });
+      const registered = await registerAccount({
+        method: authMethod,
+        email: authMethod === 'email' ? String(fd.get('email') ?? '').trim() : undefined,
+        phone: authMethod === 'phone' ? String(fd.get('phone') ?? '').trim() : undefined,
+        password,
+        fullName: name,
+        accountIntent: 'director',
+        signupIntent: 'survey_only',
+      });
 
-    if ('error' in registered && registered.error) {
-      setError(registered.error);
-      setLoading(false);
-      return;
-    }
-
-    if (authMethod === 'phone') {
-      const phoneE164 = normalizeGuineaPhone(String(fd.get('phone') ?? ''));
-      if (phoneE164) fd.set('declared_phone', phoneE164);
-    }
-
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user?.email) fd.set('email', user.email);
-    if (!fd.get('declared_phone')) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('phone')
-        .eq('id', user?.id ?? '')
-        .maybeSingle();
-      if (profile?.phone) fd.set('declared_phone', profile.phone as string);
-    }
-
-    const result = await completeSurveyOnlyRegistration(fd);
-    setLoading(false);
-    if ('error' in result && result.error) {
-      setError(result.error);
-      return;
-    }
-
-    if ('success' in result && result.success) {
-      if (result.ceoNotifyWarning) {
-        setInfo(`Sondage créé. Note : ${result.ceoNotifyWarning}`);
+      if ('error' in registered && registered.error) {
+        setError(registered.error);
+        return;
       }
-      window.location.href = result.redirectTo;
+
+      if (authMethod === 'phone') {
+        const phoneE164 = normalizeGuineaPhone(String(fd.get('phone') ?? ''));
+        if (phoneE164) fd.set('declared_phone', phoneE164);
+      }
+
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) fd.set('email', user.email);
+      if (!fd.get('declared_phone')) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('phone')
+          .eq('id', user?.id ?? '')
+          .maybeSingle();
+        if (profile?.phone) fd.set('declared_phone', profile.phone as string);
+      }
+
+      const result = await completeSurveyOnlyRegistration(fd);
+      if ('error' in result && result.error) {
+        setError(result.error);
+        return;
+      }
+
+      if ('success' in result && result.success) {
+        if (result.ceoNotifyWarning) {
+          setInfo(`Sondage créé. Note : ${result.ceoNotifyWarning}`);
+        }
+        window.location.href = result.redirectTo;
+      }
+    } catch {
+      setError('Une erreur inattendue est survenue. Réessayez.');
+    } finally {
+      setLoading(false);
     }
   }
 

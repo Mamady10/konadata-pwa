@@ -1,3 +1,5 @@
+import { postPublicJson } from '@/lib/http/public-json-fetch';
+
 export interface RegisterAccountInput {
   method: 'email' | 'phone';
   email?: string;
@@ -11,12 +13,10 @@ export interface RegisterAccountInput {
 export async function registerAccount(
   input: RegisterAccountInput
 ): Promise<{ success: true } | { error: string }> {
-  const res = await fetch('/api/auth/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  const data = await res.json();
-  if (!res.ok) return { error: data.error ?? 'Inscription impossible' };
+  const result = await postPublicJson<{ success?: boolean; error?: string }>(
+    '/api/auth/register',
+    input
+  );
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }

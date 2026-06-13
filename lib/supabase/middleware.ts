@@ -41,6 +41,7 @@ import {
   isSurveyOnlyOrg,
 } from '@/lib/org/survey-only-access';
 import { isBillingExemptPath, BILLING_HOME_PATH } from '@/lib/billing/billing-paths';
+import { isPublicApiPath } from '@/lib/http/public-api-routes';
 
 export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -92,9 +93,7 @@ export async function updateSession(request: NextRequest) {
     isOnboardingRoute ||
     pathname.startsWith('/auth/callback') ||
     pathname.startsWith('/auth/confirm') ||
-    pathname.startsWith('/api/contact') ||
-    pathname.startsWith('/api/auth/phone') ||
-    pathname.startsWith('/api/survey-participation') ||
+    isPublicApiPath(pathname) ||
     pathname.startsWith('/participation-ong') ||
     pathname.startsWith('/paiement-sondage') ||
     pathname.startsWith('/payer-scolarite') ||

@@ -29,42 +29,45 @@ export default function RegisterCandidatPage() {
     setLoading(true);
     setError(null);
 
-    const fd = new FormData(e.currentTarget);
-    const password = String(fd.get('password') ?? '');
-    const name = String(fd.get('full_name') ?? '').trim();
+    try {
+      const fd = new FormData(e.currentTarget);
+      const password = String(fd.get('password') ?? '');
+      const name = String(fd.get('full_name') ?? '').trim();
 
-    const registered = await registerAccount({
-      method: authMethod,
-      email: authMethod === 'email' ? String(fd.get('email') ?? '').trim() : undefined,
-      phone: authMethod === 'phone' ? String(fd.get('phone') ?? '').trim() : undefined,
-      password,
-      fullName: name,
-      accountIntent: 'learner',
-    });
+      const registered = await registerAccount({
+        method: authMethod,
+        email: authMethod === 'email' ? String(fd.get('email') ?? '').trim() : undefined,
+        phone: authMethod === 'phone' ? String(fd.get('phone') ?? '').trim() : undefined,
+        password,
+        fullName: name,
+        accountIntent: 'learner',
+      });
 
-    if ('error' in registered && registered.error) {
-      setError(registered.error);
+      if ('error' in registered && registered.error) {
+        setError(registered.error);
+        return;
+      }
+
+      const supabase = createClient();
+      const rpc1 = await ensureLearnerProfile(supabase);
+      if (rpc1.error) {
+        setError(
+          `Compte créé mais profil candidat non appliqué : ${rpc1.error}. Appliquez la migration 028 dans Supabase.`
+        );
+        return;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('profiles').update({ full_name: name }).eq('id', user.id);
+      }
+
+      window.location.href = LANDING_LINKS.inscriptionEtablissement;
+    } catch {
+      setError('Une erreur inattendue est survenue. Réessayez.');
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const supabase = createClient();
-    const rpc1 = await ensureLearnerProfile(supabase);
-    if (rpc1.error) {
-      setError(
-        `Compte créé mais profil candidat non appliqué : ${rpc1.error}. Appliquez la migration 028 dans Supabase.`
-      );
-      setLoading(false);
-      return;
-    }
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from('profiles').update({ full_name: name }).eq('id', user.id);
-    }
-
-    setLoading(false);
-    window.location.href = LANDING_LINKS.inscriptionEtablissement;
   }
 
   return (

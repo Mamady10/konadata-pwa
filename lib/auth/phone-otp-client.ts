@@ -1,3 +1,5 @@
+import { postPublicJson } from '@/lib/http/public-json-fetch';
+
 export type PhoneOtpPurpose = 'login' | 'signup' | 'recovery';
 export type PhoneOtpChannel = 'sms' | 'whatsapp';
 
@@ -22,14 +24,12 @@ export async function requestPhoneOtp(params: {
   purpose: PhoneOtpPurpose;
   channel?: PhoneOtpChannel;
 }): Promise<RequestPhoneOtpResult> {
-  const res = await fetch('/api/auth/phone/request-otp', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
-  const data = await res.json();
-  if (!res.ok) return { error: data.error ?? 'Envoi impossible' };
-  return data as RequestPhoneOtpResult;
+  const result = await postPublicJson<RequestPhoneOtpResult>(
+    '/api/auth/phone/request-otp',
+    params
+  );
+  if (!result.ok) return { error: result.error };
+  return result.data;
 }
 
 export async function verifyPhoneOtp(params: {
@@ -39,14 +39,12 @@ export async function verifyPhoneOtp(params: {
   accountIntent?: string;
   signupIntent?: string;
 }): Promise<VerifyPhoneOtpResult> {
-  const res = await fetch('/api/auth/phone/verify-otp', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
-  const data = await res.json();
-  if (!res.ok) return { error: data.error ?? 'Vérification impossible' };
-  return data as VerifyPhoneOtpResult;
+  const result = await postPublicJson<VerifyPhoneOtpResult>(
+    '/api/auth/phone/verify-otp',
+    params
+  );
+  if (!result.ok) return { error: result.error };
+  return result.data;
 }
 
 export async function resetPasswordWithPhoneOtp(params: {
@@ -54,12 +52,10 @@ export async function resetPasswordWithPhoneOtp(params: {
   code: string;
   password: string;
 }): Promise<{ success?: boolean; error?: string }> {
-  const res = await fetch('/api/auth/phone/reset-password', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
-  const data = await res.json();
-  if (!res.ok) return { error: data.error ?? 'Réinitialisation impossible' };
+  const result = await postPublicJson<{ error?: string }>(
+    '/api/auth/phone/reset-password',
+    params
+  );
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
