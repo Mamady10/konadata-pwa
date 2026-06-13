@@ -9,23 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Database, Mail, ArrowLeft, Send, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { createClient } from '@/lib/supabase/client';
 import { AuthBackHome } from '@/components/auth/auth-back-home';
 import { AuthMethodToggle, type AuthMethod } from '@/components/auth/auth-method-toggle';
 import { PhonePasswordRecoveryPanel } from '@/components/auth/phone-password-recovery-panel';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
 import { isSyntheticPhoneEmail } from '@/lib/auth/phone-email';
-
-function mapResetEmailError(message: string): string {
-  const m = message.toLowerCase();
-  if (m.includes('invalid') && m.includes('email')) {
-    return 'Adresse email invalide ou compte créé par téléphone. Utilisez l’onglet Téléphone.';
-  }
-  if (m.includes('rate limit') || m.includes('too many')) {
-    return 'Trop de demandes. Réessayez dans quelques minutes.';
-  }
-  return message;
-}
 
 export function ForgotPasswordPageContent() {
   const searchParams = useSearchParams();
@@ -57,13 +45,15 @@ export function ForgotPasswordPageContent() {
       return;
     }
 
-    const supabase = createClient();
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/confirm?next=/reset-password`,
+    const res = await fetch('/api/auth/request-password-reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
     });
+    const data = await res.json();
 
-    if (resetError) {
-      setError(mapResetEmailError(resetError.message));
+    if (!res.ok) {
+      setError(data.error ?? 'Envoi impossible. Réessayez.');
       setLoading(false);
       return;
     }
