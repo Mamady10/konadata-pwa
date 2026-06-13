@@ -58,7 +58,7 @@ export async function sendSurveyOtp(
   const message = `KonaData — Code sondage « ${surveyTitle.slice(0, 40)} » : ${code}. Valide 10 minutes. Ne partagez pas ce code.`;
 
   if (channel === 'whatsapp') {
-    const wa = await sendWhatsAppOtpMessage(phoneE164, message);
+    const wa = await sendWhatsAppOtpMessage(phoneE164, message, code);
     if (!wa.ok && isDevOtpMode()) {
       console.log(`[Survey OTP DEV WhatsApp] ${phoneE164}: ${code}`);
       return { ok: true, skipped: true, devCode: code };

@@ -77,7 +77,7 @@ export async function sendAuthOtp(
   const message = `KonaData — Code ${action} : ${code}. Valide 10 minutes. Ne partagez pas ce code.`;
 
   if (channel === 'whatsapp') {
-    const wa = await sendWhatsAppOtpMessage(phoneE164, message);
+    const wa = await sendWhatsAppOtpMessage(phoneE164, message, code);
     if (!wa.ok && isDevAuthOtpMode()) {
       console.log(`[Auth OTP DEV WhatsApp] ${phoneE164}: ${code}`);
       return { ok: true, skipped: true, devCode: code };
