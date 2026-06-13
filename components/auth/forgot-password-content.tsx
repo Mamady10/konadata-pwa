@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,19 +14,48 @@ import { AuthBackHome } from '@/components/auth/auth-back-home';
 import { AuthMethodToggle, type AuthMethod } from '@/components/auth/auth-method-toggle';
 import { PhonePasswordRecoveryPanel } from '@/components/auth/phone-password-recovery-panel';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
+import { isSyntheticPhoneEmail } from '@/lib/auth/phone-email';
+
+function mapResetEmailError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes('invalid') && m.includes('email')) {
+    return 'Adresse email invalide ou compte créé par téléphone. Utilisez l’onglet Téléphone.';
+  }
+  if (m.includes('rate limit') || m.includes('too many')) {
+    return 'Trop de demandes. Réessayez dans quelques minutes.';
+  }
+  return message;
+}
 
 export function ForgotPasswordPageContent() {
+  const searchParams = useSearchParams();
   const [method, setMethod] = useState<AuthMethod>('phone');
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('error') === 'link_expired') {
+      setError(
+        'Le lien a expiré ou a déjà été utilisé. Demandez un nouveau lien et ouvrez-le dans les 60 minutes.'
+      );
+    }
+  }, [searchParams]);
 
   async function handleEmailSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError(null);
     const formData = new FormData(e.currentTarget);
-    const email = (formData.get('email') as string).trim();
+    const email = (formData.get('email') as string).trim().toLowerCase();
+
+    if (isSyntheticPhoneEmail(email)) {
+      setError(
+        'Ce compte a été créé avec un numéro de téléphone, pas un email. Utilisez l’onglet Téléphone (WhatsApp/SMS).'
+      );
+      setLoading(false);
+      return;
+    }
 
     const supabase = createClient();
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
@@ -33,7 +63,7 @@ export function ForgotPasswordPageContent() {
     });
 
     if (resetError) {
-      setError(resetError.message);
+      setError(mapResetEmailError(resetError.message));
       setLoading(false);
       return;
     }

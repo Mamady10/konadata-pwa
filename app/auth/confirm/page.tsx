@@ -33,14 +33,21 @@ function AuthConfirmInner() {
             setTimeout(() => router.replace('/forgot-password'), 2500);
             return;
           }
-          router.replace(type === 'recovery' ? '/reset-password' : '/rejoindre');
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          router.replace(type === 'recovery' ? '/reset-password' : nextParam ?? '/rejoindre');
           return;
         }
       }
 
       if (code) {
-        const next = nextParam ?? '/rejoindre';
-        router.replace(`/auth/callback?code=${encodeURIComponent(code)}&next=${encodeURIComponent(next)}`);
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          setMessage('Lien invalide ou expiré. Demandez un nouveau lien.');
+          setTimeout(() => router.replace('/forgot-password'), 2500);
+          return;
+        }
+        const next = nextParam?.startsWith('/') ? nextParam : '/reset-password';
+        router.replace(next);
         return;
       }
 

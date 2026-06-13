@@ -143,12 +143,19 @@ export async function signOut() {
   redirect('/login');
 }
 
+import { isSyntheticPhoneEmail } from '@/lib/auth/phone-email';
+
 export async function resetPassword(formData: FormData) {
   const supabase = await createClient();
-  const email = formData.get('email') as string;
+  const email = String(formData.get('email') ?? '').trim().toLowerCase();
 
+  if (isSyntheticPhoneEmail(email)) {
+    return { error: 'Compte téléphone : utilisez la récupération par WhatsApp/SMS.' };
+  }
+
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://www.konadatagn.com').replace(/\/$/, '');
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm?next=/reset-password`,
+    redirectTo: `${appUrl}/auth/confirm?next=/reset-password`,
   });
 
   if (error) {

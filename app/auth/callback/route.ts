@@ -15,5 +15,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(`${origin}/reset-password?error=link`);
+  return NextResponse.redirect(`${origin}/forgot-password?error=link_expired`);
 }
