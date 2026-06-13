@@ -59,7 +59,7 @@ export function ForgotPasswordPageContent() {
 
     const supabase = createClient();
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      redirectTo: `${window.location.origin}/auth/confirm?next=/reset-password`,
     });
 
     if (resetError) {
@@ -115,6 +115,8 @@ export function ForgotPasswordPageContent() {
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Ouvrez le lien reçu (vérifiez les spams) pour définir un nouveau mot de passe.
+                  Utilisez le <strong>même navigateur</strong> que celui où vous venez de faire la demande
+                  (Chrome, Edge…), et cliquez une seule fois.
                 </p>
                 <Link href={LANDING_LINKS.login}>
                   <Button variant="outline" className="w-full">

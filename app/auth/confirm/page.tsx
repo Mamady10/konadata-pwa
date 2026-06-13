@@ -4,8 +4,17 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import type { EmailOtpType } from '@supabase/supabase-js';
 
-/** Liens legacy avec #access_token dans le hash (navigateur uniquement). */
+function safeNext(next: string | null): string {
+  if (next && next.startsWith('/') && !next.startsWith('//')) return next;
+  return '/reset-password';
+}
+
+/**
+ * Échange côté navigateur (PKCE) — requis pour les liens « mot de passe oublié » :
+ * le code_verifier est dans les cookies du même navigateur qui a demandé l'email.
+ */
 function AuthConfirmInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -14,57 +23,65 @@ function AuthConfirmInner() {
 
   useEffect(() => {
     if (handled.current) return;
+    handled.current = true;
 
     async function run() {
+      const supabase = createClient();
+      const nextParam = safeNext(searchParams.get('next'));
       const code = searchParams.get('code');
       const tokenHash = searchParams.get('token_hash');
-      const nextParam = searchParams.get('next') ?? '/reset-password';
+      const type = searchParams.get('type');
 
-      if (code || tokenHash) {
-        handled.current = true;
-        const qs = new URLSearchParams();
-        if (code) qs.set('code', code);
-        if (tokenHash) qs.set('token_hash', tokenHash);
-        const type = searchParams.get('type');
-        if (type) qs.set('type', type);
-        qs.set('next', nextParam.startsWith('/') ? nextParam : '/reset-password');
-        window.location.replace(`/auth/callback?${qs.toString()}`);
+      if (tokenHash && type) {
+        const { error } = await supabase.auth.verifyOtp({
+          type: type as EmailOtpType,
+          token_hash: tokenHash,
+        });
+        if (error) {
+          setMessage('Lien invalide ou expiré. Demandez un nouveau lien.');
+          setTimeout(() => router.replace('/forgot-password?error=link_expired'), 2500);
+          return;
+        }
+        router.replace(type === 'recovery' ? '/reset-password' : nextParam);
+        return;
+      }
+
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          setMessage('Lien invalide ou expiré. Demandez un nouveau lien.');
+          setTimeout(() => router.replace('/forgot-password?error=link_expired'), 2500);
+          return;
+        }
+        router.replace(nextParam);
         return;
       }
 
       const hash = window.location.hash.replace(/^#/, '');
-      if (!hash || !hash.includes('access_token')) {
-        setMessage('Lien incomplet. Demandez un nouveau email.');
-        setTimeout(() => router.replace('/forgot-password'), 2500);
-        return;
+      if (hash && hash.includes('access_token')) {
+        const params = new URLSearchParams(hash);
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        const hashType = params.get('type');
+
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (error) {
+            setMessage('Lien invalide ou expiré. Demandez un nouveau lien.');
+            setTimeout(() => router.replace('/forgot-password?error=link_expired'), 2500);
+            return;
+          }
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          router.replace(hashType === 'recovery' ? '/reset-password' : nextParam);
+          return;
+        }
       }
 
-      handled.current = true;
-      const params = new URLSearchParams(hash);
-      const accessToken = params.get('access_token');
-      const refreshToken = params.get('refresh_token');
-      const type = params.get('type');
-
-      if (!accessToken || !refreshToken) {
-        setMessage('Lien incomplet. Demandez un nouveau email.');
-        setTimeout(() => router.replace('/forgot-password'), 2500);
-        return;
-      }
-
-      const supabase = createClient();
-      const { error } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-
-      if (error) {
-        setMessage('Lien invalide ou expiré. Demandez un nouveau lien.');
-        setTimeout(() => router.replace('/forgot-password'), 2500);
-        return;
-      }
-
-      window.history.replaceState(null, '', window.location.pathname + window.location.search);
-      router.replace(type === 'recovery' ? '/reset-password' : nextParam);
+      setMessage('Lien incomplet. Demandez un nouveau email.');
+      setTimeout(() => router.replace('/forgot-password'), 2500);
     }
 
     void run();

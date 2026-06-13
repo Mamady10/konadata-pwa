@@ -15,6 +15,16 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/forgot-password?error=link_expired`);
   }
 
+  // Réinitialisation mot de passe : PKCE doit s'échanger dans le navigateur (cookies).
+  if (next === '/reset-password' || type === 'recovery') {
+    const passthrough = new URL(`${origin}/auth/confirm`);
+    searchParams.forEach((value, key) => passthrough.searchParams.set(key, value));
+    if (!passthrough.searchParams.has('next')) {
+      passthrough.searchParams.set('next', '/reset-password');
+    }
+    return NextResponse.redirect(passthrough.toString());
+  }
+
   const result = await exchangeAuthLinkParams({ code, tokenHash, type });
 
   if (result.ok) {
