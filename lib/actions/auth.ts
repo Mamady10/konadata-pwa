@@ -155,7 +155,7 @@ export async function resetPassword(formData: FormData) {
 
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://www.konadatagn.com').replace(/\/$/, '');
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${appUrl}/auth/confirm?next=/reset-password`,
+    redirectTo: `${appUrl}/auth/callback?next=/reset-password`,
   });
 
   if (error) {
