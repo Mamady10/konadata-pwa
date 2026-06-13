@@ -1,7 +1,8 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import type { AppRole } from '@/types/database';
 import type {
   PublicSchoolOption,
   SchoolApplicationCatalog,
@@ -149,7 +150,8 @@ async function applyViaDirectInserts(
 
   if (profErr || !profile) return { error: profErr?.message || 'Profil introuvable' };
 
-  const { data: org } = await supabase
+  const service = await createServiceClient();
+  const { data: org } = await service
     .from('organizations')
     .select('id, type, is_active')
     .eq('id', input.organizationId)
@@ -164,12 +166,15 @@ async function applyViaDirectInserts(
     (profile.email as string)?.split('@')[0] ||
     'Candidat';
 
+  const nextRole: AppRole =
+    (profile.role as AppRole) === 'student' ? 'student' : 'candidate';
+
   let profileUpdErr = (
     await supabase
       .from('profiles')
       .update({
         organization_id: input.organizationId,
-        role: (profile.role as string) === 'student' ? 'student' : 'candidate',
+        role: nextRole,
         onboarding_path: 'learner',
       })
       .eq('id', userId)
@@ -181,7 +186,7 @@ async function applyViaDirectInserts(
         .from('profiles')
         .update({
           organization_id: input.organizationId,
-          role: (profile.role as string) === 'student' ? 'student' : 'candidate',
+          role: nextRole,
         })
         .eq('id', userId)
     ).error;
@@ -339,11 +344,15 @@ export async function applyToSchoolAsLearner(input: ApplyToSchoolInput) {
   if (error) {
     const hint = error.message.includes('apply_to_school_as_learner')
       ? ' Exécutez les migrations 027 et 029 dans Supabase SQL Editor.'
-      : '';
+      : error.message.includes('app_role')
+        ? ' Exécutez la migration 095 dans Supabase SQL Editor.'
+        : '';
     const fallback = await applyViaDirectInserts(supabase, user.id, resolved);
     if (fallback.error) {
+      const primary = `${error.message}${hint}`.trim();
+      const secondary = fallback.error.trim();
       return {
-        error: `${error.message}${hint} (${fallback.error})`,
+        error: secondary && secondary !== primary ? `${primary} (${secondary})` : primary,
       };
     }
     revalidatePath('/etablissement');
