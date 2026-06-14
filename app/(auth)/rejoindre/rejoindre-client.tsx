@@ -20,7 +20,6 @@ import {
   setPendingAccessCode,
 } from '@/lib/auth/join-flow';
 import { redeemAccessCodeClient } from '@/lib/auth/redeem-access-code-client';
-import { AuthPageBrand } from '@/components/auth/auth-page-brand';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
 
 interface Props {
