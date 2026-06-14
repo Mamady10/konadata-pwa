@@ -36,6 +36,7 @@ import {
   ScanLine,
   FileText,
   Globe,
+  HeartHandshake,
 } from 'lucide-react';
 
 const PILL_ICONS = {
@@ -136,6 +137,9 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
               <Globe className="h-3 w-3" />
               FR
             </div>
+            <Button variant="ghost" size="sm" className="text-white/80 hidden lg:inline-flex" asChild>
+              <Link href={LANDING_LINKS.suiviScolarite}>Parents</Link>
+            </Button>
             <Button variant="ghost" size="sm" className="text-white/80 hidden sm:inline-flex" asChild>
               <Link href={LANDING_LINKS.loginStaff}>Connexion</Link>
             </Button>
@@ -226,6 +230,17 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
                   asChild
                 >
                   <Link href={LANDING_LINKS.registerLearner}>Candidat / élève</Link>
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="border-emerald-400/40 bg-emerald-500/10 text-white h-11"
+                  asChild
+                >
+                  <Link href={LANDING_LINKS.suiviScolarite}>
+                    Parents / tuteurs
+                    <HeartHandshake className="h-4 w-4 ml-1" />
+                  </Link>
                 </Button>
                 <Button
                   size="lg"
@@ -412,6 +427,12 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
                     <Link href={LANDING_LINKS.registerLearner}>Candidat / élève</Link>
                   </Button>
                   <Button variant="outline" size="sm" asChild>
+                    <Link href={LANDING_LINKS.suiviScolarite}>Suivi scolarité (parents)</Link>
+                  </Button>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={LANDING_LINKS.payerScolarite}>Payer scolarité</Link>
+                  </Button>
+                  <Button variant="outline" size="sm" asChild>
                     <Link href={LANDING_LINKS.loginLearner}>Connexion</Link>
                   </Button>
                   <Button variant="outline" size="sm" asChild>
@@ -547,6 +568,12 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
                 </Link>
                 <Link href={LANDING_LINKS.registerLearner} className="hover:text-[#2563EB]">
                   Candidat / élève
+                </Link>
+                <Link href={LANDING_LINKS.suiviScolarite} className="hover:text-[#2563EB]">
+                  Suivi scolarité
+                </Link>
+                <Link href={LANDING_LINKS.payerScolarite} className="hover:text-[#2563EB]">
+                  Payer scolarité
                 </Link>
                 <Link href={LANDING_LINKS.registerJoin} className="hover:text-[#2563EB]">
                   Compte staff

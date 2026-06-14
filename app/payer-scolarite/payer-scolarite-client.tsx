@@ -14,6 +14,12 @@ import { formatCurrency } from '@/lib/utils';
 import { parseTuitionBalance } from '@/lib/school/student-payments';
 import { GraduationCap, CreditCard, ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import {
+  GUARDIAN_OTP_INTRO,
+  guardianOtpChannelLabel,
+} from '@/lib/school/guardian-otp-ui';
+import type { GuardianOtpChannel } from '@/lib/auth/guardian-otp';
+import { LANDING_LINKS } from '@/lib/marketing/landing-links';
 
 type Step = 'lookup' | 'otp' | 'amount';
 
@@ -43,6 +49,7 @@ export function PayerScolariteClient({ schools }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [devCode, setDevCode] = useState<string | null>(null);
+  const [otpChannel, setOtpChannel] = useState<GuardianOtpChannel | null>(null);
 
   const balance = lookup ? parseTuitionBalance(lookup.balance) : null;
   const minPay = lookup?.min_payment_gnf ?? 100_000;
@@ -90,10 +97,13 @@ export function PayerScolariteClient({ schools }: Props) {
     const json = await res.json();
     setLoading(false);
     if (!res.ok) {
-      setError(json.error ?? 'Envoi SMS échoué');
+      setError(json.error ?? 'Envoi du code échoué');
       return;
     }
     setChallengeId(json.challengeId);
+    if (json.channel === 'whatsapp' || json.channel === 'sms') {
+      setOtpChannel(json.channel);
+    }
     if (json.devCode) setDevCode(json.devCode);
     setStep('amount');
   }
@@ -136,7 +146,7 @@ export function PayerScolariteClient({ schools }: Props) {
     <div className="min-h-screen flex items-center justify-center p-6 bg-[#F8FAFC]">
       <div className="w-full max-w-md space-y-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/">
+          <Link href={LANDING_LINKS.home}>
             <ArrowLeft className="h-4 w-4 mr-1" />
             Accueil
           </Link>
@@ -149,7 +159,7 @@ export function PayerScolariteClient({ schools }: Props) {
               Payer ma scolarité
             </CardTitle>
             <CardDescription>
-              Sans compte KonaData — code élève KonaData + téléphone enregistré (élève ou tuteur).
+              Sans compte KonaData — matricule + téléphone enregistré. {GUARDIAN_OTP_INTRO}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -223,7 +233,7 @@ export function PayerScolariteClient({ schools }: Props) {
                     disabled={loading || !phone.trim()}
                     onClick={() => void handleRequestOtp()}
                   >
-                    {loading ? 'Envoi…' : 'Recevoir le code SMS'}
+                    {loading ? 'Envoi…' : 'Recevoir le code (WhatsApp / SMS)'}
                   </Button>
                 </div>
               </>
@@ -232,13 +242,16 @@ export function PayerScolariteClient({ schools }: Props) {
             {step === 'amount' && lookup && (
               <>
                 <p className="text-sm text-muted-foreground">
-                  Code envoyé au numéro indiqué.
+                  Code envoyé
+                  {otpChannel ? ` par ${guardianOtpChannelLabel(otpChannel)}` : ''} au numéro indiqué.
                   {devCode && (
                     <span className="block text-amber-700 font-mono mt-1">DEV : {devCode}</span>
                   )}
                 </p>
                 <div className="space-y-2">
-                  <Label htmlFor="otp">Code SMS</Label>
+                  <Label htmlFor="otp">
+                    Code {otpChannel ? guardianOtpChannelLabel(otpChannel) : 'de confirmation'}
+                  </Label>
                   <Input
                     id="otp"
                     value={otp}
@@ -271,11 +284,19 @@ export function PayerScolariteClient({ schools }: Props) {
               </>
             )}
 
-            <p className="text-xs text-center text-muted-foreground">
-              Déjà un compte ?{' '}
-              <Link href="/login?redirect=%2Fetablissement%2Fcandidatures" className="text-primary underline">
-                Se connecter
-              </Link>
+            <p className="text-xs text-center text-muted-foreground space-y-1">
+              <span className="block">
+                Consulter sans payer ?{' '}
+                <Link href={LANDING_LINKS.suiviScolarite} className="text-primary underline">
+                  Suivi scolarité
+                </Link>
+              </span>
+              <span className="block">
+                Déjà un compte ?{' '}
+                <Link href="/login?redirect=%2Fetablissement%2Fcandidatures" className="text-primary underline">
+                  Se connecter
+                </Link>
+              </span>
             </p>
           </CardContent>
         </Card>

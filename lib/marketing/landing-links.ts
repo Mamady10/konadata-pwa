@@ -24,4 +24,7 @@ export const LANDING_LINKS = {
   loginSwitchAccount: '/login?switch=1',
   forgotPassword: '/forgot-password',
   contact: '/#contact',
+  /** Portail parents / tuteurs (sans compte) */
+  suiviScolarite: '/suivi-scolarite',
+  payerScolarite: '/payer-scolarite',
 } as const;

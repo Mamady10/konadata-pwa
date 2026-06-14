@@ -8,7 +8,7 @@ import {
   hashPhoneE164,
   getClientIpFromHeaders,
 } from '@/lib/survey/security-hash';
-import { sendAuthOtp } from '@/lib/auth/send-auth-otp';
+import { sendGuardianPortalOtp } from '@/lib/auth/guardian-otp';
 import { studentPhoneAuthorized } from '@/lib/school/public-payment-otp';
 import { resolveStudentIdByMatricule } from '@/lib/school/guardian-portal-otp';
 
@@ -75,15 +75,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: insertErr.message }, { status: 500 });
     }
 
-    const sendResult = await sendAuthOtp(phoneE164, code, 'sms', 'login');
+    const sendResult = await sendGuardianPortalOtp(phoneE164, code);
     if (!sendResult.ok) {
-      return NextResponse.json({ error: sendResult.error ?? 'Envoi SMS échoué' }, { status: 502 });
+      return NextResponse.json(
+        { error: sendResult.error ?? 'Envoi du code échoué (WhatsApp / SMS)' },
+        { status: 502 }
+      );
     }
 
     return NextResponse.json({
       success: true,
       challengeId: challenge.id,
       studentId,
+      channel: sendResult.channel ?? 'sms',
       maskedPhone: phoneE164.replace(/(\+224\d{2})\d+(\d{2})/, '$1*****$2'),
       ...(sendResult.devCode ? { devCode: sendResult.devCode } : {}),
     });

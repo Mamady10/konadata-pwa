@@ -15,6 +15,12 @@ import { formatCurrency } from '@/lib/utils';
 import { parseTuitionBalance } from '@/lib/school/student-payments';
 import { reportCardPeriodLabel } from '@/lib/school/grading-period-settings';
 import { GraduationCap, ArrowLeft, Download, CreditCard } from 'lucide-react';
+import { LANDING_LINKS } from '@/lib/marketing/landing-links';
+import {
+  GUARDIAN_OTP_INTRO,
+  guardianOtpChannelLabel,
+} from '@/lib/school/guardian-otp-ui';
+import type { GuardianOtpChannel } from '@/lib/auth/guardian-otp';
 
 interface Props {
   schools: PublicSchoolOption[];
@@ -42,6 +48,7 @@ export function SuiviScolariteClient({ schools }: Props) {
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [studentId, setStudentId] = useState<string | null>(null);
   const [devCode, setDevCode] = useState<string | null>(null);
+  const [otpChannel, setOtpChannel] = useState<GuardianOtpChannel | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<Record<string, unknown> | null>(null);
@@ -63,12 +70,15 @@ export function SuiviScolariteClient({ schools }: Props) {
     setLoading(false);
 
     if (!res.ok) {
-      setError(json.error ?? 'Envoi SMS échoué');
+      setError(json.error ?? 'Envoi du code échoué');
       return;
     }
 
     setChallengeId(json.challengeId as string);
     setStudentId(json.studentId as string);
+    if (json.channel === 'whatsapp' || json.channel === 'sms') {
+      setOtpChannel(json.channel);
+    }
     if (json.devCode) setDevCode(json.devCode as string);
     setStep('otp');
   }
@@ -121,6 +131,7 @@ export function SuiviScolariteClient({ schools }: Props) {
     setChallengeId(null);
     setStudentId(null);
     setDevCode(null);
+    setOtpChannel(null);
     setData(null);
     setError(null);
   }
@@ -132,7 +143,7 @@ export function SuiviScolariteClient({ schools }: Props) {
   return (
     <div className="min-h-screen bg-muted/30 py-10 px-4">
       <div className="max-w-lg mx-auto space-y-6">
-        <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary">
+        <Link href={LANDING_LINKS.home} className="inline-flex items-center text-sm text-muted-foreground hover:text-primary">
           <ArrowLeft className="h-4 w-4 mr-1" />
           Accueil KonaData
         </Link>
@@ -143,9 +154,7 @@ export function SuiviScolariteClient({ schools }: Props) {
               <GraduationCap className="h-5 w-5 text-primary" />
               Suivi scolarité
             </CardTitle>
-            <CardDescription>
-              Matricule + téléphone tuteur, puis code de confirmation par SMS
-            </CardDescription>
+            <CardDescription>{GUARDIAN_OTP_INTRO}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {step === 'identify' && (
@@ -186,7 +195,7 @@ export function SuiviScolariteClient({ schools }: Props) {
                   onClick={() => void handleRequestOtp()}
                   disabled={loading || !schoolId || !matricule.trim() || !phone.trim()}
                 >
-                  {loading ? 'Envoi…' : 'Recevoir le code SMS'}
+                  {loading ? 'Envoi…' : 'Recevoir le code (WhatsApp / SMS)'}
                 </Button>
               </>
             )}
@@ -194,14 +203,18 @@ export function SuiviScolariteClient({ schools }: Props) {
             {step === 'otp' && (
               <>
                 <p className="text-sm rounded-lg bg-muted/50 p-3">
-                  Un code a été envoyé au numéro indiqué pour le matricule{' '}
+                  Un code a été envoyé
+                  {otpChannel ? ` par ${guardianOtpChannelLabel(otpChannel)}` : ''} au numéro indiqué
+                  pour le matricule{' '}
                   <strong className="font-mono">{matricule.trim().toUpperCase()}</strong>.
                   {devCode && (
                     <span className="block text-amber-700 font-mono mt-1">DEV : {devCode}</span>
                   )}
                 </p>
                 <div className="space-y-2">
-                  <Label>Code SMS</Label>
+                  <Label>
+                    Code {otpChannel ? guardianOtpChannelLabel(otpChannel) : 'de confirmation'}
+                  </Label>
                   <Input
                     value={otp}
                     onChange={(e) => setOtp(e.target.value)}
@@ -303,7 +316,7 @@ export function SuiviScolariteClient({ schools }: Props) {
               )}
 
               <Button asChild className="w-full" variant="outline">
-                <Link href="/payer-scolarite">
+                <Link href={LANDING_LINKS.payerScolarite}>
                   <CreditCard className="h-4 w-4 mr-2" />
                   Payer la scolarité en ligne
                 </Link>
