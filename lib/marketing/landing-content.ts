@@ -6,6 +6,8 @@ export const LANDING_BRAND = {
   name: 'KonaData',
   logoAccent: 'KONA',
   logoRest: 'DATA',
+  wordmarkSrc: '/brand/konadata-wordmark.png',
+  iconSrc: '/brand/konadata-icon.png',
   heroPrefix: 'La plateforme intelligente de',
   heroHighlight: 'gestion de données',
   heroSuffix: 'au service de votre organisation',

@@ -20,6 +20,7 @@ import {
 } from '@/lib/school/guardian-otp-ui';
 import type { GuardianOtpChannel } from '@/lib/auth/guardian-otp';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
+import { KonaDataLogo } from '@/components/brand/konadata-logo';
 
 type Step = 'lookup' | 'otp' | 'amount';
 
@@ -145,6 +146,7 @@ export function PayerScolariteClient({ schools }: Props) {
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-[#F8FAFC]">
       <div className="w-full max-w-md space-y-4">
+        <KonaDataLogo href={LANDING_LINKS.home} variant="wordmark" height={36} />
         <Button variant="ghost" size="sm" asChild>
           <Link href={LANDING_LINKS.home}>
             <ArrowLeft className="h-4 w-4 mr-1" />

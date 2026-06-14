@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Database, Lock, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AuthPageBrand } from '@/components/auth/auth-page-brand';
+import { Lock, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -95,12 +96,7 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-[#F8FAFC] dark:bg-background">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
-        <div className="flex items-center gap-2 mb-8 justify-center">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#2563EB]">
-            <Database className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-2xl font-bold">KonaData</span>
-        </div>
+        <AuthPageBrand />
 
         <Card className="border-0 shadow-card-hover">
           <CardHeader className="text-center">

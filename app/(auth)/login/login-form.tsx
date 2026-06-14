@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Database, Mail, Lock, ArrowRight, AlertCircle, Phone } from 'lucide-react';
+import { Mail, Lock, ArrowRight, AlertCircle, Phone } from 'lucide-react';
 import { AuthMethodToggle, type AuthMethod } from '@/components/auth/auth-method-toggle';
 import { phoneToSyntheticEmail } from '@/lib/auth/phone-email';
 import { normalizeGuineaPhone } from '@/lib/survey/phone';
@@ -19,6 +19,7 @@ import { learnerHasEnrollmentHistory } from '@/lib/auth/learner-enrollments';
 import { ensureLearnerProfile } from '@/lib/auth/learner-signup';
 import type { AppRole } from '@/types/database';
 import { AuthBackHome } from '@/components/auth/auth-back-home';
+import { KonaDataLogo } from '@/components/brand/konadata-logo';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
 
 interface LoginFormProps {
@@ -200,11 +201,8 @@ export default function LoginForm({ accountSwitched = false }: LoginFormProps) {
       <div className="hidden lg:flex lg:w-1/2 bg-[#0A192F] relative overflow-hidden items-center justify-center p-12">
         <div className="absolute inset-0 bg-gradient-to-br from-[#2563EB]/20 to-transparent" />
         <div className="relative z-10 max-w-md">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#2563EB]">
-              <Database className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-3xl font-bold text-white">KonaData</span>
+          <div className="mb-8">
+            <KonaDataLogo href={`${LANDING_LINKS.home}?accueil=1`} variant="wordmark" height={48} priority />
           </div>
           <h1 className="text-4xl font-bold text-white mb-4 leading-tight">
             Gérez vos données avec intelligence
@@ -227,13 +225,8 @@ export default function LoginForm({ accountSwitched = false }: LoginFormProps) {
           <div className="mb-4">
             <AuthBackHome />
           </div>
-          <div className="lg:hidden flex items-center gap-2 mb-8 justify-center">
-            <Link href={`${LANDING_LINKS.home}?accueil=1`} className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#2563EB]">
-              <Database className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-2xl font-bold">KonaData</span>
-            </Link>
+          <div className="lg:hidden flex items-center justify-center mb-8">
+            <KonaDataLogo href={`${LANDING_LINKS.home}?accueil=1`} variant="wordmark" height={36} />
           </div>
 
           <Card className="border-0 shadow-card-hover">

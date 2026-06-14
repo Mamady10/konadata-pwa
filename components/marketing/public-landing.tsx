@@ -19,11 +19,11 @@ import {
   LANDING_AI_STRIP,
 } from '@/lib/marketing/landing-content';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
+import { KonaDataLogo } from '@/components/brand/konadata-logo';
 import { KONADATA_CONTACT, whatsAppUrl } from '@/lib/marketing/contact';
 import {
   ArrowRight,
   ClipboardList,
-  Database,
   Shield,
   Layers,
   Sparkles,
@@ -116,15 +116,7 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
 
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-[#0A192F]/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
-          <Link href={LANDING_LINKS.home} className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-[#2563EB]">
-              <Database className="h-4 w-4" />
-            </div>
-            <span className="text-lg font-bold">
-              <span className="text-cyan-400">{LANDING_BRAND.logoAccent}</span>
-              {LANDING_BRAND.logoRest}
-            </span>
-          </Link>
+          <KonaDataLogo href={LANDING_LINKS.home} variant="wordmark" height={36} priority />
           <nav className="hidden md:flex items-center gap-6 text-sm text-white/70">
             {NAV_ANCHORS.map((a) => (
               <a key={a.href} href={a.href} className="hover:text-white transition-colors">

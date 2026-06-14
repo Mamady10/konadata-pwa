@@ -16,6 +16,7 @@ import { parseTuitionBalance } from '@/lib/school/student-payments';
 import { reportCardPeriodLabel } from '@/lib/school/grading-period-settings';
 import { GraduationCap, ArrowLeft, Download, CreditCard } from 'lucide-react';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
+import { KonaDataLogo } from '@/components/brand/konadata-logo';
 import {
   GUARDIAN_OTP_INTRO,
   guardianOtpChannelLabel,
@@ -142,7 +143,8 @@ export function SuiviScolariteClient({ schools }: Props) {
 
   return (
     <div className="min-h-screen bg-muted/30 py-10 px-4">
-      <div className="max-w-lg mx-auto space-y-6">
+        <div className="max-w-lg mx-auto space-y-6">
+        <KonaDataLogo href={LANDING_LINKS.home} variant="wordmark" height={36} />
         <Link href={LANDING_LINKS.home} className="inline-flex items-center text-sm text-muted-foreground hover:text-primary">
           <ArrowLeft className="h-4 w-4 mr-1" />
           Accueil KonaData

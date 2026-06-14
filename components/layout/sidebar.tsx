@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { KonaDataLogo } from "@/components/brand/konadata-logo";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/contexts/app-context";
@@ -326,12 +327,7 @@ export function Sidebar() {
         )}
       >
         <div className="flex h-16 items-center justify-between px-6 border-b border-white/10">
-          <Link href={logoHref} className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2563EB]">
-              <Database className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-lg font-bold tracking-tight">KonaData</span>
-          </Link>
+          <KonaDataLogo href={logoHref} variant="wordmark" height={32} />
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-white/60 hover:text-white">
             <X className="h-5 w-5" />
           </button>

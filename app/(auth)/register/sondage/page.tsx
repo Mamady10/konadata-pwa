@@ -7,6 +7,7 @@ import { AuthMethodToggle, type AuthMethod } from '@/components/auth/auth-method
 import { registerAccount } from '@/lib/auth/register-client';
 import { normalizeGuineaPhone } from '@/lib/survey/phone';
 import { AuthBackHome } from '@/components/auth/auth-back-home';
+import { AuthPageBrand } from '@/components/auth/auth-page-brand';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
 import { completeSurveyOnlyRegistration } from '@/lib/actions/survey-only-registration';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Database,
   Mail,
   Lock,
   User,
@@ -107,14 +107,7 @@ export default function RegisterSurveyOnlyPage() {
         <div className="mb-6">
           <AuthBackHome />
         </div>
-        <div className="flex items-center gap-2 mb-8 justify-center">
-          <Link href={LANDING_LINKS.home} className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#2563EB]">
-              <Database className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-2xl font-bold">KonaData</span>
-          </Link>
-        </div>
+        <AuthPageBrand />
 
         <Card className="border-0 shadow-card-hover border-l-4 border-l-teal-500">
           <CardHeader className="text-center">

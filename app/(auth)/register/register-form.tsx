@@ -3,13 +3,14 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthBackHome } from '@/components/auth/auth-back-home';
+import { AuthPageBrand } from '@/components/auth/auth-page-brand';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Database, Mail, Lock, User, Building2, ArrowRight, AlertCircle, KeyRound, GraduationCap, Phone } from 'lucide-react';
+import { Mail, Lock, User, Building2, ArrowRight, AlertCircle, KeyRound, GraduationCap, Phone } from 'lucide-react';
 import { AuthMethodToggle, type AuthMethod } from '@/components/auth/auth-method-toggle';
 import { registerAccount } from '@/lib/auth/register-client';
 import { motion } from 'framer-motion';
@@ -184,14 +185,7 @@ export default function RegisterForm() {
         <div className="mb-6">
           <AuthBackHome />
         </div>
-        <div className="flex items-center gap-2 mb-8 justify-center">
-          <Link href={LANDING_LINKS.home} className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#2563EB]">
-              <Database className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-2xl font-bold">KonaData</span>
-          </Link>
-        </div>
+        <AuthPageBrand />
 
         <Card className="border-0 shadow-card-hover">
           <CardHeader className="text-center">
