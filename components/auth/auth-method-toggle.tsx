@@ -20,7 +20,7 @@ export function AuthMethodToggle({ value, onChange }: Props) {
         onClick={() => onChange('phone')}
       >
         <Phone className="h-4 w-4 mr-1" />
-        Téléphone
+        WhatsApp
       </Button>
       <Button
         type="button"

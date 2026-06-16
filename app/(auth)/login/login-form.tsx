@@ -21,6 +21,10 @@ import type { AppRole } from '@/types/database';
 import { AuthBackHome } from '@/components/auth/auth-back-home';
 import { KonaDataLogo } from '@/components/brand/konadata-logo';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
+import {
+  ACCOUNT_PHONE_FIELD_HINT,
+  ACCOUNT_PHONE_FIELD_LABEL,
+} from '@/lib/auth/phone-field-copy';
 
 interface LoginFormProps {
   /** Affiché après déconnexion depuis « Changer de compte ». */
@@ -250,11 +254,12 @@ export default function LoginForm({ accountSwitched = false }: LoginFormProps) {
               {authMethod === 'phone' ? (
                 <form onSubmit={handlePhoneSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="login-phone">Téléphone</Label>
+                    <Label htmlFor="login-phone">{ACCOUNT_PHONE_FIELD_LABEL}</Label>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input id="login-phone" name="phone" type="tel" placeholder="6XX XX XX XX" className="pl-9" required autoComplete="tel" />
                     </div>
+                    <p className="text-xs text-muted-foreground">{ACCOUNT_PHONE_FIELD_HINT}</p>
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">

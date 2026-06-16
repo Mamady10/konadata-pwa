@@ -9,6 +9,10 @@ import { normalizeGuineaPhone } from '@/lib/survey/phone';
 import { AuthBackHome } from '@/components/auth/auth-back-home';
 import { AuthPageBrand } from '@/components/auth/auth-page-brand';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
+import {
+  ACCOUNT_PHONE_FIELD_HINT,
+  ACCOUNT_PHONE_FIELD_LABEL,
+} from '@/lib/auth/phone-field-copy';
 import { completeSurveyOnlyRegistration } from '@/lib/actions/survey-only-registration';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -180,11 +184,12 @@ export default function RegisterSurveyOnlyPage() {
                   ) : (
                     <>
                       <div className="space-y-2 sm:col-span-2">
-                        <Label htmlFor="phone">Téléphone *</Label>
+                        <Label htmlFor="phone">{ACCOUNT_PHONE_FIELD_LABEL} *</Label>
                         <div className="relative">
                           <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                           <Input id="phone" name="phone" type="tel" className="pl-9" required placeholder="6XX XX XX XX" />
                         </div>
+                        <p className="text-xs text-muted-foreground">{ACCOUNT_PHONE_FIELD_HINT}</p>
                       </div>
                       <div className="space-y-2 sm:col-span-2">
                         <Label htmlFor="password_phone">Mot de passe *</Label>
@@ -232,11 +237,12 @@ export default function RegisterSurveyOnlyPage() {
                   </div>
                   {authMethod === 'email' && (
                     <div className="space-y-2">
-                      <Label htmlFor="declared_phone">Téléphone *</Label>
+                      <Label htmlFor="declared_phone">{ACCOUNT_PHONE_FIELD_LABEL} *</Label>
                       <div className="relative">
                         <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input id="declared_phone" name="declared_phone" className="pl-9" required />
+                        <Input id="declared_phone" name="declared_phone" className="pl-9" required placeholder="6XX XX XX XX" />
                       </div>
+                      <p className="text-xs text-muted-foreground">{ACCOUNT_PHONE_FIELD_HINT}</p>
                     </div>
                   )}
                 </div>

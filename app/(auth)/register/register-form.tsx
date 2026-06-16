@@ -27,6 +27,10 @@ import {
 } from '@/lib/auth/join-flow';
 import { ensureLearnerProfile } from '@/lib/auth/learner-signup';
 import { OrgRegistrationFields } from '@/components/auth/org-registration-fields';
+import {
+  ACCOUNT_PHONE_FIELD_HINT,
+  ACCOUNT_PHONE_FIELD_LABEL,
+} from '@/lib/auth/phone-field-copy';
 
 type RegisterMode = 'create' | 'join' | 'learner';
 
@@ -306,12 +310,12 @@ export default function RegisterForm() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Téléphone</Label>
+                  <Label htmlFor="phone">{ACCOUNT_PHONE_FIELD_LABEL}</Label>
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input id="phone" name="phone" type="tel" className="pl-9" placeholder="6XX XX XX XX" required autoComplete="tel" />
                   </div>
-                  <p className="text-xs text-muted-foreground">Numéro guinéen — utilisé pour la connexion et la récupération du mot de passe.</p>
+                  <p className="text-xs text-muted-foreground">{ACCOUNT_PHONE_FIELD_HINT}</p>
                 </div>
               )}
               <div className="space-y-2">

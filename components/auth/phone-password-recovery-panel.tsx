@@ -13,6 +13,10 @@ import {
 } from '@/lib/auth/phone-otp-client';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
 import { MIN_PASSWORD_LENGTH } from '@/lib/auth/password-policy';
+import {
+  ACCOUNT_PHONE_FIELD_HINT,
+  ACCOUNT_PHONE_FIELD_LABEL,
+} from '@/lib/auth/phone-field-copy';
 
 export function PhonePasswordRecoveryPanel() {
   const [step, setStep] = useState<'phone' | 'reset' | 'done'>('phone');
@@ -164,7 +168,7 @@ export function PhonePasswordRecoveryPanel() {
   return (
     <form onSubmit={handleRequestOtp} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="recovery-phone">Numéro de téléphone du compte</Label>
+        <Label htmlFor="recovery-phone">{ACCOUNT_PHONE_FIELD_LABEL}</Label>
         <div className="relative">
           <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -177,6 +181,7 @@ export function PhonePasswordRecoveryPanel() {
             required
           />
         </div>
+        <p className="text-xs text-muted-foreground">{ACCOUNT_PHONE_FIELD_HINT}</p>
       </div>
       <div className="space-y-2">
         <Label>Recevoir le code par</Label>
