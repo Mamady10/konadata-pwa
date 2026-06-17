@@ -44,6 +44,23 @@ Chaque utilisateur ne voit que les menus autorisés pour son rôle.
 | `candidate` | Candidat | Demande d'inscription uniquement |
 | *(aucun compte)* | Parent / tuteur | `/suivi-scolarite` (matricule + SMS) |
 
+### 2.4 Secours compte (perte WhatsApp)
+
+Si un collaborateur perd son numéro WhatsApp et ne peut plus utiliser « Mot de passe oublié » :
+
+1. Menu **Utilisateurs** → colonne **Secours** → **Compte**
+2. Vérifier l'identité du collaborateur (pièce d'identité)
+3. Saisir le **nouveau numéro WhatsApp** actif + **mot de passe temporaire**
+4. Transmettre le mot de passe **en personne** (ne pas par WhatsApp d'un tiers)
+
+| Qui peut secourir | Cibles autorisées |
+|-------------------|-------------------|
+| **Directeur** | Tout le staff sauf un autre directeur |
+| **Directeur adjoint** | Enseignants, scolarité, comptable, élèves, etc. — pas la direction |
+| **Admin KonaData** | Tous les comptes de l'organisation |
+
+Pour un **compte email**, seul le mot de passe est réinitialisé (pas de changement de numéro).
+
 ### 2.3 Matrice rôle × page
 
 | Page | Direction | Scolarité | Comptable | Enseignant | Élève | Candidat |
@@ -296,7 +313,9 @@ Suivi disciplinaire et présences selon configuration établissement.
 
 | Ressource | Emplacement |
 |-----------|-------------|
-| Vidéo formation école | `docs/demo-video/output/konadata-formation-ecole.mp4` |
+| **Formations vidéo par rôle** | `docs/formation/training/output/` (direction, scolarité, comptable, enseignant, élève, candidat, parent) |
+| Guide génération formations | `docs/formation/training/README.md` |
+| Vidéo formation école (legacy) | `docs/demo-video/output/konadata-formation-ecole.mp4` |
 | Teaser réseaux | `docs/demo-video/output/konadata-formation-ecole-teaser.mp4` |
 | Script démo live 15 min | `docs/demo-video/SCRIPT-DEMO-PILOTE-ECOLE-15MIN.md` |
 | Comptes démo tous secteurs | `docs/demo-video/SETUP-COMPTES-DEMO.md` |

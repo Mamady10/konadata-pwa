@@ -31,7 +31,7 @@ export async function getOrgProfiles(orgId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, email, role, is_active, last_login_at, created_at')
+    .select('id, full_name, email, phone, role, is_active, last_login_at, created_at')
     .eq('organization_id', orgId)
     .order('full_name');
   if (error) throw error;

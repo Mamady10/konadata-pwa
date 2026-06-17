@@ -123,3 +123,39 @@ export async function updateAuthUserPassword(
   if (error) return { error: error.message };
   return { ok: true };
 }
+
+/** Directeur / admin org — nouveau WhatsApp + mot de passe (compte téléphone). */
+export async function adminUpdatePhoneAccountCredentials(params: {
+  userId: string;
+  newPhoneE164: string;
+  newPassword: string;
+}): Promise<{ ok: true; email: string } | { error: string }> {
+  const service = await createServiceClient();
+  const newEmail = phoneToSyntheticEmail(params.newPhoneE164);
+
+  const taken = await findProfileByPhone(service, params.newPhoneE164);
+  if (taken && taken.id !== params.userId) {
+    return { error: 'Ce numéro WhatsApp est déjà utilisé par un autre compte.' };
+  }
+
+  const { error: authErr } = await service.auth.admin.updateUserById(params.userId, {
+    email: newEmail,
+    phone: params.newPhoneE164,
+    password: params.newPassword,
+    phone_confirm: true,
+    email_confirm: true,
+    user_metadata: {
+      phone_e164: params.newPhoneE164,
+      auth_method: 'phone',
+    },
+  });
+  if (authErr) return { error: authErr.message };
+
+  const { error: profileErr } = await service
+    .from('profiles')
+    .update({ phone: params.newPhoneE164, email: newEmail })
+    .eq('id', params.userId);
+  if (profileErr) return { error: profileErr.message };
+
+  return { ok: true, email: newEmail };
+}

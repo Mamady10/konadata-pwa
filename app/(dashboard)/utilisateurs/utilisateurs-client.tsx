@@ -11,18 +11,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { KeyRound, Copy, Ban, Users, Mail, GraduationCap, FolderKanban, HardHat } from 'lucide-react';
+import { KeyRound, Copy, Ban, Users, Mail, GraduationCap, FolderKanban, HardHat, ShieldAlert } from 'lucide-react';
 import { ROLE_LABELS } from '@/types/database';
 import type { AppRole, OrganizationType } from '@/types/database';
 import type { AccessCodeRow, AccessCodesIssueStatus } from '@/lib/actions/access-codes';
 import { generateAccessCode, revokeAccessCode, sendAccessCodeByEmail } from '@/lib/actions/access-codes';
 import { INVITE_ROLES_BY_ORG } from '@/lib/sector/invite-roles';
+import { canDirectorResetMemberCredentials } from '@/lib/auth/member-credentials-policy';
+import {
+  MemberCredentialsResetPanel,
+  type MemberCredentialsRow,
+} from '@/components/auth/member-credentials-reset-panel';
 
-interface UserRow {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
+interface UserRow extends MemberCredentialsRow {
+  isPhoneAccount: boolean;
   status: string;
   lastLogin: string;
 }
@@ -36,6 +38,8 @@ interface Props {
   issueStatus?: AccessCodesIssueStatus;
   responsablesCount: number;
   isOrgAdmin: boolean;
+  actorRole: AppRole;
+  actorId: string;
 }
 
 function schoolInviteRoles(orgType: OrganizationType, isOrgAdmin: boolean) {
@@ -52,6 +56,8 @@ export function UtilisateursClient({
   issueStatus,
   responsablesCount,
   isOrgAdmin,
+  actorRole,
+  actorId,
 }: Props) {
   const router = useRouter();
   const inviteRoles = schoolInviteRoles(orgType, isOrgAdmin);
@@ -64,6 +70,11 @@ export function UtilisateursClient({
   const [copied, setCopied] = useState<string | null>(null);
   const [resendEmail, setResendEmail] = useState<Record<string, string>>({});
   const [generating, setGenerating] = useState(false);
+  const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
+
+  function memberCanReset(user: UserRow): boolean {
+    return canDirectorResetMemberCredentials(actorRole, user.role, actorId, user.id);
+  }
 
   async function handleGenerate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -290,6 +301,20 @@ export function UtilisateursClient({
         </Card>
       )}
 
+      {resetTarget && (
+        <MemberCredentialsResetPanel
+          member={resetTarget}
+          canReset={memberCanReset(resetTarget)}
+          onClose={() => setResetTarget(null)}
+          onSuccess={(message) => {
+            setInfoTone('success');
+            setInfo(message);
+            setError(null);
+            router.refresh();
+          }}
+        />
+      )}
+
       <DataTable
         title="Membres de l'organisation"
         data={users as unknown as Record<string, unknown>[]}
@@ -324,6 +349,31 @@ export function UtilisateursClient({
             render: (item) => <StatusBadge status={item.status as string} />,
           },
           { key: 'lastLogin', label: 'Dernière connexion' },
+          {
+            key: 'actions',
+            label: 'Secours',
+            render: (item) => {
+              const user = item as unknown as UserRow;
+              if (!memberCanReset(user)) {
+                return <span className="text-xs text-muted-foreground">—</span>;
+              }
+              return (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs border-amber-200 text-amber-900 hover:bg-amber-500/10"
+                  onClick={() => {
+                    setResetTarget(user);
+                    setError(null);
+                  }}
+                >
+                  <ShieldAlert className="h-3 w-3 mr-1" />
+                  Compte
+                </Button>
+              );
+            },
+          },
         ]}
       />
 

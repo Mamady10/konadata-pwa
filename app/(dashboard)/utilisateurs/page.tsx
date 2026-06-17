@@ -8,9 +8,10 @@ import {
 } from '@/lib/actions/access-codes';
 import { UtilisateursClient } from './utilisateurs-client';
 import { redirect } from 'next/navigation';
-import type { Organization } from '@/types/database';
+import type { AppRole, Organization } from '@/types/database';
 import { getOrgType } from '@/types/database';
 import { SchoolOnboardingPanel } from '@/components/school/school-onboarding-panel';
+import { isSyntheticPhoneEmail } from '@/lib/auth/phone-email';
 
 export default async function UtilisateursPage() {
   const session = await getSession();
@@ -30,7 +31,16 @@ export default async function UtilisateursPage() {
     );
   }
 
-  let users: { id: string; name: string; email: string; role: string; status: string; lastLogin: string }[] = [];
+  let users: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+    isPhoneAccount: boolean;
+    role: AppRole;
+    status: string;
+    lastLogin: string;
+  }[] = [];
   let accessCodes: Awaited<ReturnType<typeof listAccessCodes>> = [];
   let canIssue = false;
   let issueStatus: AccessCodesIssueStatus = { allowed: false };
@@ -47,7 +57,9 @@ export default async function UtilisateursPage() {
       id: p.id,
       name: p.full_name,
       email: p.email,
-      role: p.role,
+      phone: (p.phone as string | null) ?? null,
+      isPhoneAccount: isSyntheticPhoneEmail(p.email) || Boolean((p.phone as string | null)?.trim()),
+      role: p.role as AppRole,
       status: p.is_active ? 'Actif' : 'Inactif',
       lastLogin: p.last_login_at
         ? new Date(p.last_login_at).toLocaleDateString('fr-FR')
@@ -73,6 +85,8 @@ export default async function UtilisateursPage() {
         issueStatus={issueStatus}
         responsablesCount={responsablesCount}
         isOrgAdmin={role === 'org_admin'}
+        actorRole={(role ?? 'teacher') as AppRole}
+        actorId={session.user.id}
       />
     </div>
   );
