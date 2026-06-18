@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>KonaData BTP — Modèles de rapports et documents</title>
+  <style>
+    :root { --navy:#0A192F; --cyan:#22d3ee; --blue:#2563eb; --muted:#64748b; }
+    * { box-sizing: border-box; }
+    body { font-family: "Segoe UI", system-ui, sans-serif; margin: 0; background: #f1f5f9; color: #0f172a; }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+    .sub { color: var(--muted); margin-bottom: 2rem; font-size: 0.95rem; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); margin-bottom: 2rem; font-size: 0.85rem; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+    th { background: var(--navy); color: #fff; font-weight: 600; }
+    tr:last-child td { border-bottom: 0; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; }
+    .w { background: #dbeafe; color: #1d4ed8; }
+    .m { background: #d1fae5; color: #047857; }
+    .a { background: #fef3c7; color: #b45309; }
+    .j { background: #f3e8ff; color: #7c3aed; }
+    h2 { font-size: 1.1rem; margin: 2rem 0 0.75rem; }
+    ul.links { list-style: none; padding: 0; display: grid; gap: 8px; }
+    ul.links a { display: block; padding: 12px 16px; background: #fff; border-radius: 10px; text-decoration: none; color: var(--blue); font-weight: 600; border: 1px solid #e2e8f0; }
+    ul.links a:hover { border-color: var(--cyan); }
+    ul.links span { display: block; font-weight: 400; color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+    .legend { font-size: 0.8rem; color: var(--muted); margin-bottom: 1rem; }
+    .legend .badge { margin-right: 6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Modèles BTP — rapports &amp; documents</h1>
+    <p class="sub">Grille indicative pour entreprises BTP en Guinée · Périodes · Rôles · Exemples imprimables (Ctrl+P → PDF)</p>
+
+    <p class="legend">
+      <span class="badge j">J</span> journalier &nbsp;
+      <span class="badge w">S</span> hebdomadaire &nbsp;
+      <span class="badge m">M</span> mensuel &nbsp;
+      <span class="badge a">A</span> annuel
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Document / rapport</th>
+          <th>Période</th>
+          <th>Qui remplit</th>
+          <th>Qui valide / envoie</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Fiche journalière terrain</strong></td>
+          <td><span class="badge j">J</span></td>
+          <td>Chef de chantier (btp_staff)</td>
+          <td>— (saisie directe KonaData)</td>
+        </tr>
+        <tr>
+          <td><strong>Rapport de chantier</strong></td>
+          <td><span class="badge w">S</span></td>
+          <td>Chef de chantier</td>
+          <td>Directeur ou adjoint → MOA / client</td>
+        </tr>
+        <tr>
+          <td><strong>Rapport d'avancement</strong></td>
+          <td><span class="badge w">S</span> <span class="badge m">M</span></td>
+          <td>Chef de chantier (données) · Adjoint (synthèse)</td>
+          <td>Directeur</td>
+        </tr>
+        <tr>
+          <td><strong>Rapport carburant</strong></td>
+          <td><span class="badge w">S</span> <span class="badge m">M</span></td>
+          <td>Chef de chantier (relevés) · Comptable si présent</td>
+          <td>Directeur</td>
+        </tr>
+        <tr>
+          <td><strong>Rapport général chantier</strong></td>
+          <td><span class="badge m">M</span></td>
+          <td>Directeur adjoint (brouillon)</td>
+          <td>Directeur → MOA / bailleur</td>
+        </tr>
+        <tr>
+          <td><strong>Bilan annuel chantiers</strong></td>
+          <td><span class="badge a">A</span></td>
+          <td>Directeur</td>
+          <td>Direction · archives</td>
+        </tr>
+        <tr>
+          <td><strong>Bon de livraison</strong></td>
+          <td>À réception</td>
+          <td>Chef de chantier / magasinier</td>
+          <td>Directeur (archivage)</td>
+        </tr>
+        <tr>
+          <td><strong>Facture fournisseur</strong></td>
+          <td>À réception</td>
+          <td>Comptable ou chef de chantier</td>
+          <td>Directeur</td>
+        </tr>
+        <tr>
+          <td><strong>Fiche sécurité / HSE</strong></td>
+          <td>Si incident · <span class="badge m">M</span> bilan</td>
+          <td>Chef de chantier</td>
+          <td>Directeur</td>
+        </tr>
+        <tr>
+          <td><strong>Photo chantier</strong></td>
+          <td>Continu</td>
+          <td>Chef de chantier</td>
+          <td>— (preuve jointe aux rapports)</td>
+        </tr>
+        <tr>
+          <td><strong>Plan technique / métré</strong></td>
+          <td>Projet · révisions</td>
+          <td>Bureau d'études / directeur</td>
+          <td>Directeur</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Exemples à télécharger / imprimer</h2>
+    <ul class="links">
+      <li><a href="fiche-journaliere-terrain.html">Fiche journalière terrain <span>Saisie quotidienne — travaux, effectifs, blocages</span></a></li>
+      <li><a href="rapport-chantier-hebdomadaire.html">Rapport de chantier hebdomadaire <span>Compte-rendu semaine — MOA</span></a></li>
+      <li><a href="rapport-avancement-mensuel.html">Rapport d'avancement mensuel <span>Physique, financier, planning, retard</span></a></li>
+      <li><a href="rapport-carburant.html">Rapport carburant <span>Hebdo ou mensuel — litres, coûts, anomalies</span></a></li>
+      <li><a href="rapport-general-mensuel.html">Rapport général mensuel <span>Synthèse direction — budget, risques, décisions</span></a></li>
+      <li><a href="rapport-annuel-direction.html">Bilan annuel direction <span>Consolidation multi-chantiers</span></a></li>
+      <li><a href="bon-livraison.html">Bon de livraison <span>Réception matériaux chantier</span></a></li>
+      <li><a href="facture-fournisseur-reception.html">Fiche réception facture fournisseur <span>Contrôle avant paiement</span></a></li>
+      <li><a href="fiche-hse-incident.html">Fiche sécurité / HSE (incident) <span>Incident, EPI, mesures correctives</span></a></li>
+    </ul>
+
+    <p class="sub" style="margin-top:2rem">KonaData · Modèles de référence — à adapter au cahier des charges de chaque MOA / bailleur.</p>
+  </div>
+</body>
+</html>

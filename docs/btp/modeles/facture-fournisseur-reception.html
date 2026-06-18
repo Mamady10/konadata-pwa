@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Fiche réception facture fournisseur — KonaData BTP</title>
+  <link rel="stylesheet" href="_modele-base.css" />
+</head>
+<body>
+  <div class="toolbar">
+    <button type="button" onclick="window.print()">Imprimer / PDF</button>
+    <a href="index.html">← Liste des modèles</a>
+  </div>
+  <article class="sheet">
+    <header class="header">
+      <div>
+        <div class="brand"><span>KONA</span>DATA · BTP</div>
+        <p class="doc-ref">Réf. BTP-FAC-001 · Document comptable</p>
+      </div>
+      <div style="text-align:right">
+        <h1 class="doc-title">Fiche réception facture</h1>
+        <p class="doc-ref">Contrôle avant paiement</p>
+      </div>
+    </header>
+
+    <dl class="meta">
+      <dt>Fournisseur</dt><dd>Guicema Ciment</dd>
+      <dt>N° facture</dt><dd>FA-2026-8841</dd>
+      <dt>Date facture</dt><dd>12 / 06 / 2026</dd>
+      <dt>Montant TTC (GNF)</dt><dd>48 000 000</dd>
+      <dt>Chantier imputé</dt><dd>Route Kaloum — tronçon 2</dd>
+      <dt>BL de référence</dt><dd>BL-2026-0412</dd>
+    </dl>
+
+    <section>
+      <h2>1. Vérifications</h2>
+      <table class="data">
+        <thead><tr><th>Contrôle</th><th>Statut</th><th>Commentaire</th></tr></thead>
+        <tbody>
+          <tr><td>Facture ↔ bon de commande</td><td>✓ Conforme</td><td>BC-2026-0189</td></tr>
+          <tr><td>Facture ↔ bon de livraison</td><td>✓ Conforme</td><td>Qté et désignation OK</td></tr>
+          <tr><td>TVA / mentions légales</td><td>✓</td><td>NIF fournisseur vérifié</td></tr>
+          <tr><td>Prix unitaire</td><td>✓</td><td>Conforme contrat cadre</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>2. Avis réceptionnaire</h2>
+      <div class="box">Marchandise reçue et conforme. Facture validée pour paiement sous 30 jours.</div>
+    </section>
+
+    <section>
+      <h2>3. Pièces jointes</h2>
+      <div class="box">Facture PDF · BL · BC · photo réception (optionnel)</div>
+    </section>
+
+    <div class="signatures">
+      <div><div class="line">Chef de chantier / réceptionnaire</div></div>
+      <div><div class="line">Comptable</div></div>
+      <div><div class="line">Directeur — Bon pour payer</div></div>
+    </div>
+    <p class="footer-note">À réception facture · Archivage Documents chantier type « Facture fournisseur ».</p>
+  </article>
+</body>
+</html>

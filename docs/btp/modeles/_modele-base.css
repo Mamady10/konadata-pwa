@@ -1,0 +1,92 @@
+/* Modèles BTP KonaData — impression A4 */
+@page { size: A4 portrait; margin: 14mm; }
+* { box-sizing: border-box; }
+body {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 11pt;
+  line-height: 1.45;
+  color: #0f172a;
+  margin: 0;
+  padding: 0;
+  background: #fff;
+}
+.sheet {
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 12mm 14mm;
+}
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid #0A192F;
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+}
+.brand { font-size: 1.1rem; font-weight: 800; color: #0A192F; }
+.brand span { color: #22d3ee; }
+.doc-title { font-size: 1.25rem; font-weight: 800; margin: 0 0 4px; }
+.doc-ref { font-size: 0.75rem; color: #64748b; }
+.meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 20px;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+}
+.meta dt { font-weight: 700; color: #475569; margin: 0; }
+.meta dd { margin: 0 0 6px; border-bottom: 1px dotted #cbd5e1; min-height: 1.2em; }
+section { margin-bottom: 14px; }
+section h2 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #2563eb;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 4px;
+  margin: 0 0 8px;
+}
+.box {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 10px 12px;
+  min-height: 48px;
+  background: #fafafa;
+  white-space: pre-wrap;
+}
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  margin-top: 6px;
+}
+table.data th, table.data td {
+  border: 1px solid #cbd5e1;
+  padding: 6px 8px;
+  text-align: left;
+}
+table.data th { background: #f1f5f9; font-weight: 600; }
+.signatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-top: 24px;
+  font-size: 0.8rem;
+}
+.signatures .line { border-top: 1px solid #0f172a; margin-top: 40px; padding-top: 4px; }
+.footer-note { font-size: 0.7rem; color: #94a3b8; margin-top: 20px; }
+.toolbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  background: #0A192F; color: #fff; padding: 8px 16px;
+  display: flex; gap: 12px; align-items: center; font-size: 0.85rem; z-index: 9;
+}
+.toolbar a { color: #22d3ee; }
+.toolbar button {
+  background: #2563eb; color: #fff; border: 0; padding: 6px 14px;
+  border-radius: 6px; cursor: pointer; font-weight: 600;
+}
+@media print {
+  .toolbar { display: none; }
+  .sheet { padding: 0; max-width: none; }
+  .box { background: #fff; }
+}
