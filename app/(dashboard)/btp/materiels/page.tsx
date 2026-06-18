@@ -1,7 +1,6 @@
 import { requireBtpPage } from '@/lib/btp/require-btp-page';
 import { getBtpEquipment, getBtpStock } from '@/lib/actions/btp';
-import { SectorPage } from '@/components/dashboard/sector-page';
-import { Wrench } from 'lucide-react';
+import { MaterielsClient } from './materiels-client';
 
 type SiteRow = { name?: string } | null;
 
@@ -43,14 +42,5 @@ export default async function Page() {
     // empty
   }
 
-  return (
-    <SectorPage
-      title="Matériels"
-      description="Équipements et stock de chantier"
-      icon={Wrench}
-      items={items}
-      connected
-      emptyMessage="Aucun matériel ou stock enregistré."
-    />
-  );
+  return <MaterielsClient items={items} />;
 }

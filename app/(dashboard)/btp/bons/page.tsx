@@ -1,8 +1,7 @@
 import { requireBtpPage } from '@/lib/btp/require-btp-page';
 import { getBtpDeliveryNotes } from '@/lib/actions/btp';
-import { SectorPage } from '@/components/dashboard/sector-page';
 import { formatCurrency } from '@/lib/utils';
-import { Receipt } from 'lucide-react';
+import { BonsClient } from './bons-client';
 
 export default async function Page() {
   const session = await requireBtpPage('bons');
@@ -26,14 +25,5 @@ export default async function Page() {
     items = [];
   }
 
-  return (
-    <SectorPage
-      title="Bons"
-      description="Bons de commande, livraison et carburant"
-      icon={Receipt}
-      items={items}
-      connected
-      emptyMessage="Aucun bon enregistré."
-    />
-  );
+  return <BonsClient items={items} />;
 }
