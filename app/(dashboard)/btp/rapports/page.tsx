@@ -116,8 +116,8 @@ export default async function Page() {
       items={items}
       description={
         isDirector
-          ? 'Synthèses IA par chantier et archives'
-          : 'Rapports de vos chantiers assignés'
+          ? 'Compilation hebdomadaire automatique, synthèses IA et archives'
+          : 'Compilez le rapport hebdo à partir de vos saisies journalières'
       }
       reportHistory={reportHistory}
     />

@@ -5,6 +5,7 @@ import { SectorAiReportPanel } from '@/components/ai/sector-ai-report-panel';
 import { generateBtpAiReport } from '@/lib/actions/ai-reports';
 import { BTP_AI_REPORT_TYPES, type BtpAiReportType } from '@/lib/ai/sector-report-types';
 import { AiReportHistory } from '@/components/ai/ai-report-history';
+import { BtpWeeklyReportPanel } from '@/components/btp/btp-weekly-report-panel';
 import type { AiGeneratedReportRow } from '@/lib/actions/ai-report-archive';
 import { FileText } from 'lucide-react';
 
@@ -32,6 +33,9 @@ interface Props {
 export function BtpRapportsView({ isDirector, sites, items, description, reportHistory }: Props) {
   return (
     <div className="space-y-6">
+      {sites.length > 0 && (
+        <BtpWeeklyReportPanel sites={sites} isDirector={isDirector} />
+      )}
       {isDirector && (
         <SectorAiReportPanel
           sectorLabel="BTP"
