@@ -9,6 +9,7 @@ import { completeOrganizationRegistration } from '@/lib/actions/org-registration
 import { resolvePostAuthDestination } from '@/lib/auth/post-auth-redirect';
 import { learnerHasEnrollmentHistory } from '@/lib/auth/learner-enrollments';
 import type { AppRole } from '@/types/database';
+import { isProfileAccessBlocked, PROFILE_ACCESS_BLOCKED_MESSAGE } from '@/lib/auth/profile-access';
 
 async function resolvePostLoginPath(userId: string): Promise<string> {
   const supabase = await createClient();
@@ -46,16 +47,21 @@ export async function signIn(formData: FormData) {
 
   const { data: { user } } = await supabase.auth.getUser();
   if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('organization_id, role, onboarding_path, is_active, organizations(type, billing_status)')
+      .eq('id', user.id)
+      .single();
+
+    if (isProfileAccessBlocked(profile?.is_active)) {
+      await supabase.auth.signOut();
+      return { error: PROFILE_ACCESS_BLOCKED_MESSAGE };
+    }
+
     await supabase
       .from('profiles')
       .update({ last_login_at: new Date().toISOString() })
       .eq('id', user.id);
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('organization_id, role, onboarding_path, organizations(type, billing_status)')
-      .eq('id', user.id)
-      .single();
     const orgType = (profile?.organizations as { type?: OrganizationType } | null)?.type;
     const hasEnrollmentHistory = await learnerHasEnrollmentHistory(supabase, user.id);
     redirectTo = resolvePostAuthDestination({

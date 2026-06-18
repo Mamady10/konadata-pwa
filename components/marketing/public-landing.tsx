@@ -550,7 +550,11 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
 
           <footer className="relative border-t border-slate-200/80 bg-gradient-to-r from-white via-blue-50/30 to-teal-50/20 py-6 px-4">
             <div className="mx-auto max-w-7xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
-              <p>© {new Date().getFullYear()} {LANDING_BRAND.name}</p>
+              <p>
+                © {new Date().getFullYear()} {LANDING_BRAND.name}
+                <span className="hidden sm:inline"> · </span>
+                <span className="block sm:inline mt-0.5 sm:mt-0 font-medium">{LANDING_BRAND.tagline}</span>
+              </p>
               <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
                 <Link href={LANDING_LINKS.registerOrganization} className="hover:text-[#2563EB]">
                   Créer une organisation

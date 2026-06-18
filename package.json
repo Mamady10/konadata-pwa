@@ -9,6 +9,7 @@
     "lint": "next lint",
     "generate:icons": "node scripts/generate-icons.mjs",
     "generate:poster": "node scripts/generate-konadata-poster.mjs",
+    "build:uniforme-brand": "node scripts/build-uniforme-brand-kit.mjs",
     "test:supabase": "node scripts/test-supabase.mjs",
     "validate:backend": "node scripts/validate-backend.mjs",
     "check:public-api": "node scripts/check-public-api-routes.mjs",
@@ -23,7 +24,10 @@
     "build:demo-video:teaser": "node scripts/build-demo-video.mjs --teaser",
     "build:demo-video:school": "node scripts/build-demo-video.mjs --school",
     "build:demo-video:school-teaser": "node scripts/build-demo-video.mjs --school-teaser",
+    "build:training-videos": "node scripts/build-training-videos.mjs",
+    "build:training-video": "node scripts/build-training-videos.mjs",
     "build:formation-docs": "node scripts/build-formation-docs.mjs",
+    "build:commercial-docs": "node scripts/build-commercial-docs.mjs",
     "generate:test-terminale-pdf": "node scripts/generate-test-terminale-pdf.mjs",
     "test:e2e": "playwright test",
     "test:e2e:setup": "playwright install chromium"

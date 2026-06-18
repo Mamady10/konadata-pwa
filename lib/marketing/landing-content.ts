@@ -1,9 +1,11 @@
 /** Textes de la page d'accueil publique — modifiables sans toucher au layout. */
 
+import { KONADATA_NAME, KONADATA_TAGLINE } from '@/lib/brand/konadata-brand';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
 
 export const LANDING_BRAND = {
-  name: 'KonaData',
+  name: KONADATA_NAME,
+  tagline: KONADATA_TAGLINE,
   logoAccent: 'KONA',
   logoRest: 'DATA',
   wordmarkSrc: '/brand/konadata-wordmark.png',

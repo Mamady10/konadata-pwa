@@ -6,14 +6,15 @@ import { resolvePostAuthDestination } from '@/lib/auth/post-auth-redirect';
 import { learnerHasEnrollmentHistory } from '@/lib/auth/learner-enrollments';
 import type { AppRole } from '@/types/database';
 import type { OrganizationType } from '@/types/database';
+import { isProfileAccessBlocked } from '@/lib/auth/profile-access';
 import LoginForm from './login-form';
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirect?: string; switch?: string }>;
+  searchParams: Promise<{ redirect?: string; switch?: string; blocked?: string }>;
 }) {
-  const { redirect: redirectParam, switch: switchAccount } = await searchParams;
+  const { redirect: redirectParam, switch: switchAccount, blocked } = await searchParams;
   const session = await getSession();
 
   if (session?.user && switchAccount === '1') {
@@ -32,6 +33,19 @@ export default async function LoginPage({
 
   if (session?.user) {
     const profile = session.profile;
+    if (isProfileAccessBlocked(profile?.is_active)) {
+      const supabase = await createClient();
+      await supabase.auth.signOut();
+      return (
+        <Suspense
+          fallback={
+            <div className="min-h-screen flex items-center justify-center">Chargement...</div>
+          }
+        >
+          <LoginForm accessBlocked />
+        </Suspense>
+      );
+    }
     const supabase = await createClient();
     const hasEnrollmentHistory = await learnerHasEnrollmentHistory(
       supabase,
@@ -56,7 +70,7 @@ export default async function LoginPage({
         <div className="min-h-screen flex items-center justify-center">Chargement...</div>
       }
     >
-      <LoginForm />
+      <LoginForm accessBlocked={blocked === '1'} />
     </Suspense>
   );
 }

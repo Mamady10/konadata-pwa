@@ -74,6 +74,14 @@
     }
     .brand-name { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
     .brand-name span { color: var(--cyan); }
+
+    .brand-tagline {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-top: 3px;
+    }
     .badge {
       font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
       padding: 8px 14px; border-radius: 999px;
@@ -149,7 +157,10 @@
       <header class="header">
         <div class="brand">
           <div class="logo">KD</div>
-          <div class="brand-name"><span>KONA</span>DATA</div>
+          <div>
+            <div class="brand-name"><span>KONA</span>DATA</div>
+            <p class="brand-tagline">Simple, connecté, local.</p>
+          </div>
         </div>
         <div class="badge">Écoles · Guinée · PWA</div>
       </header>

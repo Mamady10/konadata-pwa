@@ -42,6 +42,7 @@ import {
 } from '@/lib/org/survey-only-access';
 import { isBillingExemptPath, BILLING_HOME_PATH } from '@/lib/billing/billing-paths';
 import { isPublicApiPath } from '@/lib/http/public-api-routes';
+import { isProfileAccessBlocked } from '@/lib/auth/profile-access';
 
 export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -121,9 +122,17 @@ export async function updateSession(request: NextRequest) {
 
     let { data: profile } = await supabase
       .from('profiles')
-      .select('organization_id, role, onboarding_path, organizations(type)')
+      .select('organization_id, role, onboarding_path, is_active, organizations(type)')
       .eq('id', user.id)
       .single();
+
+    if (isProfileAccessBlocked(profile?.is_active) && isProtectedRoute) {
+      await supabase.auth.signOut();
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      url.searchParams.set('blocked', '1');
+      return NextResponse.redirect(url);
+    }
 
     const isStaffIntent =
       isDirectorOrStaffIntent(accountIntent) ||

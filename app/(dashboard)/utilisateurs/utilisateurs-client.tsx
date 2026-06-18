@@ -11,11 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { KeyRound, Copy, Ban, Users, Mail, GraduationCap, FolderKanban, HardHat, ShieldAlert } from 'lucide-react';
+import { KeyRound, Copy, Ban, Users, Mail, GraduationCap, FolderKanban, HardHat, ShieldAlert, UserX, UserCheck } from 'lucide-react';
 import { ROLE_LABELS } from '@/types/database';
 import type { AppRole, OrganizationType } from '@/types/database';
 import type { AccessCodeRow, AccessCodesIssueStatus } from '@/lib/actions/access-codes';
 import { generateAccessCode, revokeAccessCode, sendAccessCodeByEmail } from '@/lib/actions/access-codes';
+import { setMemberAccessActive } from '@/lib/actions/member-access';
 import { INVITE_ROLES_BY_ORG } from '@/lib/sector/invite-roles';
 import { canDirectorResetMemberCredentials } from '@/lib/auth/member-credentials-policy';
 import {
@@ -25,6 +26,7 @@ import {
 
 interface UserRow extends MemberCredentialsRow {
   isPhoneAccount: boolean;
+  isActive: boolean;
   status: string;
   lastLogin: string;
 }
@@ -71,8 +73,9 @@ export function UtilisateursClient({
   const [resendEmail, setResendEmail] = useState<Record<string, string>>({});
   const [generating, setGenerating] = useState(false);
   const [resetTarget, setResetTarget] = useState<UserRow | null>(null);
+  const [togglingUserId, setTogglingUserId] = useState<string | null>(null);
 
-  function memberCanReset(user: UserRow): boolean {
+  function memberCanManage(user: UserRow): boolean {
     return canDirectorResetMemberCredentials(actorRole, user.role, actorId, user.id);
   }
 
@@ -139,6 +142,33 @@ export function UtilisateursClient({
   async function handleRevoke(id: string) {
     await revokeAccessCode(id);
     router.refresh();
+  }
+
+  async function handleToggleAccess(user: UserRow, active: boolean) {
+    const verb = active ? 'réactiver' : 'bloquer';
+    const detail = active
+      ? `Réactiver l'accès de ${user.name} ?`
+      : `Bloquer l'accès de ${user.name} ? La personne ne pourra plus se connecter (ex. changement de professeur, fin de collaboration).`;
+    if (!window.confirm(detail)) return;
+
+    setError(null);
+    setInfo(null);
+    setTogglingUserId(user.id);
+    try {
+      const fd = new FormData();
+      fd.set('target_user_id', user.id);
+      fd.set('active', active ? 'true' : 'false');
+      const result = await setMemberAccessActive(fd);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setInfoTone('success');
+      setInfo(result.message ?? (active ? 'Accès réactivé.' : 'Accès bloqué.'));
+      router.refresh();
+    } finally {
+      setTogglingUserId(null);
+    }
   }
 
   function copyCode(code: string) {
@@ -304,7 +334,7 @@ export function UtilisateursClient({
       {resetTarget && (
         <MemberCredentialsResetPanel
           member={resetTarget}
-          canReset={memberCanReset(resetTarget)}
+          canReset={memberCanManage(resetTarget)}
           onClose={() => setResetTarget(null)}
           onSuccess={(message) => {
             setInfoTone('success');
@@ -350,11 +380,50 @@ export function UtilisateursClient({
           },
           { key: 'lastLogin', label: 'Dernière connexion' },
           {
+            key: 'access',
+            label: 'Accès',
+            render: (item) => {
+              const user = item as unknown as UserRow;
+              if (!memberCanManage(user)) {
+                return <span className="text-xs text-muted-foreground">—</span>;
+              }
+              const busy = togglingUserId === user.id;
+              if (user.isActive) {
+                return (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs border-red-200 text-red-800 hover:bg-red-500/10"
+                    disabled={busy}
+                    onClick={() => handleToggleAccess(user, false)}
+                  >
+                    <UserX className="h-3 w-3 mr-1" />
+                    {busy ? '…' : 'Bloquer'}
+                  </Button>
+                );
+              }
+              return (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs border-emerald-200 text-emerald-800 hover:bg-emerald-500/10"
+                  disabled={busy}
+                  onClick={() => handleToggleAccess(user, true)}
+                >
+                  <UserCheck className="h-3 w-3 mr-1" />
+                  {busy ? '…' : 'Réactiver'}
+                </Button>
+              );
+            },
+          },
+          {
             key: 'actions',
             label: 'Secours',
             render: (item) => {
               const user = item as unknown as UserRow;
-              if (!memberCanReset(user)) {
+              if (!memberCanManage(user) || !user.isActive) {
                 return <span className="text-xs text-muted-foreground">—</span>;
               }
               return (

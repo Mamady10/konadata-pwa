@@ -38,6 +38,7 @@ export default async function UtilisateursPage() {
     phone: string | null;
     isPhoneAccount: boolean;
     role: AppRole;
+    isActive: boolean;
     status: string;
     lastLogin: string;
   }[] = [];
@@ -60,6 +61,7 @@ export default async function UtilisateursPage() {
       phone: (p.phone as string | null) ?? null,
       isPhoneAccount: isSyntheticPhoneEmail(p.email) || Boolean((p.phone as string | null)?.trim()),
       role: p.role as AppRole,
+      isActive: p.is_active !== false,
       status: p.is_active ? 'Actif' : 'Inactif',
       lastLogin: p.last_login_at
         ? new Date(p.last_login_at).toLocaleDateString('fr-FR')

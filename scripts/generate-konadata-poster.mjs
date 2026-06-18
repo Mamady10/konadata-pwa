@@ -14,6 +14,7 @@ const ROOT = join(__dirname, '..');
 const OUT_DIR = join(ROOT, 'public', 'marketing');
 const QR_PATH = join(ROOT, 'public', 'konadata-qr.png');
 const CONTACT_PATH = join(ROOT, 'lib', 'marketing', 'poster-contact.json');
+const BRAND_TAGLINE = 'Simple, connecté, local.';
 
 /** A4 @ 300 dpi */
 const W = 2480;
@@ -117,6 +118,7 @@ function posterSvg(qrBase64, contact, variant) {
   <text x="195" y="192" text-anchor="middle" fill="#fff" font-family="system-ui,sans-serif" font-size="42" font-weight="800">KD</text>
   <text x="280" y="155" fill="#22d3ee" font-family="system-ui,sans-serif" font-size="72" font-weight="800">KONA</text>
   <text x="280" y="225" fill="#f8fafc" font-family="system-ui,sans-serif" font-size="72" font-weight="800">DATA</text>
+  <text x="280" y="268" fill="rgba(248,250,252,0.55)" font-family="system-ui,sans-serif" font-size="26" font-weight="600" letter-spacing="2">${esc(BRAND_TAGLINE)}</text>
 
   <rect x="${W - 560}" y="135" width="420" height="56" rx="28" fill="rgba(45,212,191,0.12)" stroke="rgba(45,212,191,0.35)" stroke-width="2"/>
   <text x="${W - 350}" y="172" text-anchor="middle" fill="#2dd4bf" font-family="system-ui,sans-serif" font-size="24" font-weight="700" letter-spacing="2">${esc(badge)}</text>

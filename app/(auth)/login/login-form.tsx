@@ -25,17 +25,22 @@ import {
   ACCOUNT_PHONE_FIELD_HINT,
   ACCOUNT_PHONE_FIELD_LABEL,
 } from '@/lib/auth/phone-field-copy';
+import { isProfileAccessBlocked, PROFILE_ACCESS_BLOCKED_MESSAGE } from '@/lib/auth/profile-access';
 
 interface LoginFormProps {
   /** Affiché après déconnexion depuis « Changer de compte ». */
   accountSwitched?: boolean;
+  /** Compte désactivé par la direction. */
+  accessBlocked?: boolean;
 }
 
-export default function LoginForm({ accountSwitched = false }: LoginFormProps) {
+export default function LoginForm({ accountSwitched = false, accessBlocked = false }: LoginFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get('redirect') || '';
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    accessBlocked ? PROFILE_ACCESS_BLOCKED_MESSAGE : null
+  );
   const [loading, setLoading] = useState(false);
   const [fixingLearner, setFixingLearner] = useState(false);
   const [authMethod, setAuthMethod] = useState<AuthMethod>('phone');
@@ -103,16 +108,22 @@ export default function LoginForm({ accountSwitched = false }: LoginFormProps) {
 
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('organization_id, role, onboarding_path, is_active, organizations(type)')
+          .eq('id', user.id)
+          .single();
+
+        if (isProfileAccessBlocked(profile?.is_active)) {
+          await supabase.auth.signOut();
+          setError(PROFILE_ACCESS_BLOCKED_MESSAGE);
+          return;
+        }
+
         await supabase
           .from('profiles')
           .update({ last_login_at: new Date().toISOString() })
           .eq('id', user.id);
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id, role, onboarding_path, organizations(type)')
-          .eq('id', user.id)
-          .single();
 
         const accountIntent = user.user_metadata?.account_intent as string | undefined;
         const orgType = (profile?.organizations as { type?: OrganizationType } | null)?.type;
@@ -166,16 +177,22 @@ export default function LoginForm({ accountSwitched = false }: LoginFormProps) {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
+      let { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id, role, onboarding_path, is_active, organizations(type)')
+        .eq('id', user.id)
+        .single();
+
+      if (isProfileAccessBlocked(profile?.is_active)) {
+        await supabase.auth.signOut();
+        setError(PROFILE_ACCESS_BLOCKED_MESSAGE);
+        return;
+      }
+
       await supabase
         .from('profiles')
         .update({ last_login_at: new Date().toISOString() })
         .eq('id', user.id);
-
-      let { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id, role, onboarding_path, organizations(type)')
-        .eq('id', user.id)
-        .single();
 
       const accountIntent = user.user_metadata?.account_intent as string | undefined;
 
