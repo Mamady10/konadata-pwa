@@ -17,6 +17,7 @@
     "test:access-codes": "node scripts/test-access-codes.mjs",
     "deploy:schema": "node scripts/deploy-schema.mjs",
     "seed:demo": "node scripts/seed-demo-accounts.mjs",
+    "seed:demo-btp-chef": "node scripts/seed-demo-btp-chef.mjs",
     "capture:demo": "node scripts/capture-demo-screenshots.mjs",
     "capture:demo:all": "node scripts/seed-demo-accounts.mjs && node scripts/capture-demo-screenshots.mjs",
     "capture:demo:setup": "playwright install chromium",
