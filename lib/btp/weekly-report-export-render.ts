@@ -1,5 +1,4 @@
 import type { jsPDF } from 'jspdf';
-import { formatCurrency } from '@/lib/utils';
 import type { WeeklyReportExportStructured } from '@/lib/btp/weekly-report-export-types';
 import { kpiStatusLabel } from '@/lib/btp/site-baseline';
 import type { KpiTrafficStatus } from '@/lib/btp/site-baseline-types';
@@ -18,17 +17,32 @@ export const EXPORT_COLORS = {
 
 /** jsPDF helvetica ne gère pas bien certains caractères Unicode. */
 export function sanitizePdfText(text: string): string {
-  return text
+  return String(text ?? '')
     .normalize('NFC')
+    .replace(/\u202F/g, ' ')
+    .replace(/\u00a0/g, ' ')
     .replace(/\u2192/g, '->')
     .replace(/[\u2013\u2014]/g, '-')
     .replace(/\u2022/g, '-')
     .replace(/\u26a0\ufe0f?/g, '!')
-    .replace(/\u00a0/g, ' ');
+    .replace(/[^\x09\x0A\x0D\x20-\x7E\u00C0-\u024F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
+/** Montants GNF lisibles en PDF (ASCII, sans Intl). */
 export function formatGnfPdf(amount: number): string {
-  return sanitizePdfText(formatCurrency(amount));
+  const rounded = Math.round(Number(amount) || 0);
+  const abs = Math.abs(rounded);
+  const grouped = abs
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return rounded < 0 ? `-${grouped} GNF` : `${grouped} GNF`;
+}
+
+export function formatPdfNumber(value: number): string {
+  const rounded = Math.round(Number(value) || 0);
+  return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
 export function drawSectionTitle(doc: jsPDF, y: number, title: string, margin: number): number {

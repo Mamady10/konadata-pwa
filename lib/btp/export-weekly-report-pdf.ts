@@ -10,6 +10,7 @@ import {
   synthesisTableRows,
   identificationTableRows,
   formatGnfPdf,
+  formatPdfNumber,
   comparisonMetricsTableRows,
   milestoneTableRows,
   drawKpiRow,
@@ -26,7 +27,6 @@ function wrapLines(doc: jsPDF, text: string, maxWidth: number): string[] {
 function ensureSpace(doc: jsPDF, y: number, needed: number): number {
   if (y + needed > 278) {
     doc.addPage();
-    drawPageFooter(doc);
     return 24;
   }
   return y;
@@ -42,10 +42,13 @@ function drawPageFooter(doc: jsPDF, orgName: string) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...EXPORT_COLORS.muted);
-    doc.text(sanitizePdfText(`${orgName} — Rapport hebdomadaire`), MARGIN, 292);
-    doc.text(`Propulse par KonaData · Page ${i}/${pageCount}`, PAGE_W - MARGIN, 292, {
-      align: 'right',
-    });
+    doc.text(sanitizePdfText(`${orgName} - Rapport hebdomadaire`), MARGIN, 292);
+    doc.text(
+      sanitizePdfText(`Propulse par KonaData - Page ${i}/${pageCount}`),
+      PAGE_W - MARGIN,
+      292,
+      { align: 'right' }
+    );
   }
 }
 
@@ -53,9 +56,10 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const orgName = displayOrgName(payload.orgName);
   const { structured: s } = payload;
-  const generatedAt =
+  const generatedAt = sanitizePdfText(
     payload.generatedAt ??
-    new Date().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
+      new Date().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })
+  );
 
   doc.setFillColor(...EXPORT_COLORS.navy);
   doc.rect(0, 0, PAGE_W, 48, 'F');
@@ -86,7 +90,7 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
   let y = 58;
   doc.setTextColor(...EXPORT_COLORS.muted);
   doc.setFontSize(8);
-  doc.text(sanitizePdfText(`Genere le ${generatedAt} · ${payload.isoWeek}`), MARGIN, y);
+  doc.text(sanitizePdfText(`Genere le ${generatedAt} - ${payload.isoWeek}`), MARGIN, y);
   y += 10;
 
   y = ensureSpace(doc, y, 50);
@@ -263,7 +267,7 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
   } else {
     y = drawTable(doc, y, MARGIN, CONTENT_W, [58, CONTENT_W - 58], [
       ['Indicateur', 'Valeur'],
-      ['Total litres', `${s.fuel.totalLiters.toLocaleString('fr-FR')} L`],
+      ['Total litres', `${formatPdfNumber(s.fuel.totalLiters)} L`],
       ['Cout total', formatGnfPdf(s.fuel.totalCost)],
       ['Releves / anomalies', `${s.fuel.count} / ${s.fuel.anomalies}`],
     ]);
@@ -279,7 +283,7 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
           ['Date', 'Litres', 'Statut'],
           ...s.fuel.rows.slice(0, 8).map((r) => [
             r.dateLabel,
-            r.liters.toLocaleString('fr-FR'),
+            formatPdfNumber(r.liters),
             r.isAnomaly ? 'Anomalie' : 'Normal',
           ]),
         ]
