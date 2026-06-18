@@ -28,5 +28,5 @@ ALTER TABLE btp_site_milestones ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS btp_site_milestones_all ON btp_site_milestones;
 CREATE POLICY btp_site_milestones_all ON btp_site_milestones FOR ALL TO authenticated
-  USING (organization_id = get_user_org_id())
-  WITH CHECK (organization_id = get_user_org_id());
+  USING (belongs_to_org(organization_id) AND is_btp_org() AND is_btp_staff_role())
+  WITH CHECK (belongs_to_org(organization_id) AND is_btp_org() AND is_btp_staff_role());
