@@ -1,6 +1,8 @@
 import type { jsPDF } from 'jspdf';
 import { formatCurrency } from '@/lib/utils';
 import type { WeeklyReportExportStructured } from '@/lib/btp/weekly-report-export-types';
+import { kpiStatusLabel } from '@/lib/btp/site-baseline';
+import type { KpiTrafficStatus } from '@/lib/btp/site-baseline-types';
 
 export const EXPORT_COLORS = {
   navy: [10, 25, 47] as [number, number, number],
@@ -154,12 +156,113 @@ export function identificationTableRows(
   orgName: string,
   id: WeeklyReportExportStructured['identification']
 ): string[][] {
-  return [
+  const rows: string[][] = [
     ['Champ', 'Valeur'],
     ['Organisation', orgName],
     ['Chantier', id.chantier],
+  ];
+  if (id.client) rows.push(['Client / MOA', id.client]);
+  if (id.contractRef) rows.push(['N° contrat', id.contractRef]);
+  if (id.moaRecipient) rows.push(['Destinataire rapport', id.moaRecipient]);
+  rows.push(
     ['Localisation', id.localisation ?? '-'],
-    ['Statut', id.statut],
-    ['Periode', id.periode],
+    ['Statut', id.statut]
+  );
+  if (id.planningStart && id.planningEnd) {
+    rows.push(['Planning', `${id.planningStart} -> ${id.planningEnd}`]);
+  }
+  rows.push(['Periode rapport', id.periode]);
+  return rows;
+}
+
+const KPI_COLORS: Record<string, [number, number, number]> = {
+  green: [16, 185, 129],
+  amber: [245, 158, 11],
+  red: [239, 68, 68],
+  neutral: [148, 163, 184],
+};
+
+export function drawKpiRow(
+  doc: jsPDF,
+  y: number,
+  margin: number,
+  labels: { name: string; status: KpiTrafficStatus }[]
+): number {
+  let x = margin;
+  for (const item of labels) {
+    const color = KPI_COLORS[item.status] ?? KPI_COLORS.neutral;
+    doc.setFillColor(...color);
+    doc.circle(x + 2, y + 1.5, 1.8, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...EXPORT_COLORS.text);
+    doc.text(sanitizePdfText(item.name), x + 5, y + 2.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...EXPORT_COLORS.muted);
+    doc.text(sanitizePdfText(kpiStatusLabel(item.status)), x + 5, y + 6);
+    x += 46;
+  }
+  return y + 12;
+}
+
+export function comparisonMetricsTableRows(
+  c: NonNullable<WeeklyReportExportStructured['comparison']>
+): string[][] {
+  const rows: string[][] = [['Indicateur', 'Planifie / Ref.', 'Reel', 'Ecart']];
+  if (c.plannedPhysicalPct != null) {
+    rows.push([
+      'Avancement physique',
+      `${c.plannedPhysicalPct} %`,
+      `${c.actualPhysicalPct} %`,
+      c.physicalGapPts != null ? `${c.physicalGapPts >= 0 ? '+' : ''}${c.physicalGapPts} pt` : '-',
+    ]);
+  }
+  if (c.timeElapsedPct != null) {
+    rows.push([
+      'Temps vs travaux',
+      `${c.timeElapsedPct} % temps`,
+      `${c.actualPhysicalPct} % travaux`,
+      c.timeVsPhysicalGapPts != null
+        ? `${c.timeVsPhysicalGapPts >= 0 ? '+' : ''}${c.timeVsPhysicalGapPts} pt`
+        : '-',
+    ]);
+  }
+  if (c.budgetPlannedCumulative != null) {
+    rows.push([
+      'Budget cumule',
+      formatGnfPdf(c.budgetPlannedCumulative),
+      formatGnfPdf(c.budgetConsumedCumulative),
+      c.budgetGapAmount != null
+        ? `${c.budgetGapAmount >= 0 ? '+' : ''}${formatGnfPdf(c.budgetGapAmount)}`
+        : '-',
+    ]);
+  }
+  if (c.financialPctAuto != null) {
+    rows.push([
+      'Physique vs financier',
+      `${c.actualPhysicalPct} % phys.`,
+      `${c.financialPctAuto} % fin.`,
+      c.physicalVsFinancialGapPts != null
+        ? `${c.physicalVsFinancialGapPts >= 0 ? '+' : ''}${c.physicalVsFinancialGapPts} pt`
+        : '-',
+    ]);
+  }
+  return rows;
+}
+
+export function milestoneTableRows(
+  c: NonNullable<WeeklyReportExportStructured['comparison']>
+): string[][] {
+  if (c.milestoneRows.length === 0) return [];
+  return [
+    ['Jalon', 'Prevu', 'Cible', 'Realise', 'Ecart (j)'],
+    ...c.milestoneRows.map((m) => [
+      m.label,
+      m.plannedDate,
+      `${m.targetPhysicalPct} %`,
+      m.actualDate ? `${m.actualDate} (${m.actualPhysicalPct} %)` : 'Non atteint',
+      m.gapDays != null ? String(m.gapDays) : '-',
+    ]),
   ];
 }

@@ -8,6 +8,12 @@ import {
   timestampInRange,
 } from '@/lib/btp/week-period';
 import type { WeeklyReportExportStructured } from '@/lib/btp/weekly-report-export-types';
+import {
+  buildWeeklyComparisonMetrics,
+  mapSiteRowToBaseline,
+} from '@/lib/btp/site-baseline';
+import type { BtpSiteMilestoneRow } from '@/lib/btp/site-baseline-types';
+import { kpiStatusLabel } from '@/lib/btp/site-baseline';
 
 export const BTP_WEEKLY_SITE_REPORT_TYPE = 'weekly_site';
 export const BTP_WEEKLY_SITE_REPORT_LABEL = 'Rapport de chantier hebdomadaire';
@@ -50,7 +56,7 @@ export async function compileBtpWeeklySiteReport(
   const { data: site, error: siteErr } = await supabase
     .from('btp_sites')
     .select(
-      'id, name, location, budget, spent, status, physical_progress, financial_progress, delay_days'
+      'id, name, location, client, contract_ref, budget, spent, status, physical_progress, financial_progress, delay_days, start_date, end_date, description, moa_recipient, planned_avg_workers, planned_monthly_fuel_liters, budget_alert_pct, budget_breakdown'
     )
     .eq('organization_id', input.orgId)
     .eq('id', input.siteId)
@@ -59,11 +65,31 @@ export async function compileBtpWeeklySiteReport(
   if (siteErr) throw new Error(siteErr.message);
   if (!site?.id) throw new Error('Chantier introuvable.');
 
+  const milestonesRes = await supabase
+    .from('btp_site_milestones')
+    .select('id, label, target_physical_pct, planned_date, sort_order')
+    .eq('organization_id', input.orgId)
+    .eq('site_id', input.siteId)
+    .order('sort_order', { ascending: true });
+
+  const milestoneRows: BtpSiteMilestoneRow[] = milestonesRes.error
+    ? []
+    : (milestonesRes.data ?? []).map((m) => ({
+    id: m.id as string,
+    label: m.label as string,
+    targetPhysicalPct: Number(m.target_physical_pct),
+    plannedDate: (m.planned_date as string).slice(0, 10),
+    sortOrder: Number(m.sort_order ?? 0),
+  }));
+
+  const baseline = mapSiteRowToBaseline(site as Record<string, unknown>, milestoneRows);
+
   const siteName = site.name as string;
   const title = `Rapport de chantier hebdomadaire — ${siteName}`;
   const subtitle = labelFr;
 
-  const [dailyRes, fuelRes, notesRes, docsRes] = await Promise.all([
+  const [dailyRes, fuelRes, notesRes, docsRes, allDailyRes, allFuelRes, allNotesRes] =
+    await Promise.all([
     supabase
       .from('btp_daily_progress')
       .select('progress_date, physical_pct, workers_count, notes, weather')
@@ -91,6 +117,23 @@ export async function compileBtpWeeklySiteReport(
       .select('doc_type, created_at, documents(file_name, created_at)')
       .eq('organization_id', input.orgId)
       .eq('site_id', input.siteId),
+    supabase
+      .from('btp_daily_progress')
+      .select('progress_date, physical_pct, workers_count')
+      .eq('organization_id', input.orgId)
+      .eq('site_id', input.siteId)
+      .order('progress_date', { ascending: true }),
+    supabase
+      .from('btp_fuel_logs')
+      .select('cost, logged_at')
+      .eq('organization_id', input.orgId)
+      .eq('site_id', input.siteId)
+      .lte('logged_at', `${to}T23:59:59`),
+    supabase
+      .from('btp_delivery_notes')
+      .select('total_amount, delivery_date')
+      .eq('organization_id', input.orgId)
+      .eq('site_id', input.siteId),
   ]);
 
   if (dailyRes.error) throw new Error(dailyRes.error.message);
@@ -99,6 +142,9 @@ export async function compileBtpWeeklySiteReport(
 
   const daily = dailyRes.data ?? [];
   const fuel = fuelRes.data ?? [];
+  const allDaily = allDailyRes.data ?? [];
+  const allFuel = allFuelRes.data ?? [];
+  const allNotesRaw = allNotesRes.data ?? [];
   const notes = (notesRes.data ?? []).filter((n) => {
     const d = (n.delivery_date as string) || '';
     return d ? dateInRange(d.slice(0, 10), from, to) : false;
@@ -116,16 +162,6 @@ export async function compileBtpWeeklySiteReport(
   const sections: ReportSection[] = [];
 
   const orgLine = input.orgName ? `Organisation : ${input.orgName}` : '';
-  sections.push({
-    heading: 'Identification',
-    lines: [
-      orgLine,
-      `Chantier : ${siteName}`,
-      (site.location as string) ? `Localisation : ${site.location}` : '',
-      `Statut : ${siteStatusLabel(site.status as string)}`,
-      `Période : ${labelFr}`,
-    ].filter(Boolean),
-  });
 
   const physStart =
     daily.length > 0
@@ -136,15 +172,116 @@ export async function compileBtpWeeklySiteReport(
       ? Number(daily[daily.length - 1].physical_pct ?? site.physical_progress ?? 0)
       : Number(site.physical_progress ?? 0);
   const budget = Number(site.budget ?? 0);
-  const spent = Number(site.spent ?? 0);
+
+  const workersValsWeek = daily
+    .map((d) => d.workers_count)
+    .filter((w): w is number => w != null && !Number.isNaN(Number(w)));
+  const avgWorkersWeek =
+    workersValsWeek.length > 0
+      ? Math.round(workersValsWeek.reduce((a, b) => a + Number(b), 0) / workersValsWeek.length)
+      : null;
+
+  const fuelCostToDate = allFuel.reduce((s, l) => s + Number(l.cost ?? 0), 0);
+  const deliveryToDate = allNotesRaw
+    .filter((n) => {
+      const d = (n.delivery_date as string) || '';
+      return d ? d.slice(0, 10) <= to : false;
+    })
+    .reduce((s, n) => s + Number(n.total_amount ?? 0), 0);
+
+  const comparison = buildWeeklyComparisonMetrics({
+    baseline,
+    asOfDate: to,
+    periodFrom: from,
+    periodTo: to,
+    actualPhysicalPct: Math.round(physEnd),
+    dailyProgressInWeek: daily.map((d) => ({
+      date: (d.progress_date as string).slice(0, 10),
+      physicalPct: Math.round(Number(d.physical_pct ?? 0)),
+    })),
+    dailyProgressAll: allDaily.map((d) => ({
+      date: (d.progress_date as string).slice(0, 10),
+      physicalPct: Math.round(Number(d.physical_pct ?? 0)),
+    })),
+    fuelCostToDate,
+    deliveryAmountToDate: deliveryToDate,
+    fuelLitersWeek: fuel.reduce((s, l) => s + Number(l.liters ?? 0), 0),
+    avgWorkersWeek,
+    delayDays: Number(site.delay_days ?? 0),
+  });
+
+  const spent = comparison.budgetConsumedCumulative;
+  const financialPct =
+    comparison.financialPctAuto ?? Math.round(Number(site.financial_progress ?? 0));
+
+  sections.push({
+    heading: 'Identification',
+    lines: [
+      orgLine,
+      baseline.client ? `Client / MOA : ${baseline.client}` : '',
+      baseline.contractRef ? `N° contrat : ${baseline.contractRef}` : '',
+      `Chantier : ${siteName}`,
+      (site.location as string) ? `Localisation : ${site.location}` : '',
+      `Statut : ${siteStatusLabel(site.status as string)}`,
+      baseline.startDate && baseline.endDate
+        ? `Planning : ${baseline.startDate} → ${baseline.endDate}`
+        : '',
+      `Période rapport : ${labelFr}`,
+    ].filter(Boolean),
+  });
+
+  const comparisonLines: string[] = [];
+  if (comparison.plannedPhysicalPct != null) {
+    comparisonLines.push(
+      `Avancement planifié (réf.) : ${comparison.plannedPhysicalPct} % — réalisé : ${comparison.actualPhysicalPct} % (écart ${comparison.physicalGapPts! >= 0 ? '+' : ''}${comparison.physicalGapPts} pt)`
+    );
+  }
+  if (comparison.timeElapsedPct != null) {
+    comparisonLines.push(
+      `Temps écoulé : ${comparison.timeElapsedPct} % — travaux : ${comparison.actualPhysicalPct} % (écart ${comparison.timeVsPhysicalGapPts! >= 0 ? '+' : ''}${comparison.timeVsPhysicalGapPts} pt)`
+    );
+  }
+  if (comparison.budgetPlannedCumulative != null && budget > 0) {
+    comparisonLines.push(
+      `Budget planifié cumulé : ${formatCurrencyGnf(comparison.budgetPlannedCumulative)} — consommé : ${formatCurrencyGnf(comparison.budgetConsumedCumulative)} (écart ${comparison.budgetGapAmount! >= 0 ? '+' : ''}${formatCurrencyGnf(comparison.budgetGapAmount ?? 0)})`
+    );
+    comparisonLines.push(
+      `Exécution financière : ${comparison.budgetExecutionPct} % — écart physique/financier : ${comparison.physicalVsFinancialGapPts! >= 0 ? '+' : ''}${comparison.physicalVsFinancialGapPts} pt`
+    );
+  }
+  comparisonLines.push(
+    `KPI synthèse : Planning ${kpiStatusLabel(comparison.kpis.planning)} · Budget ${kpiStatusLabel(comparison.kpis.budget)} · Délais ${kpiStatusLabel(comparison.kpis.schedule)} · Global ${kpiStatusLabel(comparison.kpis.overall)}`
+  );
+  if (comparison.milestoneRows.length > 0) {
+    comparisonLines.push('Jalons :');
+    for (const m of comparison.milestoneRows) {
+      const actual = m.actualDate
+        ? `atteint le ${m.actualDate} (${m.actualPhysicalPct} %)`
+        : 'non atteint';
+      const gap =
+        m.gapDays != null
+          ? m.gapDays === 0
+            ? ' (à jour)'
+            : m.gapDays > 0
+              ? ` (+${m.gapDays} j)`
+              : ` (${m.gapDays} j)`
+          : '';
+      comparisonLines.push(
+        `• ${m.label} — prévu ${m.plannedDate} (${m.targetPhysicalPct} %) — ${actual}${gap}`
+      );
+    }
+  }
+  if (comparisonLines.length > 0) {
+    sections.push({ heading: 'Analyse planifié vs réel', lines: comparisonLines });
+  }
 
   sections.push({
     heading: 'Synthèse de la semaine',
     lines: [
       `Avancement physique : ${Math.round(physStart)} % → ${Math.round(physEnd)} % (${physEnd >= physStart ? '+' : ''}${Math.round(physEnd - physStart)} pt)`,
-      `Avancement financier (chantier) : ${Math.round(Number(site.financial_progress ?? 0))} %`,
+      `Avancement financier (calculé) : ${financialPct} %`,
       `Retard cumulé : ${Number(site.delay_days ?? 0)} jour(s)`,
-      `Budget : ${formatCurrencyGnf(budget)} — dépensé ${formatCurrencyGnf(spent)} — reste ${formatCurrencyGnf(Math.max(0, budget - spent))}`,
+      `Budget : ${formatCurrencyGnf(budget)} — dépensé (cumul) ${formatCurrencyGnf(spent)} — reste ${formatCurrencyGnf(Math.max(0, budget - spent))}`,
       `${daily.length} fiche(s) journalière(s) enregistrée(s) sur la période.`,
     ],
   });
@@ -289,16 +426,23 @@ export async function compileBtpWeeklySiteReport(
       localisation: (site.location as string) || null,
       statut: siteStatusLabel(site.status as string),
       periode: labelFr,
+      client: baseline.client,
+      contractRef: baseline.contractRef,
+      moaRecipient: baseline.moaRecipient,
+      planningStart: baseline.startDate,
+      planningEnd: baseline.endDate,
     },
     synthesis: {
       physicalStart: Math.round(physStart),
       physicalEnd: Math.round(physEnd),
-      financialPct: Math.round(Number(site.financial_progress ?? 0)),
+      financialPct,
       delayDays: Number(site.delay_days ?? 0),
       budget,
       spent,
       dailyCount: daily.length,
     },
+    comparison,
+    budgetBreakdown: baseline.budgetBreakdown,
     dailyRows,
     avgWorkers,
     fuel: {

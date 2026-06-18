@@ -1,5 +1,7 @@
 import type { ReportSection } from '@/lib/ai/reports/render-report';
 
+import type { BtpBudgetBreakdown, BtpWeeklyComparisonMetrics } from '@/lib/btp/site-baseline-types';
+
 export interface WeeklyReportExportStats {
   dailyEntries: number;
   fuelLogs: number;
@@ -12,6 +14,11 @@ export interface WeeklyReportIdentification {
   localisation: string | null;
   statut: string;
   periode: string;
+  client?: string | null;
+  contractRef?: string | null;
+  moaRecipient?: string | null;
+  planningStart?: string | null;
+  planningEnd?: string | null;
 }
 
 export interface WeeklyReportSynthesis {
@@ -68,6 +75,8 @@ export interface WeeklyReportExportStructured {
     noteSnippets: string[];
   };
   comment: string | null;
+  comparison: BtpWeeklyComparisonMetrics | null;
+  budgetBreakdown: BtpBudgetBreakdown;
 }
 
 /** Données structurées pour export PDF / PPTX du rapport hebdo chantier. */

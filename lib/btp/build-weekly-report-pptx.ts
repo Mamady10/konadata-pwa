@@ -4,6 +4,11 @@ import PptxGenJS from 'pptxgenjs';
 import type { WeeklyReportExportPayload } from '@/lib/btp/weekly-report-export-types';
 import { displayOrgName } from '@/lib/btp/weekly-report-export-types';
 import { formatCurrency } from '@/lib/utils';
+import { kpiStatusLabel } from '@/lib/btp/site-baseline';
+import {
+  comparisonMetricsTableRows,
+  milestoneTableRows,
+} from '@/lib/btp/weekly-report-export-render';
 
 const COLORS = {
   bg: 'F8FAFC',
@@ -167,10 +172,171 @@ export async function buildWeeklyReportPptxBuffer(
   addKeyValueTable(idSlide, [
     ['Organisation', orgName],
     ['Chantier', s.identification.chantier],
+    ['Client / MOA', s.identification.client ?? '—'],
+    ['N° contrat', s.identification.contractRef ?? '—'],
     ['Localisation', s.identification.localisation ?? '—'],
     ['Statut', s.identification.statut],
-    ['Période', s.identification.periode],
+    [
+      'Planning',
+      s.identification.planningStart && s.identification.planningEnd
+        ? `${s.identification.planningStart} → ${s.identification.planningEnd}`
+        : '—',
+    ],
+    ['Période rapport', s.identification.periode],
   ]);
+
+  const cmp = s.comparison;
+  if (cmp) {
+    const cmpSlide = pptx.addSlide();
+    cmpSlide.background = { color: COLORS.bg };
+    addHeaderBar(cmpSlide, 'Analyse planifié vs réel');
+    cmpSlide.addText(
+      `Planning : ${kpiStatusLabel(cmp.kpis.planning)}  ·  Budget : ${kpiStatusLabel(cmp.kpis.budget)}  ·  Délais : ${kpiStatusLabel(cmp.kpis.schedule)}  ·  Global : ${kpiStatusLabel(cmp.kpis.overall)}`,
+      {
+        x: 0.45,
+        y: 0.95,
+        w: 9.1,
+        h: 0.4,
+        fontSize: 11,
+        bold: true,
+        color: COLORS.text,
+        fontFace: 'Segoe UI',
+      }
+    );
+    const metricRows = comparisonMetricsTableRows(cmp);
+    if (metricRows.length > 1) {
+      cmpSlide.addTable(
+        [
+          metricRows[0].map((h) => tableHeaderCell(h)),
+          ...metricRows.slice(1).map((row) => row.map((c) => tableCell(c))),
+        ],
+        {
+          x: 0.35,
+          y: 1.35,
+          w: 9.3,
+          colW: [2.2, 2.3, 2.3, 2.5],
+          fontSize: 9,
+          border: { type: 'solid', color: 'E2E8F0', pt: 0.5 },
+        }
+      );
+    }
+    const mRows = milestoneTableRows(cmp);
+    if (mRows.length > 0) {
+      cmpSlide.addTable(
+        [
+          mRows[0].map((h) => tableHeaderCell(h)),
+          ...mRows.slice(1).map((row) => row.map((c) => tableCell(c))),
+        ],
+        {
+          x: 0.35,
+          y: 3.55,
+          w: 9.3,
+          colW: [2, 1.5, 1.2, 2.8, 1.8],
+          fontSize: 8,
+          border: { type: 'solid', color: 'E2E8F0', pt: 0.5 },
+        }
+      );
+    }
+  }
+
+  const compareChartSlide = cmp ? pptx.addSlide() : null;
+  if (compareChartSlide && cmp) {
+    compareChartSlide.background = { color: COLORS.bg };
+    addHeaderBar(compareChartSlide, 'Comparaisons — courbes & budget');
+    if (cmp.timeElapsedPct != null) {
+      compareChartSlide.addChart(
+        pptx.ChartType.bar,
+        [
+          {
+            name: '%',
+            labels: ['Temps écoulé', 'Travaux réalisés'],
+            values: [cmp.timeElapsedPct, cmp.actualPhysicalPct],
+          },
+        ],
+        {
+          x: 0.45,
+          y: 1.05,
+          w: 4.2,
+          h: 3.5,
+          showTitle: true,
+          title: 'Temps vs avancement',
+          valAxisMaxVal: 100,
+          chartColors: [COLORS.primary],
+        }
+      );
+    }
+    if (cmp.plannedPhysicalPct != null) {
+      compareChartSlide.addChart(
+        pptx.ChartType.bar,
+        [
+          {
+            name: '%',
+            labels: ['Planifié', 'Réalisé'],
+            values: [cmp.plannedPhysicalPct, cmp.actualPhysicalPct],
+          },
+        ],
+        {
+          x: 5.15,
+          y: 1.05,
+          w: 4.4,
+          h: 3.5,
+          showTitle: true,
+          title: 'Avancement physique',
+          valAxisMaxVal: 100,
+          chartColors: [COLORS.teal],
+        }
+      );
+    }
+    if (cmp.budgetPlannedCumulative != null && s.synthesis.budget > 0 && cmp.progressCurve.length < 2) {
+      compareChartSlide.addChart(
+        pptx.ChartType.bar,
+        [
+          {
+            name: 'GNF (millions)',
+            labels: ['Planifié cumulé', 'Consommé cumulé'],
+            values: [
+              Math.round(cmp.budgetPlannedCumulative / 1_000_000),
+              Math.round(cmp.budgetConsumedCumulative / 1_000_000),
+            ],
+          },
+        ],
+        {
+          x: 0.55,
+          y: 4.75,
+          w: 8.9,
+          h: 1.15,
+          showTitle: true,
+          title: 'Budget cumulé',
+          chartColors: ['F59E0B'],
+        }
+      );
+    }
+    if (cmp.progressCurve.length >= 2) {
+      compareChartSlide.addChart(
+        pptx.ChartType.line,
+        [
+          {
+            name: 'Planifié',
+            labels: cmp.progressCurve.map((p) => p.label),
+            values: cmp.progressCurve.map((p) => p.plannedPct ?? 0),
+          },
+          {
+            name: 'Réalisé',
+            labels: cmp.progressCurve.map((p) => p.label),
+            values: cmp.progressCurve.map((p) => p.actualPct ?? 0),
+          },
+        ],
+        {
+          x: 0.55,
+          y: 4.75,
+          w: 8.9,
+          h: 1.15,
+          showTitle: false,
+          valAxisMaxVal: 100,
+        }
+      );
+    }
+  }
 
   const kpiSlide = pptx.addSlide();
   kpiSlide.background = { color: COLORS.bg };

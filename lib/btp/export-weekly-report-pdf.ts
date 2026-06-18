@@ -10,6 +10,9 @@ import {
   synthesisTableRows,
   identificationTableRows,
   formatGnfPdf,
+  comparisonMetricsTableRows,
+  milestoneTableRows,
+  drawKpiRow,
 } from '@/lib/btp/weekly-report-export-render';
 
 const PAGE_W = 210;
@@ -89,6 +92,86 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
   y = ensureSpace(doc, y, 50);
   y = drawSectionTitle(doc, y, 'Identification', MARGIN);
   y = drawTable(doc, y, MARGIN, CONTENT_W, [52, CONTENT_W - 52], identificationTableRows(orgName, s.identification));
+
+  const cmp = s.comparison;
+  if (cmp) {
+    y = ensureSpace(doc, y, 70);
+    y = drawSectionTitle(doc, y, 'Analyse planifie vs reel', MARGIN);
+    y = drawKpiRow(doc, y, MARGIN, [
+      { name: 'Planning', status: cmp.kpis.planning },
+      { name: 'Budget', status: cmp.kpis.budget },
+      { name: 'Delais', status: cmp.kpis.schedule },
+      { name: 'Global', status: cmp.kpis.overall },
+    ]);
+    if (comparisonMetricsTableRows(cmp).length > 1) {
+      y = drawTable(doc, y, MARGIN, CONTENT_W, [42, 38, 38, CONTENT_W - 118], comparisonMetricsTableRows(cmp));
+    }
+    const mRows = milestoneTableRows(cmp);
+    if (mRows.length > 0) {
+      y = ensureSpace(doc, y, 24);
+      y = drawTable(doc, y, MARGIN, CONTENT_W, [36, 28, 18, 48, 22], mRows);
+    }
+    if (cmp.progressCurve.length >= 2) {
+      y = ensureSpace(doc, y, 48);
+      y = drawBarChart(
+        doc,
+        y,
+        MARGIN,
+        CONTENT_W,
+        'Courbe avancement planifie vs realise (semaine)',
+        cmp.progressCurve.flatMap((p) => [
+          {
+            label: `${p.label} (P)`,
+            value: p.plannedPct ?? 0,
+            color: EXPORT_COLORS.muted,
+          },
+          {
+            label: `${p.label} (R)`,
+            value: p.actualPct ?? 0,
+            color: EXPORT_COLORS.bar,
+          },
+        ]).slice(0, 10)
+      );
+    }
+    if (cmp.timeElapsedPct != null) {
+      y = ensureSpace(doc, y, 42);
+      y = drawBarChart(
+        doc,
+        y,
+        MARGIN,
+        CONTENT_W,
+        'Temps ecoule vs avancement physique (%)',
+        [
+          { label: 'Temps', value: cmp.timeElapsedPct, color: EXPORT_COLORS.muted },
+          { label: 'Travaux', value: cmp.actualPhysicalPct, color: EXPORT_COLORS.bar },
+        ],
+        { maxValue: 100, unit: '%' }
+      );
+    }
+    if (cmp.budgetPlannedCumulative != null && s.synthesis.budget > 0) {
+      y = ensureSpace(doc, y, 42);
+      y = drawBarChart(
+        doc,
+        y,
+        MARGIN,
+        CONTENT_W,
+        'Budget cumule planifie vs consomme (GNF)',
+        [
+          {
+            label: 'Planifie',
+            value: Math.round(cmp.budgetPlannedCumulative / 1_000_000),
+            color: EXPORT_COLORS.muted,
+          },
+          {
+            label: 'Consomme',
+            value: Math.round(cmp.budgetConsumedCumulative / 1_000_000),
+            color: EXPORT_COLORS.barSecondary,
+          },
+        ],
+        { unit: 'M' }
+      );
+    }
+  }
 
   y = ensureSpace(doc, y, 55);
   y = drawSectionTitle(doc, y, 'Synthese de la semaine', MARGIN);

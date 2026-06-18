@@ -8,6 +8,8 @@ import { getSession } from '@/lib/actions/auth';
 import { getBtpDocuments } from '@/lib/actions/storage';
 import { canManageAssignments, getMyAssignedBtpSiteIds } from '@/lib/actions/assignments';
 import type { PersonalDashboardLink } from '@/lib/sector/personal-dashboard-types';
+import { normalizeBudgetBreakdownInput } from '@/lib/btp/site-baseline';
+import type { BtpSiteMilestoneInput } from '@/lib/btp/site-baseline-types';
 
 async function filterSitesByAssignment<T extends { id: string }>(sites: T[]): Promise<T[]> {
   const assigned = await getMyAssignedBtpSiteIds();
@@ -459,19 +461,90 @@ export async function createBtpSite(formData: FormData) {
   const name = (formData.get('name') as string)?.trim();
   if (!name) return { error: 'Le nom du chantier est requis' };
 
-  const { error } = await supabase.from('btp_sites').insert({
-    organization_id: orgId,
-    name,
-    location: (formData.get('location') as string) || null,
-    budget: Number(formData.get('budget') || 0),
-    status: 'active',
-    physical_progress: Number(formData.get('physical_progress') || 0),
-    financial_progress: Number(formData.get('financial_progress') || 0),
-  });
+  const startDate = (formData.get('start_date') as string)?.trim() || null;
+  const endDate = (formData.get('end_date') as string)?.trim() || null;
+  if (startDate && endDate && startDate > endDate) {
+    return { error: 'La date de fin doit être après la date de début.' };
+  }
+
+  const budgetBreakdown = normalizeBudgetBreakdownInput(
+    Number(formData.get('budget_labor') || 0),
+    Number(formData.get('budget_materials') || 0),
+    Number(formData.get('budget_equipment') || 0),
+    Number(formData.get('budget_subcontract') || 0),
+    Number(formData.get('budget_overhead') || 0)
+  );
+
+  let milestones: BtpSiteMilestoneInput[] = [];
+  const milestonesRaw = (formData.get('milestones_json') as string)?.trim();
+  if (milestonesRaw) {
+    try {
+      const parsed = JSON.parse(milestonesRaw) as BtpSiteMilestoneInput[];
+      if (Array.isArray(parsed)) {
+        milestones = parsed.filter(
+          (m) =>
+            m.label?.trim() &&
+            m.plannedDate &&
+            !Number.isNaN(Number(m.targetPhysicalPct)) &&
+            Number(m.targetPhysicalPct) >= 0 &&
+            Number(m.targetPhysicalPct) <= 100
+        );
+      }
+    } catch {
+      return { error: 'Format des jalons invalide.' };
+    }
+  }
+
+  const { data: site, error } = await supabase
+    .from('btp_sites')
+    .insert({
+      organization_id: orgId,
+      name,
+      location: (formData.get('location') as string)?.trim() || null,
+      client: (formData.get('client') as string)?.trim() || null,
+      contract_ref: (formData.get('contract_ref') as string)?.trim() || null,
+      start_date: startDate,
+      end_date: endDate,
+      budget: Number(formData.get('budget') || 0),
+      spent: Number(formData.get('opening_spent') || 0),
+      status: 'active',
+      physical_progress: Number(formData.get('physical_progress') || 0),
+      financial_progress: Number(formData.get('financial_progress') || 0),
+      description: (formData.get('description') as string)?.trim() || null,
+      moa_recipient: (formData.get('moa_recipient') as string)?.trim() || null,
+      planned_avg_workers:
+        formData.get('planned_avg_workers') !== ''
+          ? Number(formData.get('planned_avg_workers'))
+          : null,
+      planned_monthly_fuel_liters:
+        formData.get('planned_monthly_fuel_liters') !== ''
+          ? Number(formData.get('planned_monthly_fuel_liters'))
+          : null,
+      budget_alert_pct: Number(formData.get('budget_alert_pct') || 90),
+      budget_breakdown: budgetBreakdown,
+    })
+    .select('id')
+    .single();
 
   if (error) return { error: error.message };
+
+  if (milestones.length > 0 && site?.id) {
+    const { error: msErr } = await supabase.from('btp_site_milestones').insert(
+      milestones.map((m, i) => ({
+        organization_id: orgId,
+        site_id: site.id,
+        label: m.label.trim(),
+        target_physical_pct: Number(m.targetPhysicalPct),
+        planned_date: m.plannedDate,
+        sort_order: m.sortOrder ?? i,
+      }))
+    );
+    if (msErr) return { error: msErr.message };
+  }
+
   revalidatePath('/btp/chantiers');
   revalidatePath('/btp');
+  revalidatePath('/btp/rapports');
   return { success: true };
 }
 
