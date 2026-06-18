@@ -11,6 +11,7 @@ import {
   compileBtpWeeklySiteReport,
 } from '@/lib/btp/compile-weekly-site-report';
 import { getCurrentIsoWeekValue } from '@/lib/btp/week-period';
+import type { ReportSection } from '@/lib/ai/reports/render-report';
 
 export type CompileBtpWeeklyReportResult =
   | { error: string }
@@ -19,6 +20,9 @@ export type CompileBtpWeeklyReportResult =
       title: string;
       subtitle: string;
       isoWeek: string;
+      scopeLabel: string;
+      orgName: string | null;
+      sections: ReportSection[];
       stats: {
         dailyEntries: number;
         fuelLogs: number;
@@ -124,6 +128,9 @@ export async function compileBtpWeeklySiteReportAction(
       title: compiled.title,
       subtitle: compiled.subtitle,
       isoWeek: compiled.isoWeek,
+      scopeLabel: compiled.scopeLabel,
+      orgName: org?.name ?? null,
+      sections: compiled.sections,
       stats: compiled.stats,
       archived,
       archiveId,

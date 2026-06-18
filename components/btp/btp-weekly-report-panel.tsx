@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AiReportDiffusion } from '@/components/ai/ai-report-diffusion';
+import { BtpWeeklyReportExport } from '@/components/btp/btp-weekly-report-export';
 import { compileBtpWeeklySiteReportAction } from '@/lib/actions/btp-weekly-report';
 import { getCurrentIsoWeekValue } from '@/lib/btp/week-period';
+import type { WeeklyReportExportPayload } from '@/lib/btp/weekly-report-export-types';
 import { CalendarRange, FileStack, Loader2, CheckCircle2 } from 'lucide-react';
 
 interface SiteOption {
@@ -33,11 +34,7 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
   const [reportTitle, setReportTitle] = useState<string | null>(null);
   const [archiveId, setArchiveId] = useState<string | null>(null);
   const [archived, setArchived] = useState(false);
-  const [stats, setStats] = useState<{
-    dailyEntries: number;
-    fuelLogs: number;
-    deliveryNotes: number;
-  } | null>(null);
+  const [exportPayload, setExportPayload] = useState<WeeklyReportExportPayload | null>(null);
 
   async function handleCompile(e: React.FormEvent) {
     e.preventDefault();
@@ -50,7 +47,7 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
     setReport(null);
     setArchiveId(null);
     setArchived(false);
-    setStats(null);
+    setExportPayload(null);
 
     const fd = new FormData();
     fd.set('site_id', siteId);
@@ -69,10 +66,15 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
     setReportTitle(result.title);
     setArchiveId(result.archiveId ?? null);
     setArchived(result.archived);
-    setStats({
-      dailyEntries: result.stats.dailyEntries,
-      fuelLogs: result.stats.fuelLogs,
-      deliveryNotes: result.stats.deliveryNotes,
+    setExportPayload({
+      title: result.title,
+      subtitle: result.subtitle,
+      isoWeek: result.isoWeek,
+      scopeLabel: result.scopeLabel,
+      orgName: result.orgName,
+      sections: result.sections,
+      stats: result.stats,
+      generatedAt: new Date().toISOString(),
     });
     if (result.archived) router.refresh();
   }
@@ -91,7 +93,7 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
         <CardDescription>
           Compile automatiquement les <strong>fiches journalières</strong> (Avancement), le{' '}
           <strong>carburant</strong> et les <strong>bons de livraison</strong> de la semaine
-          sélectionnée en un seul rapport.
+          sélectionnée — téléchargeable en <strong>PDF</strong> et <strong>PowerPoint</strong>.
           {isDirector
             ? ' Archivé automatiquement après compilation.'
             : ' Transmettez le fichier au directeur pour validation officielle.'}
@@ -163,10 +165,11 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
           </p>
         )}
 
-        {stats && (
+        {exportPayload && (
           <p className="text-xs text-muted-foreground">
-            Sources : {stats.dailyEntries} fiche(s) journalière(s) · {stats.fuelLogs} relevé(s)
-            carburant · {stats.deliveryNotes} bon(s) de livraison
+            Sources : {exportPayload.stats.dailyEntries} fiche(s) journalière(s) ·{' '}
+            {exportPayload.stats.fuelLogs} relevé(s) carburant ·{' '}
+            {exportPayload.stats.deliveryNotes} bon(s) de livraison
           </p>
         )}
 
@@ -177,12 +180,16 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
           </p>
         )}
 
-        {report && reportTitle && (
+        {report && reportTitle && exportPayload && (
           <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
             <pre className="text-xs whitespace-pre-wrap max-h-64 overflow-y-auto font-mono leading-relaxed">
               {report}
             </pre>
-            <AiReportDiffusion title={reportTitle} content={report} archiveId={archiveId} />
+            <BtpWeeklyReportExport
+              payload={exportPayload}
+              textFallback={report}
+              archiveId={archiveId}
+            />
           </div>
         )}
       </CardContent>
