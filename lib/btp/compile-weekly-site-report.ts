@@ -7,6 +7,7 @@ import {
   dateInRange,
   timestampInRange,
 } from '@/lib/btp/week-period';
+import type { WeeklyReportExportStructured } from '@/lib/btp/weekly-report-export-types';
 
 export const BTP_WEEKLY_SITE_REPORT_TYPE = 'weekly_site';
 export const BTP_WEEKLY_SITE_REPORT_LABEL = 'Rapport de chantier hebdomadaire';
@@ -27,6 +28,7 @@ export interface BtpWeeklyCompileResult {
   periodFrom: string;
   periodTo: string;
   sections: ReportSection[];
+  structured: WeeklyReportExportStructured;
   report: string;
   stats: {
     dailyEntries: number;
@@ -258,6 +260,80 @@ export async function compileBtpWeeklySiteReport(
     modeLabel: 'Compilation automatique — fiches journalières + carburant + BL',
   });
 
+  const dailyRows = daily.map((d) => {
+    const dateLabel = new Date(`${d.progress_date as string}T12:00:00Z`).toLocaleDateString('fr-FR', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    });
+    return {
+      dateLabel,
+      progressPct: Math.round(Number(d.physical_pct ?? 0)),
+      workers: d.workers_count != null ? Number(d.workers_count) : null,
+      weather: (d.weather as string) || null,
+      notes: (d.notes as string)?.trim() || '—',
+    };
+  });
+
+  const workersVals = daily
+    .map((d) => d.workers_count)
+    .filter((w): w is number => w != null && !Number.isNaN(Number(w)));
+  const avgWorkers =
+    workersVals.length > 0
+      ? Math.round(workersVals.reduce((a, b) => a + Number(b), 0) / workersVals.length)
+      : null;
+
+  const structured: WeeklyReportExportStructured = {
+    identification: {
+      chantier: siteName,
+      localisation: (site.location as string) || null,
+      statut: siteStatusLabel(site.status as string),
+      periode: labelFr,
+    },
+    synthesis: {
+      physicalStart: Math.round(physStart),
+      physicalEnd: Math.round(physEnd),
+      financialPct: Math.round(Number(site.financial_progress ?? 0)),
+      delayDays: Number(site.delay_days ?? 0),
+      budget,
+      spent,
+      dailyCount: daily.length,
+    },
+    dailyRows,
+    avgWorkers,
+    fuel: {
+      totalLiters: totalL,
+      totalCost: totalFuelCost,
+      count: fuel.length,
+      anomalies,
+      rows: fuel.map((l) => ({
+        dateLabel: new Date(l.logged_at as string).toLocaleDateString('fr-FR'),
+        liters: Number(l.liters ?? 0),
+        isAnomaly: Boolean(l.is_anomaly),
+      })),
+    },
+    deliveries: {
+      count: notes.length,
+      totalAmount: blTotal,
+      rows: notes.map((n) => ({
+        reference: n.reference as string,
+        supplier: (n.supplier as string) ?? '—',
+        amount: Number(n.total_amount ?? 0),
+        dateLabel: n.delivery_date
+          ? new Date(n.delivery_date as string).toLocaleDateString('fr-FR')
+          : '—',
+      })),
+    },
+    hse: {
+      mentions: hseMentions,
+      docsCount: hseDocs.length,
+      noteSnippets: hseFromNotes.slice(0, 3).map((n) =>
+        n.length > 200 ? `${n.slice(0, 200)}…` : n
+      ),
+    },
+    comment: input.weeklyComment?.trim() || null,
+  };
+
   return {
     title,
     subtitle,
@@ -266,6 +342,7 @@ export async function compileBtpWeeklySiteReport(
     periodFrom: from,
     periodTo: to,
     sections,
+    structured,
     report,
     stats: {
       dailyEntries: daily.length,

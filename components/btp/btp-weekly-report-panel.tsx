@@ -73,6 +73,7 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
       scopeLabel: result.scopeLabel,
       orgName: result.orgName,
       sections: result.sections,
+      structured: result.structured,
       stats: result.stats,
       generatedAt: new Date().toISOString(),
     });

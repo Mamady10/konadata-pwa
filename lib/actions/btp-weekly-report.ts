@@ -12,6 +12,7 @@ import {
 } from '@/lib/btp/compile-weekly-site-report';
 import { getCurrentIsoWeekValue } from '@/lib/btp/week-period';
 import type { ReportSection } from '@/lib/ai/reports/render-report';
+import type { WeeklyReportExportStructured } from '@/lib/btp/weekly-report-export-types';
 
 export type CompileBtpWeeklyReportResult =
   | { error: string }
@@ -23,6 +24,7 @@ export type CompileBtpWeeklyReportResult =
       scopeLabel: string;
       orgName: string | null;
       sections: ReportSection[];
+      structured: WeeklyReportExportStructured;
       stats: {
         dailyEntries: number;
         fuelLogs: number;
@@ -131,6 +133,7 @@ export async function compileBtpWeeklySiteReportAction(
       scopeLabel: compiled.scopeLabel,
       orgName: org?.name ?? null,
       sections: compiled.sections,
+      structured: compiled.structured,
       stats: compiled.stats,
       archived,
       archiveId,
