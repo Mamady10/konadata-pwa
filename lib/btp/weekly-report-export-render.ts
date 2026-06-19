@@ -151,6 +151,107 @@ export function drawBarChart(
   return y + totalH;
 }
 
+export type SCurvePoint = {
+  date: string;
+  label: string;
+  plannedPct: number | null;
+  actualPct: number | null;
+};
+
+/** Courbe S planifie vs realise (lignes cumulatives, axe temps). */
+export function drawSCurveChart(
+  doc: jsPDF,
+  startY: number,
+  margin: number,
+  contentW: number,
+  title: string,
+  points: SCurvePoint[]
+): number {
+  if (points.length < 2) return startY;
+
+  const padL = 10;
+  const chartH = 44;
+  const plotW = contentW - padL - 2;
+  const plotH = chartH - 6;
+  const plotX = margin + padL;
+  const plotY = startY + 7;
+  const yMax = 100;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(...EXPORT_COLORS.muted);
+  doc.text(sanitizePdfText(title), margin, startY);
+
+  const yAt = (v: number) => plotY + plotH - (Math.min(yMax, Math.max(0, v)) / yMax) * plotH;
+  const xAt = (i: number) => plotX + (i / (points.length - 1)) * plotW;
+
+  for (const tick of [0, 25, 50, 75, 100]) {
+    const y = yAt(tick);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.15);
+    doc.line(plotX, y, plotX + plotW, y);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6);
+    doc.setTextColor(...EXPORT_COLORS.muted);
+    doc.text(String(tick), margin + 1, y + 1);
+  }
+
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.25);
+  doc.line(plotX, plotY + plotH, plotX + plotW, plotY + plotH);
+
+  doc.setDrawColor(...EXPORT_COLORS.muted);
+  doc.setLineWidth(0.55);
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i].plannedPct;
+    const b = points[i + 1].plannedPct;
+    if (a != null && b != null) {
+      doc.line(xAt(i), yAt(a), xAt(i + 1), yAt(b));
+    }
+  }
+
+  doc.setDrawColor(...EXPORT_COLORS.bar);
+  doc.setLineWidth(0.85);
+  let lastActualIdx: number | null = null;
+  for (let i = 0; i < points.length; i++) {
+    const v = points[i].actualPct;
+    if (v == null) continue;
+    if (lastActualIdx != null) {
+      doc.line(
+        xAt(lastActualIdx),
+        yAt(points[lastActualIdx].actualPct!),
+        xAt(i),
+        yAt(v)
+      );
+    }
+    lastActualIdx = i;
+  }
+
+  const n = points.length;
+  const labelEvery = Math.max(1, Math.ceil(n / 6));
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.5);
+  doc.setTextColor(...EXPORT_COLORS.muted);
+  for (let i = 0; i < n; i += labelEvery) {
+    doc.text(sanitizePdfText(points[i].label), xAt(i), plotY + plotH + 5, { align: 'center' });
+  }
+  if ((n - 1) % labelEvery !== 0) {
+    doc.text(sanitizePdfText(points[n - 1].label), xAt(n - 1), plotY + plotH + 5, { align: 'center' });
+  }
+
+  const legY = plotY + plotH + 11;
+  doc.setDrawColor(...EXPORT_COLORS.muted);
+  doc.setLineWidth(0.55);
+  doc.line(margin + 2, legY - 0.5, margin + 10, legY - 0.5);
+  doc.text('Planifie', margin + 12, legY);
+  doc.setDrawColor(...EXPORT_COLORS.bar);
+  doc.setLineWidth(0.85);
+  doc.line(margin + 32, legY - 0.5, margin + 40, legY - 0.5);
+  doc.text('Realise', margin + 42, legY);
+
+  return legY + 5;
+}
+
 export function synthesisTableRows(s: WeeklyReportExportStructured['synthesis']): string[][] {
   const delta = s.physicalEnd - s.physicalStart;
   const sign = delta >= 0 ? '+' : '';

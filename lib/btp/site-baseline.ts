@@ -18,6 +18,62 @@ function daysBetween(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / MS_PER_DAY);
 }
 
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * MS_PER_DAY);
+}
+
+function toIsoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+export type ProgressCurvePoint = BtpWeeklyComparisonMetrics['progressCurve'][number];
+
+/** Points pour courbe S : planifié sur toute la durée, réalisé jusqu'à la date du rapport. */
+export function buildProjectSCurve(params: {
+  baseline: Pick<BtpSiteBaseline, 'startDate' | 'endDate' | 'milestones'>;
+  asOfDate: string;
+  dailyProgressAll: Array<{ date: string; physicalPct: number }>;
+  maxPoints?: number;
+}): ProgressCurvePoint[] {
+  const { baseline, asOfDate, dailyProgressAll, maxPoints = 14 } = params;
+  const start = parseDate(baseline.startDate);
+  const end = parseDate(baseline.endDate);
+  if (!start || !end) return [];
+
+  const totalDays = daysBetween(start, end);
+  if (totalDays <= 0) return [];
+
+  const sortedDaily = [...dailyProgressAll].sort((a, b) => a.date.localeCompare(b.date));
+  const asOf = asOfDate.slice(0, 10);
+
+  const datesSet = new Set<string>([toIsoDate(start), toIsoDate(end), asOf]);
+  const step = Math.max(7, Math.ceil(totalDays / Math.max(1, maxPoints - 1)));
+  for (let d = 0; d <= totalDays; d += step) {
+    datesSet.add(toIsoDate(addDays(start, d)));
+  }
+  for (const m of baseline.milestones) {
+    if (m.plannedDate) datesSet.add(m.plannedDate.slice(0, 10));
+  }
+
+  const dates = [...datesSet].sort();
+  const longProject = totalDays > 120;
+
+  return dates.map((date) => {
+    const planned = plannedPhysicalPctAt(baseline, date);
+    let actual: number | null = null;
+    if (date <= asOf) {
+      const prior = sortedDaily.filter((d) => d.date <= date);
+      actual = prior.length > 0 ? prior[prior.length - 1].physicalPct : 0;
+    }
+    const d = parseDate(date)!;
+    const label = longProject
+      ? d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })
+      : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+
+    return { date, label, plannedPct: planned, actualPct: actual };
+  });
+}
+
 /** Interpolation linéaire de l'avancement planifié à une date donnée. */
 export function plannedPhysicalPctAt(
   baseline: Pick<BtpSiteBaseline, 'startDate' | 'endDate' | 'milestones'>,
@@ -250,6 +306,12 @@ export function buildWeeklyComparisonMetrics(params: {
     });
   }
 
+  const sCurve = buildProjectSCurve({
+    baseline,
+    asOfDate,
+    dailyProgressAll,
+  });
+
   return {
     asOfDate,
     plannedPhysicalPct: plannedPhysical,
@@ -271,6 +333,7 @@ export function buildWeeklyComparisonMetrics(params: {
       overall: overallFrom([planningStatus, budgetStatus, scheduleStatus]),
     },
     progressCurve,
+    sCurve,
     plannedAvgWorkers: baseline.plannedAvgWorkers,
     actualAvgWorkersWeek: avgWorkersWeek,
     plannedFuelMonthLiters: baseline.plannedMonthlyFuelLiters,

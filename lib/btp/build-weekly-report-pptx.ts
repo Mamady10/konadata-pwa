@@ -287,7 +287,7 @@ export async function buildWeeklyReportPptxBuffer(
         }
       );
     }
-    if (cmp.budgetPlannedCumulative != null && s.synthesis.budget > 0 && cmp.progressCurve.length < 2) {
+    if (cmp.budgetPlannedCumulative != null && s.synthesis.budget > 0 && cmp.sCurve.length < 2 && cmp.progressCurve.length < 2) {
       compareChartSlide.addChart(
         pptx.ChartType.bar,
         [
@@ -311,19 +311,25 @@ export async function buildWeeklyReportPptxBuffer(
         }
       );
     }
-    if (cmp.progressCurve.length >= 2) {
+    const curve =
+      cmp.sCurve.length >= 2
+        ? cmp.sCurve
+        : cmp.progressCurve.length >= 2
+          ? cmp.progressCurve
+          : [];
+    if (curve.length >= 2) {
       compareChartSlide.addChart(
         pptx.ChartType.line,
         [
           {
             name: 'Planifié',
-            labels: cmp.progressCurve.map((p) => p.label),
-            values: cmp.progressCurve.map((p) => p.plannedPct ?? 0),
+            labels: curve.map((p) => p.label),
+            values: curve.map((p) => p.plannedPct ?? 0),
           },
           {
             name: 'Réalisé',
-            labels: cmp.progressCurve.map((p) => p.label),
-            values: cmp.progressCurve.map((p) => p.actualPct ?? 0),
+            labels: curve.map((p) => p.label),
+            values: curve.map((p) => (p.actualPct != null ? p.actualPct : '')),
           },
         ],
         {
@@ -331,7 +337,11 @@ export async function buildWeeklyReportPptxBuffer(
           y: 4.75,
           w: 8.9,
           h: 1.15,
-          showTitle: false,
+          showTitle: true,
+          title:
+            cmp.sCurve.length >= 2
+              ? 'Courbe S avancement planifié vs réalisé'
+              : 'Avancement planifié vs réalisé (semaine)',
           valAxisMaxVal: 100,
         }
       );

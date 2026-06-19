@@ -7,6 +7,7 @@ import {
   drawSectionTitle,
   drawTable,
   drawBarChart,
+  drawSCurveChart,
   synthesisTableRows,
   identificationTableRows,
   formatGnfPdf,
@@ -115,26 +116,23 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
       y = ensureSpace(doc, y, 24);
       y = drawTable(doc, y, MARGIN, CONTENT_W, [36, 28, 18, 48, 22], mRows);
     }
-    if (cmp.progressCurve.length >= 2) {
-      y = ensureSpace(doc, y, 48);
-      y = drawBarChart(
+    const curve =
+      cmp.sCurve.length >= 2
+        ? cmp.sCurve
+        : cmp.progressCurve.length >= 2
+          ? cmp.progressCurve
+          : [];
+    if (curve.length >= 2) {
+      y = ensureSpace(doc, y, 58);
+      y = drawSCurveChart(
         doc,
         y,
         MARGIN,
         CONTENT_W,
-        'Courbe avancement planifie vs realise (semaine)',
-        cmp.progressCurve.flatMap((p) => [
-          {
-            label: `${p.label} (P)`,
-            value: p.plannedPct ?? 0,
-            color: EXPORT_COLORS.muted,
-          },
-          {
-            label: `${p.label} (R)`,
-            value: p.actualPct ?? 0,
-            color: EXPORT_COLORS.bar,
-          },
-        ]).slice(0, 10)
+        cmp.sCurve.length >= 2
+          ? 'Courbe S avancement planifie vs realise (chantier)'
+          : 'Courbe avancement planifie vs realise (semaine)',
+        curve
       );
     }
     if (cmp.timeElapsedPct != null) {

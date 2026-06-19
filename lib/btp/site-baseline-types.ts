@@ -68,8 +68,15 @@ export interface BtpWeeklyComparisonMetrics {
     schedule: KpiTrafficStatus;
     overall: KpiTrafficStatus;
   };
-  /** Points pour courbe planifié vs réalisé (semaine en cours). */
+  /** Points journaliers planifié vs réalisé (semaine en cours). */
   progressCurve: Array<{
+    date: string;
+    label: string;
+    plannedPct: number | null;
+    actualPct: number | null;
+  }>;
+  /** Courbe S chantier : avancement cumulé sur toute la durée contractuelle. */
+  sCurve: Array<{
     date: string;
     label: string;
     plannedPct: number | null;
