@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { createBtpDeliveryNote } from '@/lib/actions/btp-financial';
 import { Receipt, Plus, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 
 interface BonsItem {
   id: string;
@@ -58,12 +59,37 @@ export function BonsClient({ items: initialItems, sites }: Props) {
           </div>
           <p className="text-muted-foreground">{initialItems.length} bon(s) enregistré(s)</p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)} className="bg-[#2563EB] hover:bg-[#2563EB]/90" disabled={sites.length === 0}>
+        <Button onClick={() => setShowForm(!showForm)} className="bg-[#2563EB] hover:bg-[#2563EB]/90">
           <Plus className="h-4 w-4" /> Nouveau BL
         </Button>
       </div>
 
+      {sites.length === 0 && !showForm && (
+        <p className="text-sm text-amber-800 bg-amber-500/10 border border-amber-200 rounded-lg px-4 py-3">
+          Aucun chantier disponible pour saisir un bon.{' '}
+          <Link href="/btp/chantiers" className="font-medium underline underline-offset-2">
+            Créez un chantier
+          </Link>{' '}
+          ou demandez une assignation à votre directeur.
+        </p>
+      )}
+
       {showForm && (
+        sites.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Impossible de saisir un bon sans chantier associé.
+              </p>
+              <div className="flex gap-2">
+                <Button asChild className="bg-[#2563EB]">
+                  <Link href="/btp/chantiers">Aller aux chantiers</Link>
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Fermer</Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
         <Card>
           <CardHeader><CardTitle>Saisie manuelle — bon de livraison</CardTitle></CardHeader>
           <CardContent>
@@ -89,6 +115,7 @@ export function BonsClient({ items: initialItems, sites }: Props) {
             </form>
           </CardContent>
         </Card>
+        )
       )}
 
       <div className="relative max-w-md">

@@ -14,9 +14,21 @@ interface SectorPageProps {
   items?: { id: string | number; title: string; subtitle: string; status: string; date?: string }[];
   emptyMessage?: string;
   connected?: boolean;
+  /** Affiche le bouton d'action uniquement si un handler est fourni. */
+  onAdd?: () => void;
+  addLabel?: string;
 }
 
-export function SectorPage({ title, description, icon: Icon, items = [], emptyMessage, connected }: SectorPageProps) {
+export function SectorPage({
+  title,
+  description,
+  icon: Icon,
+  items = [],
+  emptyMessage,
+  connected,
+  onAdd,
+  addLabel = "Ajouter",
+}: SectorPageProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -31,10 +43,12 @@ export function SectorPage({ title, description, icon: Icon, items = [], emptyMe
           </div>
           <p className="text-muted-foreground">{description}</p>
         </div>
-        <Button className="bg-[#2563EB] hover:bg-[#2563EB]/90">
-          <Plus className="h-4 w-4" />
-          Ajouter
-        </Button>
+        {onAdd && (
+          <Button onClick={onAdd} type="button" className="bg-[#2563EB] hover:bg-[#2563EB]/90">
+            <Plus className="h-4 w-4" />
+            {addLabel}
+          </Button>
+        )}
       </div>
 
       <div className="relative max-w-md">

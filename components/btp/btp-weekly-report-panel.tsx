@@ -97,7 +97,20 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
   }
 
   if (sites.length === 0) {
-    return null;
+    return (
+      <Card className="border-amber-200/80 bg-amber-500/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <FileStack className="h-5 w-5 text-amber-700" />
+            Rapport hebdomadaire chantier
+          </CardTitle>
+          <CardDescription>
+            Aucun chantier n&apos;est disponible dans votre périmètre. Créez un chantier ou demandez une
+            assignation pour compiler un rapport.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
   }
 
   return (
