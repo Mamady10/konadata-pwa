@@ -9,6 +9,10 @@ import {
 } from '@/lib/btp/delivery-note-types';
 import { BonsClient } from './bons-client';
 
+function statusLabel(status: string | null | undefined): string {
+  return status === 'draft' ? 'Brouillon' : 'Validé';
+}
+
 export default async function Page() {
   const session = await requireBtpPage('bons');
   if (!session.profile?.organization_id) {
@@ -21,6 +25,7 @@ export default async function Page() {
     title: string;
     subtitle: string;
     status: string;
+    statusRaw: string;
     date?: string;
     categoryLabel?: string;
     description?: string;
@@ -37,11 +42,13 @@ export default async function Page() {
       const parsedItems = parseDeliveryNoteItems(n.items);
       const cat = n.category as BtpItemCategory | null;
       const itemsSummary = formatDeliveryItemsSummary(parsedItems);
+      const statusRaw = (n.status as string) ?? 'validated';
       return {
         id: n.id,
         title: n.reference,
         subtitle: `${n.supplier ?? '—'} — ${formatCurrency(Number(n.total_amount ?? 0))}${itemsSummary !== '—' ? ` · ${itemsSummary}` : ''}`,
-        status: 'Validé',
+        status: statusLabel(statusRaw),
+        statusRaw,
         date: n.delivery_date
           ? new Date(n.delivery_date).toLocaleDateString('fr-FR')
           : new Date(n.created_at as string).toLocaleDateString('fr-FR'),

@@ -9,8 +9,9 @@ import { getBtpDocuments } from '@/lib/actions/storage';
 import { canManageAssignments, getMyAssignedBtpSiteIds } from '@/lib/actions/assignments';
 import type { PersonalDashboardLink } from '@/lib/sector/personal-dashboard-types';
 import { getBtpPlannedProgressPreview } from '@/lib/actions/btp-planning-ref';
-import { ensureBtpSitePlanningRefs } from '@/lib/actions/btp-planning-ref';
-import { normalizeBudgetBreakdownInput } from '@/lib/btp/site-baseline';
+import { ensureBtpSitePlanningRefs, getBtpPlanningRefsByOrg } from '@/lib/actions/btp-planning-ref';
+import { normalizeBudgetBreakdownInput, mapSiteRowToBaseline } from '@/lib/btp/site-baseline';
+import { resolvePlanningRef, plannedPhysicalPctFromResolvedRef } from '@/lib/btp/planning-ref';
 import type { BtpSiteMilestoneInput } from '@/lib/btp/site-baseline-types';
 
 async function filterSitesByAssignment<T extends { id: string }>(sites: T[]): Promise<T[]> {
@@ -62,7 +63,7 @@ export async function getBtpDeliveryNotes(orgId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('btp_delivery_notes')
-    .select('id, site_id, reference, supplier, total_amount, delivery_date, category, description, items, created_at')
+    .select('id, site_id, reference, supplier, total_amount, delivery_date, category, description, items, status, document_id, created_at')
     .eq('organization_id', orgId)
     .order('delivery_date', { ascending: false });
   if (error) throw error;
@@ -106,10 +107,10 @@ export async function getBtpEquipment(orgId: string) {
 export async function getBtpDashboard(orgId: string) {
   const supabase = await createClient();
 
-  const [sitesRes, fuelRes, notesRes, personnelRes, stockRes] = await Promise.all([
+  const [sitesRes, fuelRes, notesRes, personnelRes, stockRes, progressRes] = await Promise.all([
     supabase
       .from('btp_sites')
-      .select('id, name, location, budget, spent, status, physical_progress, financial_progress, delay_days')
+      .select('id, name, location, budget, spent, status, physical_progress, financial_progress, delay_days, default_planning_ref_slot, start_date, end_date, budget_breakdown, opening_spent')
       .eq('organization_id', orgId)
       .order('created_at', { ascending: false }),
     supabase
@@ -132,6 +133,11 @@ export async function getBtpDashboard(orgId: string) {
       .from('btp_stock')
       .select('id, item_name, alert_level')
       .eq('organization_id', orgId),
+    supabase
+      .from('btp_daily_progress')
+      .select('site_id, progress_date, physical_pct')
+      .eq('organization_id', orgId)
+      .gte('progress_date', new Date(Date.now() - 35 * 86400000).toISOString().slice(0, 10)),
   ]);
 
   const sites = sitesRes.data ?? [];
@@ -147,11 +153,59 @@ export async function getBtpDashboard(orgId: string) {
 
   const siteById = new Map(sites.map((s) => [s.id, s.name]));
 
-  const planifieRealise = ['S1', 'S2', 'S3', 'S4'].map((semaine, i) => ({
-    semaine,
-    planifie: Math.round(avgProgress * (0.7 + i * 0.08)),
-    realise: Math.round(avgProgress * (0.65 + i * 0.09)),
-  }));
+  const progressRows = progressRes.data ?? [];
+  const planningBySite = await getBtpPlanningRefsByOrg(orgId);
+
+  const weekEnds: string[] = [];
+  for (let i = 3; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i * 7);
+    weekEnds.push(d.toISOString().slice(0, 10));
+  }
+
+  const planifieRealise = weekEnds.map((weekEnd, i) => {
+    let plannedSum = 0;
+    let plannedCount = 0;
+    let actualSum = 0;
+    let actualCount = 0;
+    const weekStart = new Date(weekEnd);
+    weekStart.setDate(weekStart.getDate() - 6);
+    const weekStartStr = weekStart.toISOString().slice(0, 10);
+
+    for (const site of activeSites) {
+      const siteId = site.id as string;
+      const refs = planningBySite[siteId] ?? [];
+      const slot = Number(site.default_planning_ref_slot ?? 1) as 1 | 2;
+      const ref = refs.find((r) => r.slot === slot) ?? refs[0];
+      if (ref) {
+        const baseline = mapSiteRowToBaseline(site as Record<string, unknown>, []);
+        const resolved = resolvePlanningRef(baseline, ref);
+        const planned = plannedPhysicalPctFromResolvedRef(resolved, weekEnd);
+        if (planned != null) {
+          plannedSum += planned;
+          plannedCount++;
+        }
+      }
+
+      const weekEntries = progressRows.filter((p) => {
+        if (p.site_id !== siteId) return false;
+        const d = (p.progress_date as string).slice(0, 10);
+        return d >= weekStartStr && d <= weekEnd;
+      });
+      const actual =
+        weekEntries.length > 0
+          ? Math.max(...weekEntries.map((p) => Number(p.physical_pct ?? 0)))
+          : Number(site.physical_progress ?? 0);
+      actualSum += actual;
+      actualCount++;
+    }
+
+    return {
+      semaine: `S${i + 1}`,
+      planifie: plannedCount > 0 ? Math.round(plannedSum / plannedCount) : Math.round(avgProgress),
+      realise: actualCount > 0 ? Math.round(actualSum / actualCount) : Math.round(avgProgress),
+    };
+  });
 
   const monthMap = new Map<string, number>();
   for (const log of fuelLogs) {
@@ -285,6 +339,11 @@ export async function getPersonalBtpDashboard(orgId: string): Promise<PersonalBt
       href: '/btp/bons',
       label: 'Bons',
       description: 'Bons de livraison et achats',
+    },
+    {
+      href: '/btp/materiels',
+      label: 'Matériels',
+      description: 'Stock, entrées et sorties',
     },
     {
       href: '/btp/rapports',
@@ -536,7 +595,8 @@ export async function createBtpSite(formData: FormData) {
       start_date: startDate,
       end_date: endDate,
       budget: Number(formData.get('budget') || 0),
-      spent: Number(formData.get('opening_spent') || 0),
+      opening_spent: Number(formData.get('opening_spent') || 0),
+      spent: 0,
       status: 'active',
       physical_progress: Number(formData.get('physical_progress') || 0),
       financial_progress: Number(formData.get('financial_progress') || 0),
@@ -584,6 +644,8 @@ export async function createBtpSite(formData: FormData) {
         label: milestones.length > 0 ? 'Référence 1 — Jalons' : 'Référence 1 — Dates contractuelles',
       },
     });
+    const { syncBtpSiteSpent } = await import('@/lib/actions/btp-financial');
+    await syncBtpSiteSpent(orgId, site.id as string);
   }
 
   revalidatePath('/btp/chantiers');

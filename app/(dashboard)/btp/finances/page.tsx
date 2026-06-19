@@ -5,7 +5,7 @@ import {
   getBtpSiteExpenses,
   getBtpSubcontracts,
 } from '@/lib/actions/btp-financial';
-import type { BtpFinancialDashboardRow } from '@/lib/btp/site-financial';
+import type { BtpFinancialDashboardRowExtended } from '@/lib/btp/site-financial';
 import { getBtpSites } from '@/lib/actions/btp';
 import { FinancesClient } from './finances-client';
 import type { AppRole } from '@/types/database';

@@ -22,6 +22,7 @@ import {
   resolveBtpSiteIdForDocument,
   resolveNgoProjectIdForDocument,
 } from '@/lib/capture/capture-apply-helpers';
+import { createBtpDeliveryNoteFromParams } from '@/lib/actions/btp-financial';
 
 export type { CaptureApplyResult };
 
@@ -74,8 +75,10 @@ function revalidateForKind(kind: string): void {
     revalidatePath('/btp/documents');
     revalidatePath('/btp/carburant');
     revalidatePath('/btp/bons');
+    revalidatePath('/btp/materiels');
     revalidatePath('/btp/avancement');
     revalidatePath('/btp/rapports');
+    revalidatePath('/btp/finances');
   }
   if (kind.includes('expense') || kind.includes('purchase') || kind.includes('stock')) {
     revalidatePath('/pme/documents');
@@ -437,9 +440,10 @@ async function applyDeliveryNote(
 
   const items = capture.payload.rows.map((r) => ({
     item: r.material ?? 'Matériau',
-    qty: r.quantity ?? '',
-    unit: r.unit ?? '',
-    received_by: r.received_by ?? '',
+    category: 'materials' as const,
+    qty: Number(r.quantity) > 0 ? Number(r.quantity) : r.quantity ?? '',
+    unit: r.unit ?? undefined,
+    description: r.received_by ? `Reçu par : ${r.received_by}` : undefined,
   }));
 
   const first = capture.payload.rows[0];
@@ -447,22 +451,41 @@ async function applyDeliveryNote(
     capture.payload.rows.map((r) => r.supplier).find(Boolean) ?? first.supplier ?? null;
   const deliveryDate = parseOptionalDate(
     capture.payload.rows.map((r) => r.date).find(Boolean) ?? first.date
-  );
+  ) ?? new Date().toISOString().slice(0, 10);
 
   const reference = `BL-${documentId.slice(0, 8).toUpperCase()}-${Date.now().toString(36)}`;
 
-  const { error } = await supabase.from('btp_delivery_notes').insert({
-    organization_id: orgId,
-    site_id: siteRes,
+  const totalFromRows = capture.payload.rows.reduce(
+    (sum, r) => sum + (Number(r.amount) || Number(r.total) || 0),
+    0
+  );
+  const totalAmount =
+    totalFromRows > 0
+      ? totalFromRows
+      : Number(extracted.total_amount ?? extracted.amount ?? 0) || items.length * 1000;
+
+  const description =
+    (extracted.description as string) ||
+    `Import capture — ${items.length} ligne(s)${supplier ? ` — ${supplier}` : ''}`;
+
+  const result = await createBtpDeliveryNoteFromParams({
+    orgId,
+    siteId: siteRes,
     reference,
-    supplier,
+    amount: totalAmount,
+    category: 'materials',
+    description,
     items,
-    delivery_date: deliveryDate,
-    document_id: documentId,
+    documentId,
+    status: 'draft',
+    addToStock: false,
+    supplier,
+    deliveryDate,
+    skipAccessCheck: true,
   });
 
-  if (error) return { error: error.message };
-  return { saved: items.length, message: `Bon ${reference} créé (${items.length} ligne(s)).` };
+  if ('error' in result) return { error: result.error };
+  return { saved: items.length, message: `Bon ${reference} créé en brouillon (${items.length} ligne(s)). Validez-le depuis Bons.` };
 }
 
 async function applyDailySiteReport(

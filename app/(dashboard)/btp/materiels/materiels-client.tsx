@@ -12,10 +12,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   recordBtpStockEntry,
   recordBtpStockExit,
+  updateBtpStockThreshold,
+  loadBtpStockMovements,
+  exportBtpStockMovementsCsv,
   type BtpStockMovementRow,
 } from '@/lib/actions/btp-stock';
 import { BTP_ITEM_CATEGORY_LABELS, type BtpItemCategory } from '@/lib/btp/delivery-note-types';
-import { ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Download, Settings2 } from 'lucide-react';
 
 interface StockRow {
   id: string;
@@ -24,6 +27,8 @@ interface StockRow {
   quantity: number;
   category: string | null;
   alertLevel: string;
+  minThreshold: number;
+  siteName: string;
 }
 
 interface PersonnelOption {
@@ -35,12 +40,13 @@ interface PersonnelOption {
 interface Props {
   stock: StockRow[];
   movements: BtpStockMovementRow[];
+  movementsTotal: number;
   sites: Array<{ id: string; name: string }>;
   personnel: PersonnelOption[];
   equipmentItems: Array<{ id: string; title: string; subtitle: string; status: string }>;
 }
 
-export function MaterielsClient({ stock, movements, sites, personnel, equipmentItems }: Props) {
+export function MaterielsClient({ stock, movements: initialMovements, movementsTotal: initialTotal, sites, personnel, equipmentItems }: Props) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [showInForm, setShowInForm] = useState(false);
@@ -50,6 +56,13 @@ export function MaterielsClient({ stock, movements, sites, personnel, equipmentI
   const [outStockId, setOutStockId] = useState('');
   const [outSiteId, setOutSiteId] = useState('');
   const [outPersonnelId, setOutPersonnelId] = useState('');
+  const [movements, setMovements] = useState(initialMovements);
+  const [movementsTotal, setMovementsTotal] = useState(initialTotal);
+  const [movFilter, setMovFilter] = useState<'all' | 'in' | 'out'>('all');
+  const [movSiteId, setMovSiteId] = useState('');
+  const [movOffset, setMovOffset] = useState(0);
+  const [editingThreshold, setEditingThreshold] = useState<string | null>(null);
+  const [thresholdValue, setThresholdValue] = useState('');
 
   async function handleIn(formData: FormData) {
     setError(null);
@@ -80,6 +93,49 @@ export function MaterielsClient({ stock, movements, sites, personnel, equipmentI
 
   const selectedStock = stock.find((s) => s.id === outStockId);
 
+  async function applyMovementFilters(reset = true) {
+    const offset = reset ? 0 : movOffset;
+    const result = await loadBtpStockMovements({
+      movementType: movFilter,
+      siteId: movSiteId || undefined,
+      limit: 40,
+      offset,
+    });
+    if (reset) {
+      setMovements(result.rows);
+      setMovOffset(40);
+    } else {
+      setMovements((prev) => [...prev, ...result.rows]);
+      setMovOffset(offset + 40);
+    }
+    setMovementsTotal(result.total);
+  }
+
+  async function handleSaveThreshold(stockId: string) {
+    setError(null);
+    const result = await updateBtpStockThreshold(stockId, Number(thresholdValue) || 0);
+    if ('error' in result) {
+      setError(result.error ?? 'Mise à jour impossible.');
+      return;
+    }
+    setEditingThreshold(null);
+    router.refresh();
+  }
+
+  async function downloadMovementsCsv() {
+    const csv = await exportBtpStockMovementsCsv({
+      movementType: movFilter,
+      siteId: movSiteId || undefined,
+    });
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mouvements-stock-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -88,6 +144,9 @@ export function MaterielsClient({ stock, movements, sites, personnel, equipmentI
           <p className="text-muted-foreground">Entrées, sorties par chantier et historique des mouvements</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={downloadMovementsCsv}>
+            <Download className="h-4 w-4" /> Export CSV
+          </Button>
           <Button onClick={() => { setShowInForm(!showInForm); setShowOutForm(false); }} className="bg-emerald-700 hover:bg-emerald-800">
             <ArrowDownToLine className="h-4 w-4" /> Entrée stock
           </Button>
@@ -213,20 +272,73 @@ export function MaterielsClient({ stock, movements, sites, personnel, equipmentI
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="font-medium">{s.name}</p>
+                      <p className="text-xs text-muted-foreground">{s.siteName}</p>
                       <p className="text-lg font-semibold mt-1">{s.quantity.toLocaleString('fr-FR')} <span className="text-sm font-normal text-muted-foreground">{s.unit}</span></p>
                       {s.category && <Badge variant="outline" className="text-[10px] mt-2">{BTP_ITEM_CATEGORY_LABELS[s.category as BtpItemCategory] ?? s.category}</Badge>}
+                      <p className="text-xs text-muted-foreground mt-2">Seuil alerte : {s.minThreshold.toLocaleString('fr-FR')}</p>
                     </div>
-                    <Badge variant={s.alertLevel === 'critical' ? 'destructive' : s.alertLevel === 'warning' ? 'secondary' : 'outline'}>
-                      {s.alertLevel === 'critical' ? 'Critique' : s.alertLevel === 'warning' ? 'Alerte' : 'OK'}
-                    </Badge>
+                    <div className="flex flex-col items-end gap-2">
+                      <Badge variant={s.alertLevel === 'critical' ? 'destructive' : s.alertLevel === 'warning' ? 'secondary' : 'outline'}>
+                        {s.alertLevel === 'critical' ? 'Critique' : s.alertLevel === 'warning' ? 'Alerte' : 'OK'}
+                      </Badge>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => {
+                          setEditingThreshold(editingThreshold === s.id ? null : s.id);
+                          setThresholdValue(String(s.minThreshold));
+                        }}
+                      >
+                        <Settings2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
+                  {editingThreshold === s.id && (
+                    <div className="flex gap-2 mt-3 pt-3 border-t">
+                      <Input
+                        type="number"
+                        min="0"
+                        className="h-9"
+                        value={thresholdValue}
+                        onChange={(e) => setThresholdValue(e.target.value)}
+                        placeholder="Seuil minimum"
+                      />
+                      <Button size="sm" onClick={() => handleSaveThreshold(s.id)}>OK</Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))
           )}
         </TabsContent>
 
-        <TabsContent value="mouvements" className="mt-4 space-y-2">
+        <TabsContent value="mouvements" className="mt-4 space-y-3">
+          <div className="flex flex-wrap gap-2 items-end">
+            <div className="space-y-1">
+              <Label className="text-xs">Type</Label>
+              <Select value={movFilter} onValueChange={(v) => setMovFilter(v as 'all' | 'in' | 'out')}>
+                <SelectTrigger className="h-9 w-36"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous</SelectItem>
+                  <SelectItem value="in">Entrées</SelectItem>
+                  <SelectItem value="out">Sorties</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Chantier</Label>
+              <Select value={movSiteId || 'all'} onValueChange={(v) => setMovSiteId(v === 'all' ? '' : v)}>
+                <SelectTrigger className="h-9 w-44"><SelectValue placeholder="Tous" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous</SelectItem>
+                  {sites.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={() => applyMovementFilters(true)}>Filtrer</Button>
+          </div>
           {movements.length === 0 ? (
             <p className="text-sm text-muted-foreground">Aucun mouvement enregistré.</p>
           ) : (
@@ -251,6 +363,11 @@ export function MaterielsClient({ stock, movements, sites, personnel, equipmentI
                 </CardContent>
               </Card>
             ))
+          )}
+          {movements.length < movementsTotal && (
+            <Button variant="outline" className="w-full" onClick={() => applyMovementFilters(false)}>
+              Charger plus ({movements.length} / {movementsTotal})
+            </Button>
           )}
         </TabsContent>
 

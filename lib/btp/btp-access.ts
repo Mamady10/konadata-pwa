@@ -33,6 +33,11 @@ const DIRECTOR_ROLES = new Set<AppRole>([
   'deputy_director',
 ]);
 
+/**
+ * Rôles BTP :
+ * - Directeurs (org_admin, deputy_director…) : accès complet dont Finances et Personnel
+ * - btp_staff (chef de chantier, etc.) : terrain uniquement — PAS Finances ni Personnel
+ */
 const BTP_STAFF_HREFS = new Set([
   PATH_BY_PAGE.dashboard,
   PATH_BY_PAGE.chantiers,

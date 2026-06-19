@@ -10,13 +10,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { createBtpDeliveryNote } from '@/lib/actions/btp-financial';
+import {
+  createBtpDeliveryNote,
+  getBtpDeliveryNoteDetail,
+  validateBtpDeliveryNote,
+  type BtpDeliveryNoteDetail,
+} from '@/lib/actions/btp-financial';
 import {
   BTP_ITEM_CATEGORY_LABELS,
   type BtpItemCategory,
-  formatDeliveryItemsSummary,
 } from '@/lib/btp/delivery-note-types';
-import { Receipt, Plus, Search, Trash2 } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
+import { Receipt, Plus, Search, Trash2, X, FileText, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface BonsItem {
@@ -24,6 +29,7 @@ interface BonsItem {
   title: string;
   subtitle: string;
   status: string;
+  statusRaw: string;
   date?: string;
   categoryLabel?: string;
   description?: string;
@@ -57,18 +63,36 @@ export function BonsClient({ items: initialItems, sites }: Props) {
   const [query, setQuery] = useState('');
   const [siteId, setSiteId] = useState('');
   const [category, setCategory] = useState<BtpItemCategory>('materials');
-  const [addToStock, setAddToStock] = useState(true);
   const [lines, setLines] = useState<LineItem[]>([emptyLine()]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<BtpDeliveryNoteDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [validateStock, setValidateStock] = useState(true);
 
   function updateLine(index: number, patch: Partial<LineItem>) {
     setLines((prev) => prev.map((l, i) => (i === index ? { ...l, ...patch } : l)));
+  }
+
+  async function openDetail(noteId: string) {
+    setSelectedId(noteId);
+    setDetailLoading(true);
+    setError(null);
+    const data = await getBtpDeliveryNoteDetail(noteId);
+    setDetail(data);
+    setDetailLoading(false);
+  }
+
+  function closeDetail() {
+    setSelectedId(null);
+    setDetail(null);
   }
 
   async function handleCreate(formData: FormData) {
     setError(null);
     formData.set('site_id', siteId);
     formData.set('category', category);
-    formData.set('add_to_stock', addToStock ? 'true' : 'false');
+    formData.set('add_to_stock', 'false');
+    formData.set('status', 'draft');
     const validLines = lines
       .filter((l) => l.item.trim())
       .map((l) => ({
@@ -90,6 +114,18 @@ export function BonsClient({ items: initialItems, sites }: Props) {
     router.refresh();
   }
 
+  async function handleValidate() {
+    if (!selectedId) return;
+    setError(null);
+    const result = await validateBtpDeliveryNote(selectedId, { addToStock: validateStock });
+    if ('error' in result) {
+      setError(result.error ?? 'Validation impossible.');
+      return;
+    }
+    closeDetail();
+    router.refresh();
+  }
+
   const items = initialItems.filter((i) =>
     i.title.toLowerCase().includes(query.toLowerCase()) ||
     i.subtitle.toLowerCase().includes(query.toLowerCase()) ||
@@ -104,7 +140,7 @@ export function BonsClient({ items: initialItems, sites }: Props) {
             <h1 className="text-2xl font-bold tracking-tight">Bons de livraison</h1>
             <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-700 border-emerald-200">Supabase connecté</Badge>
           </div>
-          <p className="text-muted-foreground">{initialItems.length} bon(s) — catégorie, description et entrée stock optionnelle</p>
+          <p className="text-muted-foreground">{initialItems.length} bon(s) — brouillon puis validation, entrée stock à la validation</p>
         </div>
         <Button onClick={() => setShowForm(!showForm)} className="bg-[#2563EB] hover:bg-[#2563EB]/90">
           <Plus className="h-4 w-4" /> Nouveau BL
@@ -128,7 +164,7 @@ export function BonsClient({ items: initialItems, sites }: Props) {
           </Card>
         ) : (
         <Card>
-          <CardHeader><CardTitle>Saisie — bon de livraison</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Saisie — bon de livraison (brouillon)</CardTitle></CardHeader>
           <CardContent>
             {error && <p className="text-sm text-destructive mb-3">{error}</p>}
             <form action={handleCreate} className="grid gap-4 sm:grid-cols-2">
@@ -157,12 +193,17 @@ export function BonsClient({ items: initialItems, sites }: Props) {
               <div className="space-y-2"><Label>Fournisseur</Label><Input name="supplier" /></div>
               <div className="space-y-2"><Label>Date livraison</Label><Input name="delivery_date" type="date" /></div>
               <div className="space-y-2 sm:col-span-2">
+                <Label>ID document lié (optionnel)</Label>
+                <Input name="document_id" placeholder="UUID du document scanné dans Documents" />
+                <p className="text-xs text-muted-foreground">Renseignez l&apos;identifiant du document source si le BL provient d&apos;un scan.</p>
+              </div>
+              <div className="space-y-2 sm:col-span-2">
                 <Label>Description / type d&apos;éléments reçus</Label>
                 <textarea
                   name="description"
                   rows={2}
                   className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
-                  placeholder="Ex. : Livraison ciment et fer pour dalle bloc B — conforme au BC n°12"
+                  placeholder="Ex. : Livraison ciment et fer pour dalle bloc B"
                 />
               </div>
 
@@ -200,7 +241,7 @@ export function BonsClient({ items: initialItems, sites }: Props) {
                     </div>
                     <div className="sm:col-span-5 space-y-1">
                       <Label className="text-xs">Précision ligne</Label>
-                      <Input value={line.description} onChange={(e) => updateLine(index, { description: e.target.value })} placeholder="Lot, qualité, référence…" />
+                      <Input value={line.description} onChange={(e) => updateLine(index, { description: e.target.value })} />
                     </div>
                     {lines.length > 1 && (
                       <div className="flex items-end justify-end">
@@ -213,13 +254,8 @@ export function BonsClient({ items: initialItems, sites }: Props) {
                 ))}
               </div>
 
-              <div className="flex items-center gap-2 sm:col-span-2">
-                <Switch checked={addToStock} onCheckedChange={setAddToStock} id="add-stock" />
-                <Label htmlFor="add-stock">Ajouter les quantités reçues au stock (Matériels)</Label>
-              </div>
-
               <div className="sm:col-span-2 flex gap-2">
-                <Button type="submit" className="bg-[#2563EB]" disabled={!siteId}>Enregistrer</Button>
+                <Button type="submit" className="bg-[#2563EB]" disabled={!siteId}>Enregistrer en brouillon</Button>
                 <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Annuler</Button>
               </div>
             </form>
@@ -237,7 +273,10 @@ export function BonsClient({ items: initialItems, sites }: Props) {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((item, index) => (
             <motion.div key={item.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
-              <Card>
+              <Card
+                className="cursor-pointer hover:border-primary/40 transition-colors"
+                onClick={() => openDetail(item.id)}
+              >
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -253,7 +292,7 @@ export function BonsClient({ items: initialItems, sites }: Props) {
                         <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{item.description}</p>
                       )}
                       <div className="flex items-center gap-2 mt-2">
-                        <Badge variant="outline" className="text-[10px]">{item.status}</Badge>
+                        <Badge variant={item.statusRaw === 'draft' ? 'secondary' : 'outline'} className="text-[10px]">{item.status}</Badge>
                         {item.date && <span className="text-[10px] text-muted-foreground">{item.date}</span>}
                       </div>
                     </div>
@@ -270,6 +309,86 @@ export function BonsClient({ items: initialItems, sites }: Props) {
             <p className="text-muted-foreground">Aucun bon enregistré.</p>
           </CardContent>
         </Card>
+      )}
+
+      {selectedId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeDetail}>
+          <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <CardHeader className="flex flex-row items-start justify-between gap-2">
+              <div>
+                <CardTitle className="text-lg">{detail?.reference ?? 'Bon de livraison'}</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">{detail?.siteName ?? '—'}</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={closeDetail}><X className="h-4 w-4" /></Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              {detailLoading ? (
+                <p className="text-sm text-muted-foreground">Chargement…</p>
+              ) : detail ? (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant={detail.status === 'draft' ? 'secondary' : 'outline'}>
+                      {detail.status === 'draft' ? 'Brouillon' : 'Validé'}
+                    </Badge>
+                    {detail.category && (
+                      <Badge variant="outline">{BTP_ITEM_CATEGORY_LABELS[detail.category]}</Badge>
+                    )}
+                  </div>
+                  <div className="text-sm space-y-1">
+                    <p><span className="text-muted-foreground">Fournisseur :</span> {detail.supplier ?? '—'}</p>
+                    <p><span className="text-muted-foreground">Montant :</span> {formatCurrency(detail.totalAmount)}</p>
+                    <p><span className="text-muted-foreground">Date :</span> {detail.deliveryDate ?? '—'}</p>
+                    {detail.description && <p className="text-muted-foreground">{detail.description}</p>}
+                  </div>
+                  {detail.documentId && (
+                    <Button asChild variant="outline" size="sm" className="w-full">
+                      <Link href={`/btp/documents`}>
+                        <FileText className="h-4 w-4 mr-2" /> Document lié ({detail.documentId.slice(0, 8)}…)
+                      </Link>
+                    </Button>
+                  )}
+                  {detail.items.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium mb-2">Lignes reçues</p>
+                      <ul className="text-sm space-y-1 border rounded-lg p-3 bg-muted/30">
+                        {detail.items.map((line, i) => (
+                          <li key={i}>
+                            {line.item}
+                            {line.qty ? ` × ${line.qty}${line.unit ? ` ${line.unit}` : ''}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {detail.stockMovements.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium mb-2">Mouvements stock liés</p>
+                      <ul className="text-xs text-muted-foreground space-y-1">
+                        {detail.stockMovements.map((m) => (
+                          <li key={m.id}>+{m.quantity} {m.itemName} — {m.movementDate}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {detail.status === 'draft' && (
+                    <div className="space-y-3 pt-2 border-t">
+                      <div className="flex items-center gap-2">
+                        <Switch checked={validateStock} onCheckedChange={setValidateStock} id="val-stock" />
+                        <Label htmlFor="val-stock">Ajouter les quantités au stock à la validation</Label>
+                      </div>
+                      <Button className="w-full bg-emerald-700" onClick={handleValidate}>
+                        <CheckCircle2 className="h-4 w-4 mr-2" /> Valider le bon
+                      </Button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">Bon introuvable.</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

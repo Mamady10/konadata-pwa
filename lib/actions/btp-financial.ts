@@ -15,7 +15,35 @@ import {
 } from '@/lib/btp/site-financial';
 import { parseBudgetBreakdown } from '@/lib/btp/site-baseline';
 import type { BtpItemCategory } from '@/lib/btp/delivery-note-types';
+import { parseDeliveryNoteItems } from '@/lib/btp/delivery-note-types';
 import { addDeliveryItemsToStock } from '@/lib/actions/btp-stock';
+
+export type BtpDeliveryNoteStatus = 'draft' | 'validated';
+
+export interface BtpDeliveryNoteDetail {
+  id: string;
+  reference: string;
+  siteId: string | null;
+  siteName: string | null;
+  supplier: string | null;
+  totalAmount: number;
+  deliveryDate: string | null;
+  category: BtpItemCategory | null;
+  description: string | null;
+  status: BtpDeliveryNoteStatus;
+  documentId: string | null;
+  items: ReturnType<typeof parseDeliveryNoteItems>;
+  stockMovements: Array<{
+    id: string;
+    quantity: number;
+    movementDate: string;
+    itemName: string;
+  }>;
+}
+
+export interface BtpFinancialDashboardRowExtended extends BtpFinancialDashboardRow {
+  posteComparison: PosteBudgetComparison[];
+}
 
 const FINANCE_PATHS = [
   '/btp/finances',
@@ -55,7 +83,7 @@ export async function fetchSiteFinancialData(
   const [siteRes, fuelRes, notesRes, laborRes, expensesRes] = await Promise.all([
     supabase
       .from('btp_sites')
-      .select('budget, spent, budget_breakdown')
+      .select('budget, spent, opening_spent, budget_breakdown')
       .eq('id', siteId)
       .eq('organization_id', orgId)
       .single(),
@@ -66,7 +94,7 @@ export async function fetchSiteFinancialData(
       .lte('logged_at', `${asOf}T23:59:59`),
     supabase
       .from('btp_delivery_notes')
-      .select('total_amount, delivery_date')
+      .select('total_amount, delivery_date, status')
       .eq('site_id', siteId),
     supabase
       .from('btp_labor_entries')
@@ -82,12 +110,14 @@ export async function fetchSiteFinancialData(
 
   const site = siteRes.data;
   const budget = Number(site?.budget ?? 0);
-  const openingSpent = Number(site?.spent ?? 0);
+  const openingSpent = Number(site?.opening_spent ?? 0);
   const breakdown = parseBudgetBreakdown(site?.budget_breakdown);
 
   const fuelCosts = (fuelRes.data ?? []).reduce((s, r) => s + Number(r.cost ?? 0), 0);
   const deliveryAmounts = (notesRes.data ?? [])
     .filter((n) => {
+      const status = (n.status as string) ?? 'validated';
+      if (status !== 'validated') return false;
       const d = (n.delivery_date as string) || '';
       return !d || d.slice(0, 10) <= asOf;
     })
@@ -133,7 +163,7 @@ export async function syncBtpSiteSpent(orgId: string, siteId: string): Promise<v
     .eq('organization_id', orgId);
 }
 
-export async function createBtpDeliveryNote(formData: FormData): Promise<{ success: true } | { error: string }> {
+export async function createBtpDeliveryNote(formData: FormData): Promise<{ success: true; id?: string } | { error: string }> {
   const orgId = await requireOrgId();
   const supabase = await createClient();
   const {
@@ -146,18 +176,8 @@ export async function createBtpDeliveryNote(formData: FormData): Promise<{ succe
   const category = (formData.get('category') as string)?.trim() as BtpItemCategory;
   const description = (formData.get('description') as string)?.trim() || null;
   const addToStock = formData.get('add_to_stock') === 'true';
-
-  if (!siteId) return { error: 'Chantier requis.' };
-  if (!reference) return { error: 'Référence du bon requise.' };
-  if (amount <= 0) return { error: 'Montant invalide.' };
-  if (!['materials', 'equipment', 'consumables', 'tools', 'other'].includes(category)) {
-    return { error: 'Catégorie invalide.' };
-  }
-
-  const access = await assertSiteAccess(siteId);
-  if ('error' in access) return access;
-
-  const deliveryDate = (formData.get('delivery_date') as string)?.trim() || new Date().toISOString().slice(0, 10);
+  const documentId = (formData.get('document_id') as string)?.trim() || null;
+  const status = ((formData.get('status') as string)?.trim() || 'draft') as BtpDeliveryNoteStatus;
 
   let items: Array<{ item: string; category?: string; qty: number | string; unit?: string; description?: string }> = [];
   const itemsJson = (formData.get('items_json') as string)?.trim();
@@ -186,47 +206,226 @@ export async function createBtpDeliveryNote(formData: FormData): Promise<{ succe
     }
   }
 
+  return createBtpDeliveryNoteFromParams({
+    orgId,
+    userId: user?.id ?? null,
+    siteId,
+    reference,
+    amount,
+    category,
+    description,
+    items,
+    addToStock,
+    documentId,
+    status,
+    supplier: (formData.get('supplier') as string)?.trim() || null,
+    deliveryDate: (formData.get('delivery_date') as string)?.trim() || new Date().toISOString().slice(0, 10),
+  });
+}
+
+export async function createBtpDeliveryNoteFromParams(params: {
+  orgId: string;
+  userId?: string | null;
+  siteId: string;
+  reference: string;
+  amount: number;
+  category: BtpItemCategory;
+  description?: string | null;
+  items: Array<{ item: string; category?: string; qty: number | string; unit?: string; description?: string }>;
+  addToStock?: boolean;
+  documentId?: string | null;
+  status?: BtpDeliveryNoteStatus;
+  supplier?: string | null;
+  deliveryDate?: string;
+  skipAccessCheck?: boolean;
+}): Promise<{ success: true; id: string } | { error: string }> {
+  const supabase = await createClient();
+  const status = params.status ?? 'draft';
+
+  if (!params.siteId) return { error: 'Chantier requis.' };
+  if (!params.reference) return { error: 'Référence du bon requise.' };
+  if (params.amount <= 0) return { error: 'Montant invalide.' };
+  if (!['materials', 'equipment', 'consumables', 'tools', 'other'].includes(params.category)) {
+    return { error: 'Catégorie invalide.' };
+  }
+  if (params.addToStock) {
+    const withQty = params.items.filter((i) => Number(i.qty) > 0);
+    if (withQty.length === 0) {
+      return { error: 'Ajoutez au moins une ligne avec quantité pour l\'entrée stock.' };
+    }
+  }
+
+  if (!params.skipAccessCheck) {
+    const access = await assertSiteAccess(params.siteId);
+    if ('error' in access) return access;
+  }
+
+  const { data: dup } = await supabase
+    .from('btp_delivery_notes')
+    .select('id')
+    .eq('organization_id', params.orgId)
+    .eq('reference', params.reference)
+    .maybeSingle();
+  if (dup?.id) return { error: 'Cette référence de bon existe déjà.' };
+
+  const deliveryDate = params.deliveryDate ?? new Date().toISOString().slice(0, 10);
+
   const { data: note, error } = await supabase
     .from('btp_delivery_notes')
     .insert({
-      organization_id: orgId,
-      site_id: siteId,
-      reference,
-      supplier: (formData.get('supplier') as string)?.trim() || null,
-      total_amount: amount,
+      organization_id: params.orgId,
+      site_id: params.siteId,
+      reference: params.reference,
+      supplier: params.supplier ?? null,
+      total_amount: params.amount,
       delivery_date: deliveryDate,
-      category,
-      description,
-      items,
+      category: params.category,
+      description: params.description ?? null,
+      items: params.items,
+      document_id: params.documentId ?? null,
+      status,
     })
     .select('id')
     .single();
   if (error) return { error: error.message };
 
-  if (addToStock && items.length > 0 && note?.id) {
+  const noteId = note.id as string;
+  const shouldStock = params.addToStock && status === 'validated';
+
+  if (shouldStock && params.items.length > 0) {
     try {
       await addDeliveryItemsToStock({
-        orgId,
-        siteId,
-        deliveryNoteId: note.id as string,
-        items: items
+        orgId: params.orgId,
+        siteId: params.siteId,
+        deliveryNoteId: noteId,
+        items: params.items
           .map((i) => ({
             item: i.item,
             qty: Number(i.qty),
             unit: i.unit,
-            category: i.category ?? category,
+            category: i.category ?? params.category,
           }))
           .filter((i) => i.qty > 0),
-        createdBy: user?.id ?? null,
+        createdBy: params.userId ?? null,
       });
     } catch (e) {
       return { error: e instanceof Error ? e.message : 'Bon enregistré mais entrée stock échouée.' };
     }
   }
 
+  if (status === 'validated') {
+    await syncBtpSiteSpent(params.orgId, params.siteId);
+  }
+  revalidateFinancialPaths();
+  return { success: true, id: noteId };
+}
+
+export async function validateBtpDeliveryNote(
+  noteId: string,
+  options?: { addToStock?: boolean }
+): Promise<{ success: true } | { error: string }> {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: note } = await supabase
+    .from('btp_delivery_notes')
+    .select('id, site_id, status, items, category')
+    .eq('id', noteId)
+    .eq('organization_id', orgId)
+    .single();
+  if (!note) return { error: 'Bon introuvable.' };
+  if ((note.status as string) === 'validated') return { error: 'Bon déjà validé.' };
+
+  const siteId = note.site_id as string;
+  const access = await assertSiteAccess(siteId);
+  if ('error' in access) return access;
+
+  const { error } = await supabase
+    .from('btp_delivery_notes')
+    .update({ status: 'validated' })
+    .eq('id', noteId);
+  if (error) return { error: error.message };
+
+  const items = parseDeliveryNoteItems(note.items);
+  if (options?.addToStock !== false && items.length > 0) {
+    try {
+      await addDeliveryItemsToStock({
+        orgId,
+        siteId,
+        deliveryNoteId: noteId,
+        items: items
+          .map((i) => ({
+            item: i.item,
+            qty: Number(i.qty),
+            unit: i.unit,
+            category: (i.category as string) ?? (note.category as string) ?? 'materials',
+          }))
+          .filter((i) => i.qty > 0),
+        createdBy: user?.id ?? null,
+      });
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : 'Validation OK mais entrée stock échouée.' };
+    }
+  }
+
   await syncBtpSiteSpent(orgId, siteId);
   revalidateFinancialPaths();
   return { success: true };
+}
+
+export async function getBtpDeliveryNoteDetail(noteId: string): Promise<BtpDeliveryNoteDetail | null> {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+
+  const { data: note } = await supabase
+    .from('btp_delivery_notes')
+    .select(
+      'id, reference, site_id, supplier, total_amount, delivery_date, category, description, status, document_id, items, btp_sites(name)'
+    )
+    .eq('id', noteId)
+    .eq('organization_id', orgId)
+    .single();
+  if (!note) return null;
+
+  const assigned = await getMyAssignedBtpSiteIds();
+  if (assigned !== null && note.site_id && !assigned.includes(note.site_id as string)) {
+    return null;
+  }
+
+  const { data: movements } = await supabase
+    .from('btp_stock_movements')
+    .select('id, quantity, movement_date, btp_stock(item_name)')
+    .eq('delivery_note_id', noteId)
+    .order('movement_date', { ascending: false });
+
+  const site = note.btp_sites as { name?: string } | null;
+
+  return {
+    id: note.id as string,
+    reference: note.reference as string,
+    siteId: (note.site_id as string) ?? null,
+    siteName: site?.name ?? null,
+    supplier: (note.supplier as string) ?? null,
+    totalAmount: Number(note.total_amount ?? 0),
+    deliveryDate: (note.delivery_date as string)?.slice(0, 10) ?? null,
+    category: (note.category as BtpItemCategory) ?? null,
+    description: (note.description as string) ?? null,
+    status: ((note.status as string) ?? 'validated') as BtpDeliveryNoteStatus,
+    documentId: (note.document_id as string) ?? null,
+    items: parseDeliveryNoteItems(note.items),
+    stockMovements: (movements ?? []).map((m) => {
+      const stock = m.btp_stock as { item_name?: string } | null;
+      return {
+        id: m.id as string,
+        quantity: Number(m.quantity),
+        movementDate: (m.movement_date as string).slice(0, 10),
+        itemName: stock?.item_name ?? '—',
+      };
+    }),
+  };
 }
 
 export async function createBtpSiteExpense(formData: FormData): Promise<{ success: true } | { error: string }> {
@@ -403,7 +602,7 @@ export async function recordBtpSubcontractPayment(
   return { success: true };
 }
 
-export async function getBtpFinancialDashboard(orgId: string): Promise<BtpFinancialDashboardRow[]> {
+export async function getBtpFinancialDashboard(orgId: string): Promise<BtpFinancialDashboardRowExtended[]> {
   const supabase = await createClient();
   const { data: sites } = await supabase
     .from('btp_sites')
@@ -414,9 +613,9 @@ export async function getBtpFinancialDashboard(orgId: string): Promise<BtpFinanc
   const assigned = await getMyAssignedBtpSiteIds();
   const filtered = (sites ?? []).filter((s) => assigned === null || assigned.includes(s.id as string));
 
-  const rows: BtpFinancialDashboardRow[] = [];
+  const rows: BtpFinancialDashboardRowExtended[] = [];
   for (const s of filtered) {
-    const { totals } = await fetchSiteFinancialData(orgId, s.id as string);
+    const { totals, posteComparison } = await fetchSiteFinancialData(orgId, s.id as string);
     rows.push({
       siteId: s.id as string,
       siteName: s.name as string,
@@ -428,9 +627,31 @@ export async function getBtpFinancialDashboard(orgId: string): Promise<BtpFinanc
       equipment: totals.byPoste.equipment,
       subcontract: totals.byPoste.subcontract,
       overhead: totals.byPoste.overhead,
+      posteComparison,
     });
   }
   return rows;
+}
+
+export async function exportBtpExpensesCsv(): Promise<string> {
+  const orgId = await requireOrgId();
+  const expenses = await getBtpSiteExpenses(orgId, 500);
+  const header = 'Date;Chantier;Catégorie;Montant;Fournisseur;Référence;Description';
+  const lines = expenses.map((e) => {
+    const site = (e.btp_sites as { name?: string } | null)?.name ?? '';
+    const cat = EXPENSE_CATEGORY_LABELS[e.category as ExpenseCategory] ?? e.category;
+    const desc = String(e.description ?? '').replace(/;/g, ',');
+    return [
+      e.expense_date,
+      site,
+      cat,
+      Number(e.amount),
+      e.supplier ?? '',
+      e.reference ?? '',
+      desc,
+    ].join(';');
+  });
+  return [header, ...lines].join('\n');
 }
 
 export async function getBtpLaborEntries(orgId: string, limit = 30) {

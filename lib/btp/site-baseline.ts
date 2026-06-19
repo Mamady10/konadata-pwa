@@ -500,7 +500,7 @@ export function mapSiteRowToBaseline(
     startDate: (site.start_date as string)?.slice(0, 10) ?? null,
     endDate: (site.end_date as string)?.slice(0, 10) ?? null,
     budget: Number(site.budget ?? 0),
-    openingSpent: Number(site.spent ?? 0),
+    openingSpent: Number(site.opening_spent ?? site.spent ?? 0),
     description: (site.description as string) ?? null,
     moaRecipient: (site.moa_recipient as string) ?? null,
     plannedAvgWorkers:

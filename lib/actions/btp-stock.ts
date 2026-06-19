@@ -7,7 +7,6 @@ import { getMyAssignedBtpSiteIds } from '@/lib/actions/assignments';
 import type { BtpItemCategory } from '@/lib/btp/delivery-note-types';
 
 const STOCK_PATHS = ['/btp/materiels', '/btp/bons', '/btp'];
-
 function revalidateStockPaths() {
   for (const p of STOCK_PATHS) revalidatePath(p);
 }
@@ -32,6 +31,14 @@ export interface BtpStockMovementRow {
   requesterLabel: string | null;
   notes: string | null;
   movementDate: string;
+  deliveryNoteId: string | null;
+}
+
+export interface BtpStockMovementFilters {
+  movementType?: 'in' | 'out' | 'all';
+  siteId?: string;
+  limit?: number;
+  offset?: number;
 }
 
 async function findOrCreateStock(params: {
@@ -42,12 +49,19 @@ async function findOrCreateStock(params: {
   siteId: string | null;
 }): Promise<{ id: string; quantity: number }> {
   const supabase = await createClient();
-  const { data: existing } = await supabase
+  let query = supabase
     .from('btp_stock')
     .select('id, quantity')
     .eq('organization_id', params.orgId)
-    .eq('item_name', params.itemName)
-    .maybeSingle();
+    .eq('item_name', params.itemName);
+
+  if (params.siteId) {
+    query = query.eq('site_id', params.siteId);
+  } else {
+    query = query.is('site_id', null);
+  }
+
+  const { data: existing } = await query.maybeSingle();
 
   if (existing?.id) {
     return { id: existing.id as string, quantity: Number(existing.quantity ?? 0) };
@@ -84,6 +98,24 @@ async function applyStockMovement(params: {
   createdBy?: string | null;
 }): Promise<void> {
   const supabase = await createClient();
+  const movementDate = params.movementDate ?? new Date().toISOString().slice(0, 10);
+
+  const { error: rpcErr } = await supabase.rpc('btp_apply_stock_movement', {
+    p_org_id: params.orgId,
+    p_stock_id: params.stockId,
+    p_movement_type: params.movementType,
+    p_quantity: params.quantity,
+    p_site_id: params.siteId ?? null,
+    p_personnel_id: params.personnelId ?? null,
+    p_requester_name: params.requesterName ?? null,
+    p_delivery_note_id: params.deliveryNoteId ?? null,
+    p_notes: params.notes ?? null,
+    p_movement_date: movementDate,
+    p_created_by: params.createdBy ?? null,
+  });
+
+  if (!rpcErr) return;
+
   const { data: stock, error: stockErr } = await supabase
     .from('btp_stock')
     .select('id, quantity')
@@ -106,7 +138,7 @@ async function applyStockMovement(params: {
     requester_name: params.requesterName ?? null,
     delivery_note_id: params.deliveryNoteId ?? null,
     notes: params.notes ?? null,
-    movement_date: params.movementDate ?? new Date().toISOString().slice(0, 10),
+    movement_date: movementDate,
     created_by: params.createdBy ?? null,
   });
   if (movErr) throw new Error(movErr.message);
@@ -203,6 +235,25 @@ export async function recordBtpStockExit(formData: FormData): Promise<{ success:
   return { success: true };
 }
 
+export async function updateBtpStockThreshold(
+  stockId: string,
+  minThreshold: number
+): Promise<{ success: true } | { error: string }> {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+  if (minThreshold < 0) return { error: 'Seuil invalide.' };
+
+  const { error } = await supabase
+    .from('btp_stock')
+    .update({ min_threshold: minThreshold })
+    .eq('id', stockId)
+    .eq('organization_id', orgId);
+  if (error) return { error: error.message };
+
+  revalidateStockPaths();
+  return { success: true };
+}
+
 export async function addDeliveryItemsToStock(params: {
   orgId: string;
   siteId: string;
@@ -232,20 +283,36 @@ export async function addDeliveryItemsToStock(params: {
   }
 }
 
-export async function getBtpStockMovements(orgId: string, limit = 40): Promise<BtpStockMovementRow[]> {
+export async function getBtpStockMovements(
+  orgId: string,
+  filters: BtpStockMovementFilters = {}
+): Promise<{ rows: BtpStockMovementRow[]; total: number }> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const limit = filters.limit ?? 40;
+  const offset = filters.offset ?? 0;
+
+  let query = supabase
     .from('btp_stock_movements')
     .select(
-      'id, stock_id, movement_type, quantity, notes, movement_date, requester_name, btp_stock(item_name, unit), btp_sites(name), btp_personnel(role, core_persons(full_name))'
+      'id, stock_id, movement_type, quantity, notes, movement_date, requester_name, delivery_note_id, btp_stock(item_name, unit), btp_sites(name), btp_personnel(role, core_persons(full_name))',
+      { count: 'exact' }
     )
     .eq('organization_id', orgId)
     .order('movement_date', { ascending: false })
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
+
+  if (filters.movementType && filters.movementType !== 'all') {
+    query = query.eq('movement_type', filters.movementType);
+  }
+  if (filters.siteId) {
+    query = query.eq('site_id', filters.siteId);
+  }
+
+  const { data, error, count } = await query;
   if (error) throw error;
 
-  return (data ?? []).map((r) => {
+  const rows = (data ?? []).map((r) => {
     const stock = r.btp_stock as { item_name?: string; unit?: string } | null;
     const site = r.btp_sites as { name?: string } | null;
     const person = r.btp_personnel as { role?: string; core_persons?: { full_name?: string } | null } | null;
@@ -261,26 +328,63 @@ export async function getBtpStockMovements(orgId: string, limit = 40): Promise<B
       requesterLabel: personName ?? (r.requester_name as string) ?? null,
       notes: (r.notes as string) ?? null,
       movementDate: (r.movement_date as string).slice(0, 10),
+      deliveryNoteId: (r.delivery_note_id as string) ?? null,
     };
   });
+
+  return { rows, total: count ?? rows.length };
+}
+
+export async function exportBtpStockMovementsCsv(
+  filters: BtpStockMovementFilters = {}
+): Promise<string> {
+  const orgId = await requireOrgId();
+  const { rows } = await getBtpStockMovements(orgId, { ...filters, limit: 1000, offset: 0 });
+  const header = 'Date;Type;Article;Quantité;Unité;Chantier;Demandeur;Notes';
+  const lines = rows.map((m) =>
+    [
+      m.movementDate,
+      m.movementType === 'in' ? 'Entrée' : 'Sortie',
+      m.itemName,
+      m.quantity,
+      m.unit ?? '',
+      m.siteName ?? '',
+      m.requesterLabel ?? '',
+      String(m.notes ?? '').replace(/;/g, ','),
+    ].join(';')
+  );
+  return [header, ...lines].join('\n');
 }
 
 export async function getBtpStockOptions(orgId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('btp_stock')
-    .select('id, item_name, unit, quantity, category, alert_level')
+    .select('id, item_name, unit, quantity, category, alert_level, min_threshold, site_id, btp_sites(name)')
     .eq('organization_id', orgId)
     .order('item_name');
   if (error) throw error;
-  return (data ?? []).map((s) => ({
-    id: s.id as string,
-    name: s.item_name as string,
-    unit: (s.unit as string) ?? '',
-    quantity: Number(s.quantity ?? 0),
-    category: (s.category as string) ?? null,
-    alertLevel: (s.alert_level as string) ?? 'normal',
-  }));
+  return (data ?? []).map((s) => {
+    const site = s.btp_sites as { name?: string } | null;
+    return {
+      id: s.id as string,
+      name: s.item_name as string,
+      unit: (s.unit as string) ?? '',
+      quantity: Number(s.quantity ?? 0),
+      category: (s.category as string) ?? null,
+      alertLevel: (s.alert_level as string) ?? 'normal',
+      minThreshold: Number(s.min_threshold ?? 0),
+      siteId: (s.site_id as string) ?? null,
+      siteName: site?.name ?? 'Dépôt central',
+    };
+  });
+}
+
+export async function loadBtpStockMovements(
+  filters: BtpStockMovementFilters
+): Promise<{ rows: BtpStockMovementRow[]; total: number }> {
+  const orgId = await requireOrgId();
+  return getBtpStockMovements(orgId, filters);
 }
 
 export async function getBtpPersonnelForStock(orgId: string) {

@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { BtpFinancialDashboardRow } from '@/lib/btp/site-financial';
+import type { BtpFinancialDashboardRowExtended } from '@/lib/btp/site-financial';
 import {
   EXPENSE_CATEGORY_LABELS,
 } from '@/lib/btp/site-financial';
@@ -17,9 +17,10 @@ import {
   createBtpSiteExpense,
   createBtpSubcontractContract,
   recordBtpSubcontractPayment,
+  exportBtpExpensesCsv,
 } from '@/lib/actions/btp-financial';
 import { formatCurrency } from '@/lib/utils';
-import { Wallet, Plus, Search } from 'lucide-react';
+import { Wallet, Plus, Search, Download, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface ExpenseRow {
@@ -48,7 +49,7 @@ interface SubcontractRow {
 }
 
 interface Props {
-  dashboard: BtpFinancialDashboardRow[];
+  dashboard: BtpFinancialDashboardRowExtended[];
   expenses: ExpenseRow[];
   subcontracts: SubcontractRow[];
   sites: Array<{ id: string; name: string }>;
@@ -70,6 +71,18 @@ export function FinancesClient({
   const [query, setQuery] = useState('');
   const [siteId, setSiteId] = useState('');
   const [category, setCategory] = useState('materials');
+  const [expandedSite, setExpandedSite] = useState<string | null>(null);
+
+  async function downloadExpensesCsv() {
+    const csv = await exportBtpExpensesCsv();
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `depenses-btp-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   const totalBudget = dashboard.reduce((s, r) => s + r.budget, 0);
   const totalSpent = dashboard.reduce((s, r) => s + r.spent, 0);
@@ -130,6 +143,9 @@ export function FinancesClient({
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={downloadExpensesCsv}>
+            <Download className="h-4 w-4" /> Export CSV
+          </Button>
           <Button
             onClick={() => setShowExpenseForm(!showExpenseForm)}
             className="bg-[#2563EB] hover:bg-[#2563EB]/90"
@@ -261,6 +277,46 @@ export function FinancesClient({
                           <span>Sous-trait. : {formatCurrency(row.subcontract)}</span>
                           <span>Frais gén. : {formatCurrency(row.overhead)}</span>
                         </div>
+                        {row.posteComparison.length > 0 && (
+                          <div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-xs"
+                              onClick={() => setExpandedSite(expandedSite === row.siteId ? null : row.siteId)}
+                            >
+                              Budget vs réel par poste
+                              {expandedSite === row.siteId ? <ChevronUp className="h-3.5 w-3.5 ml-1" /> : <ChevronDown className="h-3.5 w-3.5 ml-1" />}
+                            </Button>
+                            {expandedSite === row.siteId && (
+                              <div className="mt-2 rounded-lg border overflow-hidden text-xs">
+                                <table className="w-full">
+                                  <thead className="bg-muted/50">
+                                    <tr>
+                                      <th className="text-left p-2 font-medium">Poste</th>
+                                      <th className="text-right p-2 font-medium">Prévu</th>
+                                      <th className="text-right p-2 font-medium">Réel</th>
+                                      <th className="text-right p-2 font-medium">Écart</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {row.posteComparison.map((p) => (
+                                      <tr key={p.poste} className="border-t">
+                                        <td className="p-2">{p.label}</td>
+                                        <td className="p-2 text-right">{formatCurrency(p.plannedAmount)}</td>
+                                        <td className="p-2 text-right">{formatCurrency(p.actualAmount)}</td>
+                                        <td className={`p-2 text-right ${p.gapAmount > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                                          {p.gapAmount > 0 ? '+' : ''}{formatCurrency(p.gapAmount)}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </motion.div>

@@ -17,21 +17,23 @@ export default async function Page() {
   const orgId = session.profile.organization_id;
 
   let stock: Awaited<ReturnType<typeof getBtpStockOptions>> = [];
-  let movements: Awaited<ReturnType<typeof getBtpStockMovements>> = [];
+  let movements: Awaited<ReturnType<typeof getBtpStockMovements>>['rows'] = [];
+  let movementsTotal = 0;
   let sites: { id: string; name: string }[] = [];
   let personnel: Awaited<ReturnType<typeof getBtpPersonnelForStock>> = [];
   const equipmentItems: { id: string; title: string; subtitle: string; status: string }[] = [];
 
   try {
-    const [stockRows, movementRows, siteRows, personnelRows, equipment] = await Promise.all([
+    const [stockRows, movementResult, siteRows, personnelRows, equipment] = await Promise.all([
       getBtpStockOptions(orgId),
-      getBtpStockMovements(orgId),
+      getBtpStockMovements(orgId, { limit: 40 }),
       getBtpSites(orgId),
       getBtpPersonnelForStock(orgId),
       getBtpEquipment(orgId),
     ]);
     stock = stockRows;
-    movements = movementRows;
+    movements = movementResult.rows;
+    movementsTotal = movementResult.total;
     sites = siteRows.map((s) => ({ id: s.id, name: s.name }));
     personnel = personnelRows;
 
@@ -48,6 +50,7 @@ export default async function Page() {
   } catch {
     stock = [];
     movements = [];
+    movementsTotal = 0;
     sites = [];
     personnel = [];
   }
@@ -56,6 +59,7 @@ export default async function Page() {
     <MaterielsClient
       stock={stock}
       movements={movements}
+      movementsTotal={movementsTotal}
       sites={sites}
       personnel={personnel}
       equipmentItems={equipmentItems}
