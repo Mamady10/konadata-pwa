@@ -14,6 +14,8 @@ import {
   type BtpFinancialDashboardRow,
 } from '@/lib/btp/site-financial';
 import { parseBudgetBreakdown } from '@/lib/btp/site-baseline';
+import type { BtpItemCategory } from '@/lib/btp/delivery-note-types';
+import { addDeliveryItemsToStock } from '@/lib/actions/btp-stock';
 
 const FINANCE_PATHS = [
   '/btp/finances',
@@ -22,6 +24,7 @@ const FINANCE_PATHS = [
   '/btp/carburant',
   '/btp/chantiers',
   '/btp/rapports',
+  '/btp/materiels',
   '/btp',
 ];
 
@@ -133,29 +136,93 @@ export async function syncBtpSiteSpent(orgId: string, siteId: string): Promise<v
 export async function createBtpDeliveryNote(formData: FormData): Promise<{ success: true } | { error: string }> {
   const orgId = await requireOrgId();
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const siteId = (formData.get('site_id') as string)?.trim();
   const reference = (formData.get('reference') as string)?.trim();
   const amount = Number(formData.get('total_amount') || 0);
+  const category = (formData.get('category') as string)?.trim() as BtpItemCategory;
+  const description = (formData.get('description') as string)?.trim() || null;
+  const addToStock = formData.get('add_to_stock') === 'true';
+
   if (!siteId) return { error: 'Chantier requis.' };
   if (!reference) return { error: 'Référence du bon requise.' };
   if (amount <= 0) return { error: 'Montant invalide.' };
+  if (!['materials', 'equipment', 'consumables', 'tools', 'other'].includes(category)) {
+    return { error: 'Catégorie invalide.' };
+  }
 
   const access = await assertSiteAccess(siteId);
   if ('error' in access) return access;
 
   const deliveryDate = (formData.get('delivery_date') as string)?.trim() || new Date().toISOString().slice(0, 10);
 
-  const { error } = await supabase.from('btp_delivery_notes').insert({
-    organization_id: orgId,
-    site_id: siteId,
-    reference,
-    supplier: (formData.get('supplier') as string)?.trim() || null,
-    total_amount: amount,
-    delivery_date: deliveryDate,
-    items: [],
-  });
+  let items: Array<{ item: string; category?: string; qty: number | string; unit?: string; description?: string }> = [];
+  const itemsJson = (formData.get('items_json') as string)?.trim();
+  if (itemsJson) {
+    try {
+      const parsed = JSON.parse(itemsJson) as unknown;
+      if (Array.isArray(parsed)) {
+        items = parsed
+          .map((row) => {
+            if (!row || typeof row !== 'object') return null;
+            const o = row as Record<string, unknown>;
+            const item = String(o.item ?? '').trim();
+            if (!item) return null;
+            return {
+              item,
+              category: (o.category as string) || category,
+              qty: Number(o.qty) > 0 ? Number(o.qty) : o.qty ?? '',
+              unit: (o.unit as string) || undefined,
+              description: (o.description as string) || undefined,
+            };
+          })
+          .filter((r): r is NonNullable<typeof r> => r !== null);
+      }
+    } catch {
+      return { error: 'Lignes du bon invalides.' };
+    }
+  }
+
+  const { data: note, error } = await supabase
+    .from('btp_delivery_notes')
+    .insert({
+      organization_id: orgId,
+      site_id: siteId,
+      reference,
+      supplier: (formData.get('supplier') as string)?.trim() || null,
+      total_amount: amount,
+      delivery_date: deliveryDate,
+      category,
+      description,
+      items,
+    })
+    .select('id')
+    .single();
   if (error) return { error: error.message };
+
+  if (addToStock && items.length > 0 && note?.id) {
+    try {
+      await addDeliveryItemsToStock({
+        orgId,
+        siteId,
+        deliveryNoteId: note.id as string,
+        items: items
+          .map((i) => ({
+            item: i.item,
+            qty: Number(i.qty),
+            unit: i.unit,
+            category: i.category ?? category,
+          }))
+          .filter((i) => i.qty > 0),
+        createdBy: user?.id ?? null,
+      });
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : 'Bon enregistré mais entrée stock échouée.' };
+    }
+  }
 
   await syncBtpSiteSpent(orgId, siteId);
   revalidateFinancialPaths();

@@ -40,6 +40,7 @@ const BTP_STAFF_HREFS = new Set([
   PATH_BY_PAGE.avancement,
   PATH_BY_PAGE.carburant,
   PATH_BY_PAGE.bons,
+  PATH_BY_PAGE.materiels,
   PATH_BY_PAGE.rapports,
 ]);
 
@@ -86,6 +87,7 @@ export function getBtpFallbackPath(role: AppRole | string | undefined): string {
     'avancement',
     'carburant',
     'bons',
+    'materiels',
     'rapports',
   ];
   for (const page of order) {

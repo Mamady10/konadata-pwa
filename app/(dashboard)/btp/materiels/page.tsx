@@ -1,5 +1,10 @@
 import { requireBtpPage } from '@/lib/btp/require-btp-page';
-import { getBtpEquipment, getBtpStock } from '@/lib/actions/btp';
+import { getBtpEquipment, getBtpSites } from '@/lib/actions/btp';
+import {
+  getBtpStockMovements,
+  getBtpStockOptions,
+  getBtpPersonnelForStock,
+} from '@/lib/actions/btp-stock';
 import { MaterielsClient } from './materiels-client';
 
 type SiteRow = { name?: string } | null;
@@ -9,38 +14,51 @@ export default async function Page() {
   if (!session.profile?.organization_id) {
     return <p className="text-muted-foreground">Organisation non configurée.</p>;
   }
+  const orgId = session.profile.organization_id;
 
-  const items: { id: string; title: string; subtitle: string; status: string; date?: string }[] = [];
+  let stock: Awaited<ReturnType<typeof getBtpStockOptions>> = [];
+  let movements: Awaited<ReturnType<typeof getBtpStockMovements>> = [];
+  let sites: { id: string; name: string }[] = [];
+  let personnel: Awaited<ReturnType<typeof getBtpPersonnelForStock>> = [];
+  const equipmentItems: { id: string; title: string; subtitle: string; status: string }[] = [];
 
   try {
-    const [equipment, stock] = await Promise.all([
-      getBtpEquipment(session.profile.organization_id),
-      getBtpStock(session.profile.organization_id),
+    const [stockRows, movementRows, siteRows, personnelRows, equipment] = await Promise.all([
+      getBtpStockOptions(orgId),
+      getBtpStockMovements(orgId),
+      getBtpSites(orgId),
+      getBtpPersonnelForStock(orgId),
+      getBtpEquipment(orgId),
     ]);
+    stock = stockRows;
+    movements = movementRows;
+    sites = siteRows.map((s) => ({ id: s.id, name: s.name }));
+    personnel = personnelRows;
 
     for (const e of equipment) {
       const site = e.btp_sites as SiteRow;
-      items.push({
+      equipmentItems.push({
         id: e.id,
         title: e.name,
         subtitle: `${e.type ?? 'Équipement'} — ${Number(e.hours_used ?? 0).toLocaleString('fr-FR')} h`,
         status: e.status === 'operational' ? 'Opérationnel' : String(e.status ?? '—'),
-        date: site?.name ?? undefined,
       });
-    }
-
-    for (const s of stock) {
-      items.push({
-        id: s.id,
-        title: s.item_name,
-        subtitle: `${Number(s.quantity).toLocaleString('fr-FR')} ${s.unit ?? ''} (seuil ${Number(s.min_threshold).toLocaleString('fr-FR')})`,
-        status: s.alert_level === 'critical' ? 'Critique' : s.alert_level === 'warning' ? 'Alerte' : 'Stock OK',
-        date: undefined,
-      });
+      if (site?.name) equipmentItems[equipmentItems.length - 1].subtitle += ` · ${site.name}`;
     }
   } catch {
-    // empty
+    stock = [];
+    movements = [];
+    sites = [];
+    personnel = [];
   }
 
-  return <MaterielsClient items={items} />;
+  return (
+    <MaterielsClient
+      stock={stock}
+      movements={movements}
+      sites={sites}
+      personnel={personnel}
+      equipmentItems={equipmentItems}
+    />
+  );
 }

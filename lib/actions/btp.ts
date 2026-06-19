@@ -62,7 +62,7 @@ export async function getBtpDeliveryNotes(orgId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('btp_delivery_notes')
-    .select('id, site_id, reference, supplier, total_amount, delivery_date, created_at')
+    .select('id, site_id, reference, supplier, total_amount, delivery_date, category, description, items, created_at')
     .eq('organization_id', orgId)
     .order('delivery_date', { ascending: false });
   if (error) throw error;
