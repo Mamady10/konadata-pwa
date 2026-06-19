@@ -7,6 +7,27 @@ export interface BtpBudgetBreakdown {
   overhead?: number;
 }
 
+export type KpiTrafficStatus = 'green' | 'amber' | 'red' | 'neutral';
+
+export interface BudgetConsumedByPoste {
+  labor: number;
+  materials: number;
+  equipment: number;
+  subcontract: number;
+  overhead: number;
+  other: number;
+}
+
+export interface PosteBudgetComparison {
+  poste: string;
+  label: string;
+  plannedPct: number;
+  plannedAmount: number;
+  actualAmount: number;
+  gapAmount: number;
+  executionPct: number | null;
+}
+
 export interface BtpSiteMilestoneInput {
   label: string;
   targetPhysicalPct: number;
@@ -69,8 +90,6 @@ export interface BtpSiteBaseline {
   milestones: BtpSiteMilestoneRow[];
 }
 
-export type KpiTrafficStatus = 'green' | 'amber' | 'red' | 'neutral';
-
 export type PlanningRefSlot = 1 | 2;
 
 export type PlanningSourceType = 'linear' | 'milestones' | 'ms_project';
@@ -128,4 +147,8 @@ export interface BtpWeeklyComparisonMetrics {
   actualAvgWorkersWeek: number | null;
   plannedFuelMonthLiters: number | null;
   actualFuelWeekLiters: number;
+  /** Ventilation des dépenses cumulées par poste budgétaire. */
+  budgetByPoste: BudgetConsumedByPoste;
+  /** Comparaison budget prévu vs réel par poste. */
+  posteComparison: PosteBudgetComparison[];
 }

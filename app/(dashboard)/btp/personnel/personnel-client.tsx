@@ -9,7 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { createBtpPersonnel } from '@/lib/actions/btp';
-import { Users, Plus, Search } from 'lucide-react';
+import { createBtpLaborEntry } from '@/lib/actions/btp-financial';
+import { formatCurrency } from '@/lib/utils';
+import { Users, Plus, Search, CalendarDays } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface Row {
@@ -23,14 +25,26 @@ interface Row {
 interface Props {
   items: Row[];
   sites: Array<{ id: string; name: string }>;
+  laborEntries: Array<{
+    id: string;
+    siteName: string;
+    personName: string;
+    workDate: string;
+    days: number;
+    amount: number;
+  }>;
+  personnelForLabor: Array<{ id: string; name: string; dailyRate: number; siteName?: string }>;
 }
 
-export function PersonnelClient({ items: initialItems, sites }: Props) {
+export function PersonnelClient({ items: initialItems, sites, laborEntries, personnelForLabor }: Props) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
+  const [showLaborForm, setShowLaborForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [siteId, setSiteId] = useState('none');
+  const [laborSiteId, setLaborSiteId] = useState('');
+  const [personnelId, setPersonnelId] = useState('');
 
   async function handleCreate(formData: FormData) {
     setError(null);
@@ -44,6 +58,19 @@ export function PersonnelClient({ items: initialItems, sites }: Props) {
     router.refresh();
   }
 
+  async function handleLabor(formData: FormData) {
+    setError(null);
+    formData.set('site_id', laborSiteId);
+    formData.set('personnel_id', personnelId);
+    const result = await createBtpLaborEntry(formData);
+    if ('error' in result) {
+      setError(result.error ?? 'Pointage impossible.');
+      return;
+    }
+    setShowLaborForm(false);
+    router.refresh();
+  }
+
   const items = initialItems.filter((i) =>
     i.title.toLowerCase().includes(query.toLowerCase()) || i.subtitle.toLowerCase().includes(query.toLowerCase())
   );
@@ -52,7 +79,7 @@ export function PersonnelClient({ items: initialItems, sites }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">Personnel</h1>
@@ -60,9 +87,14 @@ export function PersonnelClient({ items: initialItems, sites }: Props) {
           </div>
           <p className="text-muted-foreground">{activeCount} collaborateur(s) actif(s)</p>
         </div>
+        <div className="flex gap-2 flex-wrap">
         <Button onClick={() => setShowForm(!showForm)} className="bg-[#2563EB] hover:bg-[#2563EB]/90">
           <Plus className="h-4 w-4" /> Ajouter
         </Button>
+        <Button variant="outline" onClick={() => setShowLaborForm(!showLaborForm)} disabled={personnelForLabor.length === 0}>
+          <CalendarDays className="h-4 w-4" /> Pointage
+        </Button>
+        </div>
       </div>
 
       {showForm && (
@@ -90,6 +122,62 @@ export function PersonnelClient({ items: initialItems, sites }: Props) {
                 <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Annuler</Button>
               </div>
             </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {showLaborForm && (
+        <Card>
+          <CardHeader><CardTitle>Pointage main d&apos;oeuvre</CardTitle></CardHeader>
+          <CardContent>
+            {error && <p className="text-sm text-destructive mb-3">{error}</p>}
+            <form action={handleLabor} className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Chantier *</Label>
+                <Select value={laborSiteId} onValueChange={setLaborSiteId}>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                  <SelectContent>
+                    {sites.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Collaborateur *</Label>
+                <Select value={personnelId} onValueChange={setPersonnelId}>
+                  <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                  <SelectContent>
+                    {personnelForLabor.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} — {formatCurrency(p.dailyRate)}/j
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2"><Label>Date *</Label><Input name="work_date" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} /></div>
+              <div className="space-y-2"><Label>Jours *</Label><Input name="days" type="number" min="0.5" step="0.5" defaultValue="1" required /></div>
+              <div className="space-y-2 sm:col-span-2"><Label>Notes</Label><Input name="notes" /></div>
+              <div className="sm:col-span-2 flex gap-2">
+                <Button type="submit" className="bg-[#2563EB]" disabled={!laborSiteId || !personnelId}>Enregistrer</Button>
+                <Button type="button" variant="outline" onClick={() => setShowLaborForm(false)}>Annuler</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {laborEntries.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Derniers pointages</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {laborEntries.slice(0, 8).map((e) => (
+              <div key={e.id} className="flex flex-wrap justify-between gap-2 text-sm border-b pb-2 last:border-0">
+                <span>{e.personName} — {e.siteName}</span>
+                <span className="text-muted-foreground">
+                  {new Date(e.workDate).toLocaleDateString('fr-FR')} · {e.days} j · {formatCurrency(e.amount)}
+                </span>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}

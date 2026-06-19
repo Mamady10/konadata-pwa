@@ -133,6 +133,7 @@ const sectorNav: Record<Exclude<Sector, "global">, NavItem[]> = {
     { label: "Matériels", href: "/btp/materiels", icon: Truck },
     { label: "Carburant", href: "/btp/carburant", icon: Fuel },
     { label: "Bons", href: "/btp/bons", icon: Receipt },
+    { label: "Finances", href: "/btp/finances", icon: Wallet },
     { label: "Avancement", href: "/btp/avancement", icon: TrendingUp },
     { label: "Documents", href: "/btp/documents", icon: FileStack },
     { label: "Rapports", href: "/btp/rapports", icon: FileText },

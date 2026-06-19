@@ -7,6 +7,7 @@ export type BtpPage =
   | 'materiels'
   | 'carburant'
   | 'bons'
+  | 'finances'
   | 'avancement'
   | 'documents'
   | 'rapports'
@@ -19,6 +20,7 @@ const PATH_BY_PAGE: Record<BtpPage, string> = {
   materiels: '/btp/materiels',
   carburant: '/btp/carburant',
   bons: '/btp/bons',
+  finances: '/btp/finances',
   avancement: '/btp/avancement',
   documents: '/btp/documents',
   rapports: '/btp/rapports',

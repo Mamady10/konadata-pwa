@@ -1,5 +1,10 @@
 import type { ResolvedPlanningRef } from '@/lib/btp/planning-ref';
 import { plannedPhysicalPctFromResolvedRef } from '@/lib/btp/planning-ref';
+import {
+  computeSiteFinancialTotals,
+  compareBudgetByPoste,
+  type ExpenseCategory,
+} from '@/lib/btp/site-financial';
 import type {
   BtpBudgetBreakdown,
   BtpScheduleTask,
@@ -219,8 +224,17 @@ export function computeConsumedBudget(params: {
   openingSpent: number;
   fuelCosts: number;
   deliveryAmounts: number;
+  laborAmounts?: number;
+  expensesByCategory?: Partial<Record<ExpenseCategory, number>>;
 }): number {
-  return Math.round(params.openingSpent + params.fuelCosts + params.deliveryAmounts);
+  return computeSiteFinancialTotals({
+    budget: 1,
+    openingSpent: params.openingSpent,
+    fuelCosts: params.fuelCosts,
+    deliveryAmounts: params.deliveryAmounts,
+    laborEntryAmounts: params.laborAmounts ?? 0,
+    expensesByCategory: params.expensesByCategory ?? {},
+  }).total;
 }
 
 function milestoneStatus(
@@ -257,6 +271,8 @@ export function buildWeeklyComparisonMetrics(params: {
   dailyProgressAll: Array<{ date: string; physicalPct: number }>;
   fuelCostToDate: number;
   deliveryAmountToDate: number;
+  laborAmountToDate?: number;
+  expensesByCategory?: Partial<Record<ExpenseCategory, number>>;
   fuelLitersWeek: number;
   avgWorkersWeek: number | null;
   delayDays: number;
@@ -272,6 +288,8 @@ export function buildWeeklyComparisonMetrics(params: {
     dailyProgressAll,
     fuelCostToDate,
     deliveryAmountToDate,
+    laborAmountToDate = 0,
+    expensesByCategory = {},
     fuelLitersWeek,
     avgWorkersWeek,
     delayDays,
@@ -295,11 +313,20 @@ export function buildWeeklyComparisonMetrics(params: {
     baseline.endDate,
     asOfDate
   );
-  const budgetConsumed = computeConsumedBudget({
+  const financialTotals = computeSiteFinancialTotals({
+    budget: baseline.budget,
     openingSpent: baseline.openingSpent,
     fuelCosts: fuelCostToDate,
     deliveryAmounts: deliveryAmountToDate,
+    laborEntryAmounts: laborAmountToDate,
+    expensesByCategory,
   });
+  const budgetConsumed = financialTotals.total;
+  const posteComparison = compareBudgetByPoste(
+    baseline.budget,
+    baseline.budgetBreakdown,
+    financialTotals.byPoste
+  );
 
   const budgetExecutionPct =
     baseline.budget > 0 ? Math.round((budgetConsumed / baseline.budget) * 1000) / 10 : null;
@@ -423,6 +450,8 @@ export function buildWeeklyComparisonMetrics(params: {
     actualAvgWorkersWeek: avgWorkersWeek,
     plannedFuelMonthLiters: baseline.plannedMonthlyFuelLiters,
     actualFuelWeekLiters: fuelLitersWeek,
+    budgetByPoste: financialTotals.byPoste,
+    posteComparison,
   };
 }
 

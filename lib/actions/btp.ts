@@ -655,6 +655,9 @@ export async function createBtpFuelLog(formData: FormData) {
   });
 
   if (error) return { error: error.message };
+  const { syncBtpSiteSpent } = await import('@/lib/actions/btp-financial');
+  await syncBtpSiteSpent(orgId, siteId);
   revalidatePath('/btp/carburant');
+  revalidatePath('/btp/finances');
   return { success: true };
 }

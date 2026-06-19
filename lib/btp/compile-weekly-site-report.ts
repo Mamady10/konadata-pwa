@@ -14,7 +14,7 @@ import {
 } from '@/lib/btp/site-baseline';
 import type { BtpSiteMilestoneRow, PlanningRefSlot } from '@/lib/btp/site-baseline-types';
 import { kpiStatusLabel } from '@/lib/btp/site-baseline';
-import { mapPlanningRefRow, resolvePlanningRef } from '@/lib/btp/planning-ref';
+import { sumLaborEntryAmount, type ExpenseCategory } from '@/lib/btp/site-financial';
 
 export const BTP_WEEKLY_SITE_REPORT_TYPE = 'weekly_site';
 export const BTP_WEEKLY_SITE_REPORT_LABEL = 'Rapport de chantier hebdomadaire';
@@ -122,7 +122,7 @@ export async function compileBtpWeeklySiteReport(
   const title = `Rapport de chantier hebdomadaire — ${siteName}`;
   const subtitle = labelFr;
 
-  const [dailyRes, fuelRes, notesRes, docsRes, allDailyRes, allFuelRes, allNotesRes] =
+  const [dailyRes, fuelRes, notesRes, docsRes, allDailyRes, allFuelRes, allNotesRes, laborRes, expensesRes] =
     await Promise.all([
     supabase
       .from('btp_daily_progress')
@@ -168,6 +168,18 @@ export async function compileBtpWeeklySiteReport(
       .select('total_amount, delivery_date')
       .eq('organization_id', input.orgId)
       .eq('site_id', input.siteId),
+    supabase
+      .from('btp_labor_entries')
+      .select('days, daily_rate, work_date')
+      .eq('organization_id', input.orgId)
+      .eq('site_id', input.siteId)
+      .lte('work_date', to),
+    supabase
+      .from('btp_site_expenses')
+      .select('category, amount, expense_date')
+      .eq('organization_id', input.orgId)
+      .eq('site_id', input.siteId)
+      .lte('expense_date', to),
   ]);
 
   if (dailyRes.error) throw new Error(dailyRes.error.message);
@@ -223,6 +235,16 @@ export async function compileBtpWeeklySiteReport(
     })
     .reduce((s, n) => s + Number(n.total_amount ?? 0), 0);
 
+  const laborToDate = (laborRes.data ?? []).reduce(
+    (s, r) => s + sumLaborEntryAmount(Number(r.days), Number(r.daily_rate)),
+    0
+  );
+  const expensesByCategory: Partial<Record<ExpenseCategory, number>> = {};
+  for (const e of expensesRes.data ?? []) {
+    const cat = e.category as ExpenseCategory;
+    expensesByCategory[cat] = (expensesByCategory[cat] ?? 0) + Number(e.amount ?? 0);
+  }
+
   const comparison = buildWeeklyComparisonMetrics({
     siteBaseline: baseline,
     resolvedRef,
@@ -240,6 +262,8 @@ export async function compileBtpWeeklySiteReport(
     })),
     fuelCostToDate,
     deliveryAmountToDate: deliveryToDate,
+    laborAmountToDate: laborToDate,
+    expensesByCategory,
     fuelLitersWeek: fuel.reduce((s, l) => s + Number(l.liters ?? 0), 0),
     avgWorkersWeek,
     delayDays: Number(site.delay_days ?? 0),
@@ -306,6 +330,14 @@ export async function compileBtpWeeklySiteReport(
           : '';
       comparisonLines.push(
         `• ${m.label} — prévu ${m.plannedDate} (${m.targetPhysicalPct} %) — ${actual}${gap}`
+      );
+    }
+  }
+  if (comparison.posteComparison.length > 0) {
+    comparisonLines.push('Ventilation budgétaire (prévu vs réel) :');
+    for (const p of comparison.posteComparison) {
+      comparisonLines.push(
+        `• ${p.label} — prévu ${formatCurrencyGnf(p.plannedAmount)} — réel ${formatCurrencyGnf(p.actualAmount)}${p.gapAmount !== 0 ? ` (écart ${p.gapAmount >= 0 ? '+' : ''}${formatCurrencyGnf(p.gapAmount)})` : ''}`
       );
     }
   }
