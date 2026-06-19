@@ -30,6 +30,7 @@
     "build:training-video": "node scripts/build-training-videos.mjs",
     "build:formation-docs": "node scripts/build-formation-docs.mjs",
     "build:formation-docs:btp": "node scripts/build-formation-docs.mjs --btp",
+    "build:formation-docs:recap": "node scripts/build-formation-docs.mjs --recap",
     "build:training-videos:btp": "node scripts/build-training-videos-btp.mjs",
     "build:training-video:btp": "node scripts/build-training-videos-btp.mjs",
     "build:commercial-docs": "node scripts/build-commercial-docs.mjs",

@@ -13,6 +13,7 @@ import { CAPTURES, FORMATION_SLIDES } from './formation-pptx-slides.mjs';
 import { CAPTURES as BTP_CAPTURES, BTP_FORMATION_SLIDES } from './formation-pptx-slides-btp.mjs';
 
 const isBtp = process.argv.includes('--btp');
+const isRecap = process.argv.includes('--recap');
 
 const __dir = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dir, '..');
@@ -20,12 +21,25 @@ const SRC_MD = path.join(
   ROOT,
   'docs',
   'formation',
-  isBtp ? 'GUIDE-UTILISATEUR-KONADATA-BTP.md' : 'GUIDE-UTILISATEUR-KONADATA.md'
+  isRecap
+    ? 'RECAPITULATIF-PLATEFORME-KONADATA.md'
+    : isBtp
+      ? 'GUIDE-UTILISATEUR-KONADATA-BTP.md'
+      : 'GUIDE-UTILISATEUR-KONADATA.md'
 );
-const OUT_DIR = path.join(ROOT, 'docs', 'formation', isBtp ? 'output-btp' : 'output');
-const SLIDES = isBtp ? BTP_FORMATION_SLIDES : FORMATION_SLIDES;
-const CAPTURES_DIR = isBtp ? BTP_CAPTURES : CAPTURES;
-const DOC_BASENAME = isBtp ? 'GUIDE-UTILISATEUR-KONADATA-BTP' : 'GUIDE-UTILISATEUR-KONADATA';
+const OUT_DIR = path.join(
+  ROOT,
+  'docs',
+  'formation',
+  isRecap ? 'output' : isBtp ? 'output-btp' : 'output'
+);
+const SLIDES = isRecap ? null : isBtp ? BTP_FORMATION_SLIDES : FORMATION_SLIDES;
+const CAPTURES_DIR = isBtp || isRecap ? BTP_CAPTURES : CAPTURES;
+const DOC_BASENAME = isRecap
+  ? 'RECAPITULATIF-PLATEFORME-KONADATA'
+  : isBtp
+    ? 'GUIDE-UTILISATEUR-KONADATA-BTP'
+    : 'GUIDE-UTILISATEUR-KONADATA';
 
 const COLORS = {
   bg: 'F8FAFC',
@@ -358,6 +372,10 @@ ${htmlBody}
 }
 
 async function buildPptx() {
+  if (!SLIDES?.length) {
+    return { pptxPath: null, slideCount: 0, imageCount: 0 };
+  }
+
   const pptx = new PptxGenJS();
   pptx.author = 'KonaData';
   pptx.title = 'Guide utilisateur KonaData — Formation';
@@ -422,7 +440,7 @@ async function buildPptx() {
     if (err?.code === 'EBUSY') {
       pptxPath = path.join(
         OUT_DIR,
-        `GUIDE-UTILISATEUR-KONADATA${isBtp ? '-BTP' : ''}-${new Date().toISOString().slice(0, 10)}.pptx`
+        `${DOC_BASENAME}-${new Date().toISOString().slice(0, 10)}.pptx`
       );
       await pptx.writeFile({ fileName: pptxPath });
     } else {
@@ -454,23 +472,36 @@ async function main() {
     }
   }
 
-  console.log('📊 Génération PPTX (captures + boutons)…');
-  const { pptxPath, slideCount, imageCount } = await buildPptx();
-  console.log('   ✓', pptxPath);
-  console.log(`   ${slideCount} slides · ${imageCount} captures intégrées`);
+  if (!isRecap) {
+    console.log('📊 Génération PPTX (captures + boutons)…');
+    const { pptxPath, slideCount, imageCount } = await buildPptx();
+    console.log('   ✓', pptxPath);
+    console.log(`   ${slideCount} slides · ${imageCount} captures intégrées`);
+  }
 
-  await writeFile(path.join(OUT_DIR, 'README.txt'), [
-    `Fichiers de formation KonaData${isBtp ? ' — BTP' : ''}`,
+  const label = isRecap ? ' — Récapitulatif global' : isBtp ? ' — BTP' : '';
+  const readmeLines = [
+    `Fichiers de formation KonaData${label}`,
     '',
-    `${DOC_BASENAME}.pdf — guide texte complet`,
-    `${DOC_BASENAME}.pptx — présentation avec captures écran`,
+    `${DOC_BASENAME}.pdf — document principal`,
+  ];
+  if (!isRecap) {
+    readmeLines.push(`${DOC_BASENAME}.pptx — présentation avec captures écran`);
+  }
+  readmeLines.push(
     '',
-    `Régénérer : npm run build:formation-docs${isBtp ? ':btp' : ''}`,
+    `Régénérer : npm run build:formation-docs${isRecap ? ':recap' : isBtp ? ':btp' : ''}`,
     'Captures : npm run capture:demo:all (avant PPTX)',
-    `Guide texte : docs/formation/${DOC_BASENAME}.md`,
-  ].join('\n'), 'utf8');
+    `Source : docs/formation/${DOC_BASENAME}.md`
+  );
 
-  console.log(`\n✅ Documents de formation${isBtp ? ' BTP' : ''} prêts dans ${OUT_DIR}/`);
+  await writeFile(
+    path.join(OUT_DIR, isRecap ? 'README-RECAP.txt' : 'README.txt'),
+    readmeLines.join('\n'),
+    'utf8'
+  );
+
+  console.log(`\n✅ Documents${label} prêts dans ${OUT_DIR}/`);
 }
 
 main().catch((e) => {
