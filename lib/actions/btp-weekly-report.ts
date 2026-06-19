@@ -10,7 +10,7 @@ import {
   BTP_WEEKLY_SITE_REPORT_TYPE,
   compileBtpWeeklySiteReport,
 } from '@/lib/btp/compile-weekly-site-report';
-import { getCurrentIsoWeekValue } from '@/lib/btp/week-period';
+import { getDefaultPeriodValue, type ReportPeriodType } from '@/lib/btp/report-period';
 import type { ReportSection } from '@/lib/ai/reports/render-report';
 import type { WeeklyReportExportStructured } from '@/lib/btp/weekly-report-export-types';
 
@@ -20,6 +20,9 @@ export type CompileBtpWeeklyReportResult =
       report: string;
       title: string;
       subtitle: string;
+      periodType: ReportPeriodType;
+      periodValue: string;
+      periodLabel: string;
       isoWeek: string;
       scopeLabel: string;
       orgName: string | null;
@@ -51,7 +54,7 @@ async function saveWeeklyReportArchive(params: {
   title: string;
   subtitle: string;
   content: string;
-  isoWeek: string;
+  periodValue: string;
 }): Promise<{ id: string } | { error: string }> {
   const orgId = await requireOrgId();
   const supabase = await createClient();
@@ -69,7 +72,7 @@ async function saveWeeklyReportArchive(params: {
       report_type: BTP_WEEKLY_SITE_REPORT_TYPE,
       report_type_label: BTP_WEEKLY_SITE_REPORT_LABEL,
       title: params.title,
-      subtitle: `${params.subtitle} · ${params.isoWeek}`,
+      subtitle: `${params.subtitle} · ${params.periodValue}`,
       content: params.content,
       engine: 'local',
       created_by: user?.id ?? null,
@@ -86,7 +89,13 @@ export async function compileBtpWeeklySiteReportAction(
   formData: FormData
 ): Promise<CompileBtpWeeklyReportResult> {
   const siteId = String(formData.get('site_id') ?? '').trim();
-  const isoWeek = String(formData.get('iso_week') ?? '').trim() || getCurrentIsoWeekValue();
+  const periodTypeRaw = String(formData.get('period_type') ?? 'week').trim();
+  const periodType: ReportPeriodType =
+    periodTypeRaw === 'month' || periodTypeRaw === 'quarter' || periodTypeRaw === 'year'
+      ? periodTypeRaw
+      : 'week';
+  const periodValue =
+    String(formData.get('period_value') ?? '').trim() || getDefaultPeriodValue(periodType);
   const weeklyComment = String(formData.get('weekly_comment') ?? '').trim();
   const planningRefSlot = Number(formData.get('planning_ref_slot') ?? 1) === 2 ? 2 : 1;
 
@@ -103,7 +112,8 @@ export async function compileBtpWeeklySiteReportAction(
     const compiled = await compileBtpWeeklySiteReport({
       orgId,
       siteId,
-      isoWeek,
+      periodType,
+      periodValue,
       weeklyComment: weeklyComment || null,
       orgName: org?.name ?? null,
       planningRefSlot,
@@ -120,7 +130,7 @@ export async function compileBtpWeeklySiteReportAction(
         title: compiled.title,
         subtitle: compiled.subtitle,
         content: compiled.report,
-        isoWeek: compiled.isoWeek,
+        periodValue: compiled.periodValue,
       });
       if ('error' in saved) return { error: saved.error };
       archiveId = saved.id;
@@ -131,6 +141,9 @@ export async function compileBtpWeeklySiteReportAction(
       report: compiled.report,
       title: compiled.title,
       subtitle: compiled.subtitle,
+      periodType: compiled.periodType,
+      periodValue: compiled.periodValue,
+      periodLabel: compiled.periodLabel,
       isoWeek: compiled.isoWeek,
       scopeLabel: compiled.scopeLabel,
       orgName: org?.name ?? null,

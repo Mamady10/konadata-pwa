@@ -11,7 +11,8 @@ export async function exportWeeklyReportPptxAction(
   try {
     await requireOrgId();
     const buffer = await buildWeeklyReportPptxBuffer(payload);
-    const fileName = `${slugifyReportFilename(payload.title)}-${payload.isoWeek}.pptx`;
+    const periodToken = payload.periodValue || payload.isoWeek || new Date().toISOString().slice(0, 10);
+    const fileName = `${slugifyReportFilename(payload.title)}-${periodToken}.pptx`;
     return { base64: buffer.toString('base64'), fileName };
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Export PowerPoint impossible.' };

@@ -7,6 +7,12 @@ export function monthKeyFromDate(dateStr: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
+export function chartSeriesStartIso(count = 6): string {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() - (count - 1), 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export function buildMonthSeries(count = 6) {
   const buckets: { key: string; mois: string; inscriptions: number; montant: number }[] = [];
   const now = new Date();

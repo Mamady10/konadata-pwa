@@ -43,7 +43,7 @@ function drawPageFooter(doc: jsPDF, orgName: string) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...EXPORT_COLORS.muted);
-    doc.text(sanitizePdfText(`${orgName} - Rapport hebdomadaire`), MARGIN, 292);
+    doc.text(sanitizePdfText(`${orgName} - Rapport périodique`), MARGIN, 292);
     doc.text(
       sanitizePdfText(`Propulse par KonaData - Page ${i}/${pageCount}`),
       PAGE_W - MARGIN,
@@ -91,7 +91,7 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
   let y = 58;
   doc.setTextColor(...EXPORT_COLORS.muted);
   doc.setFontSize(8);
-  doc.text(sanitizePdfText(`Genere le ${generatedAt} - ${payload.isoWeek}`), MARGIN, y);
+  doc.text(sanitizePdfText(`Genere le ${generatedAt} - ${payload.periodLabel}`), MARGIN, y);
   y += 10;
 
   y = ensureSpace(doc, y, 50);
@@ -349,6 +349,7 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
 
 export function downloadWeeklyReportPdf(payload: WeeklyReportExportPayload): void {
   const doc = buildWeeklyReportPdf(payload);
-  const name = `${slugifyReportFilename(payload.title)}-${payload.isoWeek}.pdf`;
+  const periodToken = payload.periodValue || payload.isoWeek || new Date().toISOString().slice(0, 10);
+  const name = `${slugifyReportFilename(payload.title)}-${periodToken}.pdf`;
   doc.save(name);
 }

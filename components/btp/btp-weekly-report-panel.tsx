@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { BtpWeeklyReportExport } from '@/components/btp/btp-weekly-report-export';
 import { compileBtpWeeklySiteReportAction } from '@/lib/actions/btp-weekly-report';
 import { getBtpPlanningRefOptionsForSite } from '@/lib/actions/btp-planning-ref';
-import { getCurrentIsoWeekValue } from '@/lib/btp/week-period';
+import { getDefaultPeriodValue, type ReportPeriodType } from '@/lib/btp/report-period';
 import type { WeeklyReportExportPayload } from '@/lib/btp/weekly-report-export-types';
 import type { PlanningRefSlot } from '@/lib/btp/site-baseline-types';
 import { CalendarRange, FileStack, Loader2, CheckCircle2 } from 'lucide-react';
@@ -28,7 +28,10 @@ interface Props {
 export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
   const router = useRouter();
   const [siteId, setSiteId] = useState(sites[0]?.id ?? '');
-  const [isoWeek, setIsoWeek] = useState(getCurrentIsoWeekValue());
+  const [periodType, setPeriodType] = useState<ReportPeriodType>('week');
+  const [periodValue, setPeriodValue] = useState(getDefaultPeriodValue('week'));
+  const [periodYear, setPeriodYear] = useState(String(new Date().getFullYear()));
+  const [periodQuarter, setPeriodQuarter] = useState<'1' | '2' | '3' | '4'>('1');
   const [weeklyComment, setWeeklyComment] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +40,14 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
   const [archiveId, setArchiveId] = useState<string | null>(null);
   const [archived, setArchived] = useState(false);
   const [exportPayload, setExportPayload] = useState<WeeklyReportExportPayload | null>(null);
+  useEffect(() => {
+    if (periodType !== 'quarter') {
+      setPeriodValue(getDefaultPeriodValue(periodType));
+      return;
+    }
+    setPeriodValue(`${periodYear}-Q${periodQuarter}`);
+  }, [periodType, periodYear, periodQuarter]);
+
 
   const [planningRefSlot, setPlanningRefSlot] = useState<PlanningRefSlot>(1);
   const [refOptions, setRefOptions] = useState<
@@ -66,7 +77,8 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
 
     const fd = new FormData();
     fd.set('site_id', siteId);
-    fd.set('iso_week', isoWeek);
+    fd.set('period_type', periodType);
+    fd.set('period_value', periodValue);
     fd.set('weekly_comment', weeklyComment);
     fd.set('planning_ref_slot', String(planningRefSlot));
 
@@ -85,6 +97,9 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
     setExportPayload({
       title: result.title,
       subtitle: result.subtitle,
+      periodType: result.periodType,
+      periodValue: result.periodValue,
+      periodLabel: result.periodLabel,
       isoWeek: result.isoWeek,
       scopeLabel: result.scopeLabel,
       orgName: result.orgName,
@@ -102,7 +117,7 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <FileStack className="h-5 w-5 text-amber-700" />
-            Rapport hebdomadaire chantier
+            Rapport périodique chantier
           </CardTitle>
           <CardDescription>
             Aucun chantier n&apos;est disponible dans votre périmètre. Créez un chantier ou demandez une
@@ -118,12 +133,13 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <FileStack className="h-5 w-5 text-emerald-700" />
-          Rapport hebdomadaire chantier
+          Rapport périodique chantier
         </CardTitle>
         <CardDescription>
           Compile automatiquement les <strong>fiches journalières</strong> (Avancement), le{' '}
           <strong>carburant</strong> et les <strong>bons de livraison</strong> de la semaine
-          sélectionnée — téléchargeable en <strong>PDF</strong> et <strong>PowerPoint</strong>.
+          sélectionnée (ou mois/trimestre/année) — téléchargeable en <strong>PDF</strong> et{' '}
+          <strong>PowerPoint</strong>.
           {isDirector
             ? ' Archivé automatiquement après compilation.'
             : ' Transmettez le fichier au directeur pour validation officielle.'}
@@ -149,14 +165,70 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
           <div className="space-y-2">
             <Label className="flex items-center gap-1">
               <CalendarRange className="h-3.5 w-3.5" />
-              Semaine (ISO)
+              Période
             </Label>
-            <Input
-              type="week"
-              value={isoWeek}
-              onChange={(e) => setIsoWeek(e.target.value)}
-              required
-            />
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Select value={periodType} onValueChange={(v) => setPeriodType(v as ReportPeriodType)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Type de période" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="week">Semaine</SelectItem>
+                  <SelectItem value="month">Mois</SelectItem>
+                  <SelectItem value="quarter">Trimestre</SelectItem>
+                  <SelectItem value="year">Année</SelectItem>
+                </SelectContent>
+              </Select>
+              {periodType === 'week' && (
+                <Input
+                  type="week"
+                  value={periodValue}
+                  onChange={(e) => setPeriodValue(e.target.value)}
+                  required
+                />
+              )}
+              {periodType === 'month' && (
+                <Input
+                  type="month"
+                  value={periodValue}
+                  onChange={(e) => setPeriodValue(e.target.value)}
+                  required
+                />
+              )}
+              {periodType === 'year' && (
+                <Input
+                  type="number"
+                  min={2020}
+                  max={2099}
+                  value={periodValue}
+                  onChange={(e) => setPeriodValue(e.target.value)}
+                  required
+                />
+              )}
+              {periodType === 'quarter' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    type="number"
+                    min={2020}
+                    max={2099}
+                    value={periodYear}
+                    onChange={(e) => setPeriodYear(e.target.value)}
+                    required
+                  />
+                  <Select value={periodQuarter} onValueChange={(v) => setPeriodQuarter(v as '1' | '2' | '3' | '4')}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Trimestre" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">T1</SelectItem>
+                      <SelectItem value="2">T2</SelectItem>
+                      <SelectItem value="3">T3</SelectItem>
+                      <SelectItem value="4">T4</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label>Référence planning (étude comparative)</Label>
@@ -209,7 +281,7 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
               ) : (
                 <>
                   <FileStack className="h-4 w-4" />
-                  Compiler le rapport hebdomadaire
+                  Compiler le rapport
                 </>
               )}
             </Button>

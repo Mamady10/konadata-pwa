@@ -101,7 +101,7 @@ export async function buildWeeklyReportPptxBuffer(
 
   pptx.author = orgName;
   pptx.title = payload.title;
-  pptx.subject = `Rapport hebdomadaire — ${payload.scopeLabel}`;
+  pptx.subject = `Rapport périodique — ${payload.scopeLabel}`;
   pptx.layout = 'LAYOUT_16x9';
 
   const titleSlide = pptx.addSlide();
@@ -124,7 +124,7 @@ export async function buildWeeklyReportPptxBuffer(
     align: 'center',
     fontFace: 'Segoe UI',
   });
-  titleSlide.addText('Rapport de chantier hebdomadaire', {
+  titleSlide.addText('Rapport de chantier périodique', {
     x: 0.45,
     y: 1.45,
     w: 9.1,
@@ -155,7 +155,7 @@ export async function buildWeeklyReportPptxBuffer(
     align: 'center',
     fontFace: 'Segoe UI',
   });
-  titleSlide.addText(`${payload.isoWeek} · ${generatedAt}`, {
+  titleSlide.addText(`${payload.periodLabel} · ${generatedAt}`, {
     x: 0.45,
     y: 4.85,
     w: 9.1,
@@ -395,7 +395,7 @@ export async function buildWeeklyReportPptxBuffer(
 
   const synthSlide = pptx.addSlide();
   synthSlide.background = { color: COLORS.bg };
-  addHeaderBar(synthSlide, 'Synthèse de la semaine');
+  addHeaderBar(synthSlide, 'Synthèse de la période');
   const delta = s.synthesis.physicalEnd - s.synthesis.physicalStart;
   const sign = delta >= 0 ? '+' : '';
   addKeyValueTable(synthSlide, [

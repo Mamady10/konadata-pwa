@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache';
 import { requireOrgId } from '@/lib/actions/org';
 import { siteStatusLabel } from '@/lib/sector/status-labels';
 import { getSession } from '@/lib/actions/auth';
@@ -13,6 +13,20 @@ import { ensureBtpSitePlanningRefs, getBtpPlanningRefsByOrg } from '@/lib/action
 import { normalizeBudgetBreakdownInput, mapSiteRowToBaseline } from '@/lib/btp/site-baseline';
 import { resolvePlanningRef, plannedPhysicalPctFromResolvedRef } from '@/lib/btp/planning-ref';
 import type { BtpSiteMilestoneInput } from '@/lib/btp/site-baseline-types';
+
+const DASHBOARD_CACHE_SECONDS = 45;
+const btpDashboardTag = (orgId: string) => `btp-dashboard-${orgId}`;
+
+function fuelLogsSinceMonths(months: number): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - months);
+  return d.toISOString().slice(0, 10);
+}
+
+function revalidateBtpDashboardCache(orgId: string, paths: string[] = []) {
+  revalidateTag(btpDashboardTag(orgId));
+  for (const p of paths) revalidatePath(p);
+}
 
 async function filterSitesByAssignment<T extends { id: string }>(sites: T[]): Promise<T[]> {
   const assigned = await getMyAssignedBtpSiteIds();
@@ -105,9 +119,17 @@ export async function getBtpEquipment(orgId: string) {
 }
 
 export async function getBtpDashboard(orgId: string) {
-  const supabase = await createClient();
+  return unstable_cache(() => loadBtpDashboard(orgId), ['btp-dashboard', orgId], {
+    revalidate: DASHBOARD_CACHE_SECONDS,
+    tags: [btpDashboardTag(orgId)],
+  })();
+}
 
-  const [sitesRes, fuelRes, notesRes, personnelRes, stockRes, progressRes] = await Promise.all([
+async function loadBtpDashboard(orgId: string) {
+  const supabase = await createClient();
+  const fuelSince = fuelLogsSinceMonths(13);
+
+  const [sitesRes, fuelRes, notesRes, personnelRes, stockAlertsRes, progressRes] = await Promise.all([
     supabase
       .from('btp_sites')
       .select('id, name, location, budget, spent, status, physical_progress, financial_progress, delay_days, default_planning_ref_slot, start_date, end_date, budget_breakdown, opening_spent')
@@ -117,7 +139,9 @@ export async function getBtpDashboard(orgId: string) {
       .from('btp_fuel_logs')
       .select('id, liters, cost, logged_at, is_anomaly, site_id')
       .eq('organization_id', orgId)
-      .order('logged_at', { ascending: false }),
+      .gte('logged_at', `${fuelSince}T00:00:00`)
+      .order('logged_at', { ascending: false })
+      .limit(500),
     supabase
       .from('btp_delivery_notes')
       .select('id, reference, supplier, total_amount, delivery_date')
@@ -131,8 +155,9 @@ export async function getBtpDashboard(orgId: string) {
       .eq('is_active', true),
     supabase
       .from('btp_stock')
-      .select('id, item_name, alert_level')
-      .eq('organization_id', orgId),
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgId)
+      .neq('alert_level', 'normal'),
     supabase
       .from('btp_daily_progress')
       .select('site_id, progress_date, physical_pct')
@@ -143,7 +168,6 @@ export async function getBtpDashboard(orgId: string) {
   const sites = sitesRes.data ?? [];
   const fuelLogs = fuelRes.data ?? [];
   const notes = notesRes.data ?? [];
-  const stock = stockRes.data ?? [];
 
   const activeSites = sites.filter((s) => s.status === 'active');
   const totalFuel = fuelLogs.reduce((s, f) => s + Number(f.liters ?? 0), 0);
@@ -237,7 +261,7 @@ export async function getBtpDashboard(orgId: string) {
       heuresMachines: 0,
       tauxAvancement: avgProgress,
       personnel: personnelRes.count ?? 0,
-      alertesStock: stock.filter((s) => s.alert_level !== 'normal').length,
+      alertesStock: stockAlertsRes.count ?? 0,
     },
     chantiersActifs: activeSites.map((s) => ({
       id: s.id,
@@ -530,10 +554,7 @@ export async function recordBtpSiteProgress(formData: FormData) {
     if (siteErr) return { error: siteErr.message };
   }
 
-  revalidatePath('/btp/avancement');
-  revalidatePath('/btp/chantiers');
-  revalidatePath('/btp');
-  revalidatePath('/btp/rapports');
+  revalidateBtpDashboardCache(orgId, ['/btp/avancement', '/btp/chantiers', '/btp/rapports']);
 
   const comparison = await getBtpPlannedProgressPreview(siteId, progressDate, physicalPct);
   return { success: true, comparison };
@@ -648,9 +669,7 @@ export async function createBtpSite(formData: FormData) {
     await syncBtpSiteSpent(orgId, site.id as string);
   }
 
-  revalidatePath('/btp/chantiers');
-  revalidatePath('/btp');
-  revalidatePath('/btp/rapports');
+  revalidateBtpDashboardCache(orgId, ['/btp/chantiers', '/btp/rapports']);
   return { success: true };
 }
 
@@ -689,8 +708,7 @@ export async function createBtpPersonnel(formData: FormData) {
   });
 
   if (error) return { error: error.message };
-  revalidatePath('/btp/personnel');
-  revalidatePath('/btp');
+  revalidateBtpDashboardCache(orgId, ['/btp/personnel']);
   return { success: true };
 }
 
@@ -718,9 +736,9 @@ export async function createBtpFuelLog(formData: FormData) {
   });
 
   if (error) return { error: error.message };
-  const { syncBtpSiteSpent } = await import('@/lib/actions/btp-financial');
+  const { syncBtpSiteSpent, revalidateBtpFinancialCaches } = await import('@/lib/actions/btp-financial');
   await syncBtpSiteSpent(orgId, siteId);
+  await revalidateBtpFinancialCaches(orgId);
   revalidatePath('/btp/carburant');
-  revalidatePath('/btp/finances');
   return { success: true };
 }

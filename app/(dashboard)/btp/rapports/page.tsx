@@ -116,8 +116,8 @@ export default async function Page() {
       items={items}
       description={
         isDirector
-          ? 'Compilation hebdomadaire automatique, synthèses IA et archives'
-          : 'Compilez le rapport hebdo à partir de vos saisies journalières'
+          ? 'Compilation périodique automatique, synthèses IA et archives'
+          : 'Compilez vos rapports par semaine, mois, trimestre ou année'
       }
       reportHistory={reportHistory}
     />

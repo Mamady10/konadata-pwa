@@ -2,12 +2,11 @@ import { createClient } from '@/lib/supabase/server';
 import { renderOfflineReport, formatCurrencyGnf, type ReportSection } from '@/lib/ai/reports/render-report';
 import { siteStatusLabel } from '@/lib/sector/status-labels';
 import {
-  isoWeekDateRange,
-  parseIsoWeekValue,
   dateInRange,
   timestampInRange,
 } from '@/lib/btp/week-period';
 import type { WeeklyReportExportStructured } from '@/lib/btp/weekly-report-export-types';
+import { resolveReportPeriod, type ReportPeriodType } from '@/lib/btp/report-period';
 import {
   buildWeeklyComparisonMetrics,
   mapSiteRowToBaseline,
@@ -17,12 +16,13 @@ import { kpiStatusLabel } from '@/lib/btp/site-baseline';
 import { sumLaborEntryAmount, type ExpenseCategory } from '@/lib/btp/site-financial';
 
 export const BTP_WEEKLY_SITE_REPORT_TYPE = 'weekly_site';
-export const BTP_WEEKLY_SITE_REPORT_LABEL = 'Rapport de chantier hebdomadaire';
+export const BTP_WEEKLY_SITE_REPORT_LABEL = 'Rapport de chantier périodique';
 
 export interface BtpWeeklyCompileInput {
   orgId: string;
   siteId: string;
-  isoWeek: string;
+  periodType?: ReportPeriodType;
+  periodValue?: string;
   weeklyComment?: string | null;
   orgName?: string | null;
   planningRefSlot?: 1 | 2;
@@ -32,6 +32,9 @@ export interface BtpWeeklyCompileResult {
   title: string;
   subtitle: string;
   scopeLabel: string;
+  periodType: ReportPeriodType;
+  periodValue: string;
+  periodLabel: string;
   isoWeek: string;
   periodFrom: string;
   periodTo: string;
@@ -49,10 +52,8 @@ export interface BtpWeeklyCompileResult {
 export async function compileBtpWeeklySiteReport(
   input: BtpWeeklyCompileInput
 ): Promise<BtpWeeklyCompileResult> {
-  const parsed = parseIsoWeekValue(input.isoWeek);
-  if (!parsed) throw new Error('Semaine invalide (format attendu : 2026-W24).');
-
-  const { from, to, labelFr } = isoWeekDateRange(parsed.year, parsed.week);
+  const resolvedPeriod = resolveReportPeriod(input.periodType ?? 'week', input.periodValue);
+  const { from, to, periodLabel } = resolvedPeriod;
   const supabase = await createClient();
 
   const { data: site, error: siteErr } = await supabase
@@ -119,8 +120,14 @@ export async function compileBtpWeeklySiteReport(
       });
 
   const siteName = site.name as string;
-  const title = `Rapport de chantier hebdomadaire — ${siteName}`;
-  const subtitle = labelFr;
+  const periodTypeLabel: Record<ReportPeriodType, string> = {
+    week: 'hebdomadaire',
+    month: 'mensuel',
+    quarter: 'trimestriel',
+    year: 'annuel',
+  };
+  const title = `Rapport de chantier ${periodTypeLabel[resolvedPeriod.periodType]} — ${siteName}`;
+  const subtitle = periodLabel;
 
   const [dailyRes, fuelRes, notesRes, docsRes, allDailyRes, allFuelRes, allNotesRes, laborRes, expensesRes] =
     await Promise.all([
@@ -285,7 +292,7 @@ export async function compileBtpWeeklySiteReport(
       baseline.startDate && baseline.endDate
         ? `Planning : ${baseline.startDate} → ${baseline.endDate}`
         : '',
-      `Période rapport : ${labelFr}`,
+      `Période rapport : ${periodLabel}`,
     ].filter(Boolean),
   });
 
@@ -346,7 +353,7 @@ export async function compileBtpWeeklySiteReport(
   }
 
   sections.push({
-    heading: 'Synthèse de la semaine',
+    heading: 'Synthèse de la période',
     lines: [
       `Avancement physique : ${Math.round(physStart)} % → ${Math.round(physEnd)} % (${physEnd >= physStart ? '+' : ''}${Math.round(physEnd - physStart)} pt)`,
       `Avancement financier (calculé) : ${financialPct} %`,
@@ -360,7 +367,7 @@ export async function compileBtpWeeklySiteReport(
     sections.push({
       heading: 'Fiches journalières',
       lines: [
-        'Aucune saisie quotidienne sur cette semaine.',
+        'Aucune saisie quotidienne sur cette période.',
         'Rappel : enregistrez chaque jour dans BTP → Avancement (travaux, effectifs, notes).',
       ],
     });
@@ -495,7 +502,7 @@ export async function compileBtpWeeklySiteReport(
       chantier: siteName,
       localisation: (site.location as string) || null,
       statut: siteStatusLabel(site.status as string),
-      periode: labelFr,
+      periode: periodLabel,
       client: baseline.client,
       contractRef: baseline.contractRef,
       moaRecipient: baseline.moaRecipient,
@@ -552,7 +559,10 @@ export async function compileBtpWeeklySiteReport(
     title,
     subtitle,
     scopeLabel: siteName,
-    isoWeek: input.isoWeek,
+    periodType: resolvedPeriod.periodType,
+    periodValue: resolvedPeriod.periodValue,
+    periodLabel,
+    isoWeek: resolvedPeriod.periodType === 'week' ? resolvedPeriod.periodValue : '',
     periodFrom: from,
     periodTo: to,
     sections,

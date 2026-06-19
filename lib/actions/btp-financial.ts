@@ -1,23 +1,23 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache';
 import { requireOrgId } from '@/lib/actions/org';
 import { canManageAssignments, getMyAssignedBtpSiteIds } from '@/lib/actions/assignments';
 import {
-  computeSiteFinancialTotals,
-  compareBudgetByPoste,
-  sumLaborEntryAmount,
   type ExpenseCategory,
   type SiteFinancialTotals,
   type PosteBudgetComparison,
   type BtpFinancialDashboardRow,
 } from '@/lib/btp/site-financial';
-import { parseBudgetBreakdown } from '@/lib/btp/site-baseline';
 import type { BtpItemCategory } from '@/lib/btp/delivery-note-types';
 import { parseDeliveryNoteItems } from '@/lib/btp/delivery-note-types';
-import { sumPersonnelPayrollYtd } from '@/lib/btp/personnel-payroll';
+import { aggregateSiteFinancialRow, groupRowsBySiteId } from '@/lib/btp/site-financial-aggregate';
 import { addDeliveryItemsToStock } from '@/lib/actions/btp-stock';
+
+const DASHBOARD_CACHE_SECONDS = 45;
+const btpFinancialTag = (orgId: string) => `btp-financial-${orgId}`;
+const btpDashboardTag = (orgId: string) => `btp-dashboard-${orgId}`;
 
 export type BtpDeliveryNoteStatus = 'draft' | 'validated';
 
@@ -46,19 +46,16 @@ export interface BtpFinancialDashboardRowExtended extends BtpFinancialDashboardR
   posteComparison: PosteBudgetComparison[];
 }
 
-const FINANCE_PATHS = [
-  '/btp/finances',
-  '/btp/bons',
-  '/btp/personnel',
-  '/btp/carburant',
-  '/btp/chantiers',
-  '/btp/rapports',
-  '/btp/materiels',
-  '/btp',
-];
+const FINANCE_REVALIDATE_PATHS = ['/btp/finances', '/btp/rapports', '/btp/chantiers', '/btp'];
 
-function revalidateFinancialPaths() {
-  for (const p of FINANCE_PATHS) revalidatePath(p);
+function revalidateFinancialPaths(orgId: string) {
+  revalidateTag(btpFinancialTag(orgId));
+  revalidateTag(btpDashboardTag(orgId));
+  for (const p of FINANCE_REVALIDATE_PATHS) revalidatePath(p);
+}
+
+export async function revalidateBtpFinancialCaches(orgId: string) {
+  revalidateFinancialPaths(orgId);
 }
 
 async function assertSiteAccess(siteId: string): Promise<{ error: string } | { ok: true }> {
@@ -67,6 +64,98 @@ async function assertSiteAccess(siteId: string): Promise<{ error: string } | { o
     return { error: 'Vous n\'êtes pas assigné à ce chantier.' };
   }
   return { ok: true };
+}
+
+async function fetchBulkSiteFinancialData(
+  orgId: string,
+  siteIds: string[],
+  asOfDate?: string
+): Promise<
+  Map<
+    string,
+    {
+      totals: SiteFinancialTotals;
+      posteComparison: PosteBudgetComparison[];
+      budget: number;
+    }
+  >
+> {
+  const result = new Map<
+    string,
+    {
+      totals: SiteFinancialTotals;
+      posteComparison: PosteBudgetComparison[];
+      budget: number;
+    }
+  >();
+  if (siteIds.length === 0) return result;
+
+  const supabase = await createClient();
+  const asOf = asOfDate ?? new Date().toISOString().slice(0, 10);
+
+  const [sitesRes, fuelRes, notesRes, laborRes, expensesRes, payrollRes] = await Promise.all([
+    supabase
+      .from('btp_sites')
+      .select('id, budget, opening_spent, budget_breakdown')
+      .eq('organization_id', orgId)
+      .in('id', siteIds),
+    supabase
+      .from('btp_fuel_logs')
+      .select('site_id, cost, logged_at')
+      .eq('organization_id', orgId)
+      .in('site_id', siteIds)
+      .lte('logged_at', `${asOf}T23:59:59`),
+    supabase
+      .from('btp_delivery_notes')
+      .select('site_id, total_amount, delivery_date, status')
+      .eq('organization_id', orgId)
+      .in('site_id', siteIds),
+    supabase
+      .from('btp_labor_entries')
+      .select('site_id, days, daily_rate, work_date')
+      .eq('organization_id', orgId)
+      .in('site_id', siteIds)
+      .lte('work_date', asOf),
+    supabase
+      .from('btp_site_expenses')
+      .select('site_id, category, amount, expense_date')
+      .eq('organization_id', orgId)
+      .in('site_id', siteIds)
+      .lte('expense_date', asOf),
+    supabase
+      .from('btp_personnel')
+      .select('site_id, monthly_salary, payroll_start_date')
+      .eq('organization_id', orgId)
+      .in('site_id', siteIds)
+      .eq('is_active', true)
+      .gt('monthly_salary', 0),
+  ]);
+
+  const fuelBySite = groupRowsBySiteId(fuelRes.data ?? []);
+  const notesBySite = groupRowsBySiteId(notesRes.data ?? []);
+  const laborBySite = groupRowsBySiteId(laborRes.data ?? []);
+  const expensesBySite = groupRowsBySiteId(expensesRes.data ?? []);
+  const payrollBySite = groupRowsBySiteId(payrollRes.data ?? []);
+
+  for (const site of sitesRes.data ?? []) {
+    const siteId = site.id as string;
+    result.set(
+      siteId,
+      aggregateSiteFinancialRow({
+        budget: Number(site.budget ?? 0),
+        openingSpent: Number(site.opening_spent ?? 0),
+        budgetBreakdown: site.budget_breakdown,
+        asOf,
+        fuelRows: fuelBySite.get(siteId) ?? [],
+        deliveryRows: notesBySite.get(siteId) ?? [],
+        laborRows: laborBySite.get(siteId) ?? [],
+        expenseRows: expensesBySite.get(siteId) ?? [],
+        payrollRows: payrollBySite.get(siteId) ?? [],
+      })
+    );
+  }
+
+  return result;
 }
 
 export async function fetchSiteFinancialData(
@@ -78,93 +167,21 @@ export async function fetchSiteFinancialData(
   posteComparison: PosteBudgetComparison[];
   budget: number;
 }> {
-  const supabase = await createClient();
-  const asOf = asOfDate ?? new Date().toISOString().slice(0, 10);
+  const bulk = await fetchBulkSiteFinancialData(orgId, [siteId], asOfDate);
+  const row = bulk.get(siteId);
+  if (row) return row;
 
-  const [siteRes, fuelRes, notesRes, laborRes, expensesRes, payrollRes] = await Promise.all([
-    supabase
-      .from('btp_sites')
-      .select('budget, spent, opening_spent, budget_breakdown')
-      .eq('id', siteId)
-      .eq('organization_id', orgId)
-      .single(),
-    supabase
-      .from('btp_fuel_logs')
-      .select('cost, logged_at')
-      .eq('site_id', siteId)
-      .lte('logged_at', `${asOf}T23:59:59`),
-    supabase
-      .from('btp_delivery_notes')
-      .select('total_amount, delivery_date, status')
-      .eq('site_id', siteId),
-    supabase
-      .from('btp_labor_entries')
-      .select('days, daily_rate, work_date')
-      .eq('site_id', siteId)
-      .lte('work_date', asOf),
-    supabase
-      .from('btp_site_expenses')
-      .select('category, amount, expense_date')
-      .eq('site_id', siteId)
-      .lte('expense_date', asOf),
-    supabase
-      .from('btp_personnel')
-      .select('monthly_salary, payroll_start_date')
-      .eq('organization_id', orgId)
-      .eq('site_id', siteId)
-      .eq('is_active', true)
-      .gt('monthly_salary', 0),
-  ]);
-
-  const site = siteRes.data;
-  const budget = Number(site?.budget ?? 0);
-  const openingSpent = Number(site?.opening_spent ?? 0);
-  const breakdown = parseBudgetBreakdown(site?.budget_breakdown);
-
-  const fuelCosts = (fuelRes.data ?? []).reduce((s, r) => s + Number(r.cost ?? 0), 0);
-  const deliveryAmounts = (notesRes.data ?? [])
-    .filter((n) => {
-      const status = (n.status as string) ?? 'validated';
-      if (status !== 'validated') return false;
-      const d = (n.delivery_date as string) || '';
-      return !d || d.slice(0, 10) <= asOf;
-    })
-    .reduce((s, n) => s + Number(n.total_amount ?? 0), 0);
-
-  const laborEntryAmounts = (laborRes.data ?? []).reduce(
-    (s, r) => s + sumLaborEntryAmount(Number(r.days), Number(r.daily_rate)),
-    0
-  );
-
-  const expensesByCategory: Partial<Record<ExpenseCategory, number>> = {};
-  for (const e of expensesRes.data ?? []) {
-    const cat = e.category as ExpenseCategory;
-    expensesByCategory[cat] = (expensesByCategory[cat] ?? 0) + Number(e.amount ?? 0);
-  }
-
-  const laborPayrollAmounts = sumPersonnelPayrollYtd(
-    (payrollRes.data ?? []).map((p) => ({
-      monthlySalary: Number(p.monthly_salary ?? 0),
-      payrollStartDate: (p.payroll_start_date as string) ?? null,
-    })),
-    asOf
-  );
-
-  const totals = computeSiteFinancialTotals({
-    budget,
-    openingSpent,
-    fuelCosts,
-    deliveryAmounts,
-    laborEntryAmounts,
-    laborPayrollAmounts,
-    expensesByCategory,
+  return aggregateSiteFinancialRow({
+    budget: 0,
+    openingSpent: 0,
+    budgetBreakdown: null,
+    asOf: asOfDate ?? new Date().toISOString().slice(0, 10),
+    fuelRows: [],
+    deliveryRows: [],
+    laborRows: [],
+    expenseRows: [],
+    payrollRows: [],
   });
-
-  return {
-    totals,
-    posteComparison: compareBudgetByPoste(budget, breakdown, totals.byPoste),
-    budget,
-  };
 }
 
 export async function syncBtpSiteSpent(orgId: string, siteId: string): Promise<void> {
@@ -333,7 +350,7 @@ export async function createBtpDeliveryNoteFromParams(params: {
   if (status === 'validated') {
     await syncBtpSiteSpent(params.orgId, params.siteId);
   }
-  revalidateFinancialPaths();
+  revalidateFinancialPaths(params.orgId);
   return { success: true, id: noteId };
 }
 
@@ -389,7 +406,7 @@ export async function validateBtpDeliveryNote(
   }
 
   await syncBtpSiteSpent(orgId, siteId);
-  revalidateFinancialPaths();
+  revalidateFinancialPaths(orgId);
   return { success: true };
 }
 
@@ -478,7 +495,7 @@ export async function createBtpSiteExpense(formData: FormData): Promise<{ succes
   if (error) return { error: error.message };
 
   await syncBtpSiteSpent(orgId, siteId);
-  revalidateFinancialPaths();
+  revalidateFinancialPaths(orgId);
   return { success: true };
 }
 
@@ -520,7 +537,7 @@ export async function createBtpLaborEntry(formData: FormData): Promise<{ success
   if (error) return { error: error.message };
 
   await syncBtpSiteSpent(orgId, siteId);
-  revalidateFinancialPaths();
+  revalidateFinancialPaths(orgId);
   return { success: true };
 }
 
@@ -573,7 +590,7 @@ export async function createBtpSubcontractContract(
   }
 
   await syncBtpSiteSpent(orgId, siteId);
-  revalidateFinancialPaths();
+  revalidateFinancialPaths(orgId);
   return { success: true };
 }
 
@@ -615,11 +632,14 @@ export async function recordBtpSubcontractPayment(
     .eq('id', contractId);
 
   await syncBtpSiteSpent(orgId, contract.site_id as string);
-  revalidateFinancialPaths();
+  revalidateFinancialPaths(orgId);
   return { success: true };
 }
 
-export async function getBtpFinancialDashboard(orgId: string): Promise<BtpFinancialDashboardRowExtended[]> {
+async function loadBtpFinancialDashboardRows(
+  orgId: string,
+  assignedSiteIds: string[] | null
+): Promise<BtpFinancialDashboardRowExtended[]> {
   const supabase = await createClient();
   const { data: sites } = await supabase
     .from('btp_sites')
@@ -627,27 +647,41 @@ export async function getBtpFinancialDashboard(orgId: string): Promise<BtpFinanc
     .eq('organization_id', orgId)
     .order('name');
 
-  const assigned = await getMyAssignedBtpSiteIds();
-  const filtered = (sites ?? []).filter((s) => assigned === null || assigned.includes(s.id as string));
+  const filtered = (sites ?? []).filter(
+    (s) => assignedSiteIds === null || assignedSiteIds.includes(s.id as string)
+  );
+  const siteIds = filtered.map((s) => s.id as string);
+  const financialBySite = await fetchBulkSiteFinancialData(orgId, siteIds);
 
-  const rows: BtpFinancialDashboardRowExtended[] = [];
-  for (const s of filtered) {
-    const { totals, posteComparison } = await fetchSiteFinancialData(orgId, s.id as string);
-    rows.push({
-      siteId: s.id as string,
+  return filtered.map((s) => {
+    const siteId = s.id as string;
+    const financial = financialBySite.get(siteId);
+    const totals = financial?.totals;
+    return {
+      siteId,
       siteName: s.name as string,
       budget: Number(s.budget ?? 0),
-      spent: totals.total,
-      financialPct: totals.financialPct ?? Number(s.financial_progress ?? 0),
-      labor: totals.byPoste.labor,
-      materials: totals.byPoste.materials,
-      equipment: totals.byPoste.equipment,
-      subcontract: totals.byPoste.subcontract,
-      overhead: totals.byPoste.overhead,
-      posteComparison,
-    });
-  }
-  return rows;
+      spent: totals?.total ?? Number(s.spent ?? 0),
+      financialPct: totals?.financialPct ?? Number(s.financial_progress ?? 0),
+      labor: totals?.byPoste.labor ?? 0,
+      materials: totals?.byPoste.materials ?? 0,
+      equipment: totals?.byPoste.equipment ?? 0,
+      subcontract: totals?.byPoste.subcontract ?? 0,
+      overhead: totals?.byPoste.overhead ?? 0,
+      posteComparison: financial?.posteComparison ?? [],
+    };
+  });
+}
+
+export async function getBtpFinancialDashboard(orgId: string): Promise<BtpFinancialDashboardRowExtended[]> {
+  const assigned = await getMyAssignedBtpSiteIds();
+  const scopeKey = assigned === null ? 'all' : [...assigned].sort().join(',');
+
+  return unstable_cache(
+    () => loadBtpFinancialDashboardRows(orgId, assigned),
+    ['btp-financial-dashboard', orgId, scopeKey],
+    { revalidate: DASHBOARD_CACHE_SECONDS, tags: [btpFinancialTag(orgId)] }
+  )();
 }
 
 export async function exportBtpExpensesCsv(): Promise<string> {

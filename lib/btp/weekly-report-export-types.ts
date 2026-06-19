@@ -1,6 +1,7 @@
 import type { ReportSection } from '@/lib/ai/reports/render-report';
 
 import type { BtpBudgetBreakdown, BtpWeeklyComparisonMetrics } from '@/lib/btp/site-baseline-types';
+import type { ReportPeriodType } from '@/lib/btp/report-period';
 
 export interface WeeklyReportExportStats {
   dailyEntries: number;
@@ -83,7 +84,10 @@ export interface WeeklyReportExportStructured {
 export interface WeeklyReportExportPayload {
   title: string;
   subtitle: string;
-  isoWeek: string;
+  isoWeek?: string;
+  periodType: ReportPeriodType;
+  periodValue: string;
+  periodLabel: string;
   scopeLabel: string;
   orgName?: string | null;
   sections: ReportSection[];

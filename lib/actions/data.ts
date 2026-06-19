@@ -64,17 +64,27 @@ export async function getNgoDashboardKpis(orgId: string) {
 
 export async function getBtpDashboardKpis(orgId: string) {
   const supabase = await createClient();
+  const fuelSince = new Date();
+  fuelSince.setMonth(fuelSince.getMonth() - 13);
+  const fuelSinceIso = fuelSince.toISOString().slice(0, 10);
 
-  const [sites, fuel, stock, personnel] = await Promise.all([
+  const [sites, fuel, stockAlerts, personnel] = await Promise.all([
     supabase.from('btp_sites').select('physical_progress, financial_progress, delay_days, status').eq('organization_id', orgId),
-    supabase.from('btp_fuel_logs').select('liters, is_anomaly').eq('organization_id', orgId),
-    supabase.from('btp_stock').select('item_name, alert_level').eq('organization_id', orgId),
+    supabase
+      .from('btp_fuel_logs')
+      .select('liters, is_anomaly')
+      .eq('organization_id', orgId)
+      .gte('logged_at', `${fuelSinceIso}T00:00:00`),
+    supabase
+      .from('btp_stock')
+      .select('id', { count: 'exact', head: true })
+      .eq('organization_id', orgId)
+      .eq('alert_level', 'critical'),
     supabase.from('btp_personnel').select('id', { count: 'exact', head: true }).eq('organization_id', orgId).eq('is_active', true),
   ]);
 
   const siteRows = sites.data ?? [];
   const fuelRows = fuel.data ?? [];
-  const stockRows = stock.data ?? [];
 
   return {
     totalSites: siteRows.length,
@@ -82,7 +92,7 @@ export async function getBtpDashboardKpis(orgId: string) {
     avgFinancialProgress: siteRows.length ? siteRows.reduce((s, x) => s + Number(x.financial_progress), 0) / siteRows.length : 0,
     totalFuelLiters: fuelRows.reduce((s, f) => s + Number(f.liters), 0),
     fuelAnomalies: fuelRows.filter((f) => f.is_anomaly).length,
-    criticalStock: stockRows.filter((s) => s.alert_level === 'critical').length,
+    criticalStock: stockAlerts.count ?? 0,
     totalPersonnel: personnel.count ?? 0,
     delayedSites: siteRows.filter((s) => (s.delay_days ?? 0) > 0).length,
   };

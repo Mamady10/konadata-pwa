@@ -11,6 +11,7 @@ import {
 import { canManageSchoolCatalog } from '@/lib/school/permissions';
 import {
   buildMonthSeries,
+  chartSeriesStartIso,
   incrementMonth,
   toInscriptionsChart,
   toPaymentsChart,
@@ -459,13 +460,15 @@ export async function getSchoolDashboard(orgId: string) {
     .order('created_at', { ascending: false })
     .limit(5);
 
-  // ─── Graphiques (données réelles) ─────────────────────────────
+  // ─── Graphiques (données réelles, 6 derniers mois) ─────────────
   const monthBuckets = buildMonthSeries(6);
+  const chartStart = chartSeriesStartIso(6);
 
   const { data: enrollmentDates } = await supabase
     .from('school_enrollments')
     .select('created_at')
-    .eq('organization_id', orgId);
+    .eq('organization_id', orgId)
+    .gte('created_at', `${chartStart}T00:00:00`);
 
   for (const e of enrollmentDates ?? []) {
     incrementMonth(monthBuckets, e.created_at, 'inscriptions');
@@ -474,7 +477,8 @@ export async function getSchoolDashboard(orgId: string) {
   const { data: studentDates } = await supabase
     .from('school_students')
     .select('enrollment_date, created_at')
-    .eq('organization_id', orgId);
+    .eq('organization_id', orgId)
+    .or(`created_at.gte.${chartStart},enrollment_date.gte.${chartStart}`);
 
   for (const s of studentDates ?? []) {
     incrementMonth(monthBuckets, s.enrollment_date ?? s.created_at, 'inscriptions');
@@ -484,7 +488,8 @@ export async function getSchoolDashboard(orgId: string) {
     .from('school_payments')
     .select('amount, paid_at, created_at, status')
     .eq('organization_id', orgId)
-    .eq('status', 'paid');
+    .eq('status', 'paid')
+    .or(`paid_at.gte.${chartStart},and(paid_at.is.null,created_at.gte.${chartStart})`);
 
   for (const p of paidPaymentsChart ?? []) {
     incrementMonth(monthBuckets, p.paid_at ?? p.created_at, 'montant', Number(p.amount));
