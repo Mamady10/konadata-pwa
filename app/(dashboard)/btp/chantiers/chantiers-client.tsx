@@ -12,12 +12,15 @@ import { HardHat, Plus, Search, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { BtpSiteMilestoneInput } from '@/lib/btp/site-baseline-types';
 
+import { BtpMsProjectImportPanel } from '@/components/btp/btp-ms-project-import-panel';
+
 interface SiteRow {
   id: string;
   title: string;
   subtitle: string;
   status: string;
   date?: string;
+  schedule?: { taskCount: number; projectTitle: string | null; importedAt: string };
 }
 
 interface Props {
@@ -152,7 +155,8 @@ export function ChantiersClient({ items: initialItems, description, canCreate }:
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Chaque jalon : libellé, % physique cible et date prévue (courbe planifié vs réalisé).
+                    Chaque jalon : libellé, % physique cible et date prévue. Vous pourrez aussi importer un
+                    planning MS Project (XML) après création du chantier — il prendra la priorité sur les jalons.
                   </p>
                   <div className="space-y-2">
                     {milestones.map((m, i) => (
@@ -308,14 +312,29 @@ export function ChantiersClient({ items: initialItems, description, canCreate }:
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold truncate">{item.title}</h3>
                       <p className="text-sm text-muted-foreground truncate">{item.subtitle}</p>
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
                         <Badge variant="outline" className="text-[10px]">
                           {item.status}
                         </Badge>
                         {item.date && (
                           <span className="text-[10px] text-muted-foreground">{item.date}</span>
                         )}
+                        {item.schedule && (
+                          <Badge variant="secondary" className="text-[10px] bg-blue-500/10 text-blue-700">
+                            MS Project · {item.schedule.taskCount} tâches
+                          </Badge>
+                        )}
                       </div>
+                      {canCreate && (
+                        <div className="mt-3">
+                          <BtpMsProjectImportPanel
+                            siteId={item.id}
+                            siteName={item.title}
+                            canManage={canCreate}
+                            schedule={item.schedule}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>

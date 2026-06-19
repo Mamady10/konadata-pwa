@@ -1,5 +1,6 @@
 import { getBtpSites } from '@/lib/actions/btp';
 import { canManageAssignments } from '@/lib/actions/assignments';
+import { getBtpSiteScheduleSummaries } from '@/lib/actions/btp-schedule';
 import { siteStatusLabel } from '@/lib/sector/status-labels';
 import { ChantiersClient } from './chantiers-client';
 import { formatCurrency } from '@/lib/utils';
@@ -13,11 +14,22 @@ export default async function Page() {
 
   const isDirector = await canManageAssignments();
 
-  let items: { id: string; title: string; subtitle: string; status: string; date?: string }[] = [];
+  let items: {
+    id: string;
+    title: string;
+    subtitle: string;
+    status: string;
+    date?: string;
+    schedule?: { taskCount: number; projectTitle: string | null; importedAt: string };
+  }[] = [];
   let description = 'Suivi des chantiers';
 
   try {
-    const sites = await getBtpSites(session.profile.organization_id);
+    const orgId = session.profile.organization_id;
+    const [sites, schedules] = await Promise.all([
+      getBtpSites(orgId),
+      getBtpSiteScheduleSummaries(orgId),
+    ]);
     const avg = sites.length
       ? sites.reduce((s, site) => s + Number(site.physical_progress ?? 0), 0) / sites.length
       : 0;
@@ -28,6 +40,7 @@ export default async function Page() {
       subtitle: `${s.location ?? '—'} — Budget ${formatCurrency(Number(s.budget ?? 0))}`,
       status: siteStatusLabel(s.status),
       date: `${Math.round(Number(s.physical_progress ?? 0))}%${(s.delay_days ?? 0) > 0 ? ` — Retard ${s.delay_days}j` : ''}`,
+      schedule: schedules[s.id as string],
     }));
 
     description = `${sites.length} chantier${sites.length !== 1 ? 's' : ''} — Taux avancement moyen : ${avg.toFixed(1)}%`;

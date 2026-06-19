@@ -8,6 +8,7 @@ import { getSession } from '@/lib/actions/auth';
 import { getBtpDocuments } from '@/lib/actions/storage';
 import { canManageAssignments, getMyAssignedBtpSiteIds } from '@/lib/actions/assignments';
 import type { PersonalDashboardLink } from '@/lib/sector/personal-dashboard-types';
+import { getBtpPlannedProgressPreview } from '@/lib/actions/btp-schedule';
 import { normalizeBudgetBreakdownInput } from '@/lib/btp/site-baseline';
 import type { BtpSiteMilestoneInput } from '@/lib/btp/site-baseline-types';
 
@@ -313,6 +314,7 @@ export interface BtpSiteProgressRow {
   physicalProgress: number;
   financialProgress: number;
   delayDays: number;
+  hasMsProjectSchedule: boolean;
 }
 
 export interface BtpDailyProgressRow {
@@ -328,7 +330,13 @@ export interface BtpDailyProgressRow {
 }
 
 export async function getBtpSitesForProgress(orgId: string): Promise<BtpSiteProgressRow[]> {
-  const sites = await getBtpSites(orgId);
+  const supabase = await createClient();
+  const [sites, scheduleRes] = await Promise.all([
+    getBtpSites(orgId),
+    supabase.from('btp_site_schedules').select('site_id').eq('organization_id', orgId),
+  ]);
+  const scheduleSiteIds = new Set((scheduleRes.data ?? []).map((r) => r.site_id as string));
+
   return sites.map((s) => ({
     id: s.id as string,
     name: s.name as string,
@@ -338,6 +346,7 @@ export async function getBtpSitesForProgress(orgId: string): Promise<BtpSiteProg
     physicalProgress: Math.round(Number(s.physical_progress ?? 0)),
     financialProgress: Math.round(Number(s.financial_progress ?? 0)),
     delayDays: Number(s.delay_days ?? 0),
+    hasMsProjectSchedule: scheduleSiteIds.has(s.id as string),
   }));
 }
 
@@ -448,7 +457,9 @@ export async function recordBtpSiteProgress(formData: FormData) {
   revalidatePath('/btp/chantiers');
   revalidatePath('/btp');
   revalidatePath('/btp/rapports');
-  return { success: true };
+
+  const comparison = await getBtpPlannedProgressPreview(siteId, progressDate, physicalPct);
+  return { success: true, comparison };
 }
 
 export async function createBtpSite(formData: FormData) {

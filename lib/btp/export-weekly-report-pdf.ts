@@ -130,7 +130,9 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
         MARGIN,
         CONTENT_W,
         cmp.sCurve.length >= 2
-          ? 'Courbe S avancement planifie vs realise (chantier)'
+          ? cmp.plannedSource === 'ms_project'
+            ? 'Courbe S avancement planifie vs realise (MS Project)'
+            : 'Courbe S avancement planifie vs realise (chantier)'
           : 'Courbe avancement planifie vs realise (semaine)',
         curve
       );

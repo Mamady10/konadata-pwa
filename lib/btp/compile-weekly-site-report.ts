@@ -72,6 +72,17 @@ export async function compileBtpWeeklySiteReport(
     .eq('site_id', input.siteId)
     .order('sort_order', { ascending: true });
 
+  const scheduleRes = await supabase
+    .from('btp_site_schedules')
+    .select('tasks')
+    .eq('organization_id', input.orgId)
+    .eq('site_id', input.siteId)
+    .maybeSingle();
+
+  const scheduleTasks = scheduleRes.data?.tasks
+    ? (scheduleRes.data.tasks as import('@/lib/btp/site-baseline-types').BtpScheduleTask[])
+    : null;
+
   const milestoneRows: BtpSiteMilestoneRow[] = milestonesRes.error
     ? []
     : (milestonesRes.data ?? []).map((m) => ({
@@ -208,6 +219,7 @@ export async function compileBtpWeeklySiteReport(
     fuelLitersWeek: fuel.reduce((s, l) => s + Number(l.liters ?? 0), 0),
     avgWorkersWeek,
     delayDays: Number(site.delay_days ?? 0),
+    scheduleTasks,
   });
 
   const spent = comparison.budgetConsumedCumulative;
@@ -231,6 +243,11 @@ export async function compileBtpWeeklySiteReport(
   });
 
   const comparisonLines: string[] = [];
+  if (scheduleTasks && scheduleTasks.length > 0) {
+    comparisonLines.push(
+      `Référence planifiée : planning MS Project importé (${scheduleTasks.length} tâches pondérées par durée).`
+    );
+  }
   if (comparison.plannedPhysicalPct != null) {
     comparisonLines.push(
       `Avancement planifié (réf.) : ${comparison.plannedPhysicalPct} % — réalisé : ${comparison.actualPhysicalPct} % (écart ${comparison.physicalGapPts! >= 0 ? '+' : ''}${comparison.physicalGapPts} pt)`

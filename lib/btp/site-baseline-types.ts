@@ -18,6 +18,40 @@ export interface BtpSiteMilestoneRow extends BtpSiteMilestoneInput {
   id: string;
 }
 
+/** Tâche feuille issue d'un import MS Project XML. */
+export interface BtpScheduleTask {
+  uid: string;
+  name: string;
+  startDate: string;
+  finishDate: string;
+  durationDays: number;
+  /** Pondération pour le % planifié cumulé (durée en jours ou 1 pour jalon). */
+  weight: number;
+  isMilestone: boolean;
+  outlineLevel: number;
+  sortOrder: number;
+}
+
+export interface BtpSiteSchedule {
+  id: string;
+  siteId: string;
+  sourceFilename: string | null;
+  projectTitle: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  taskCount: number;
+  tasks: BtpScheduleTask[];
+  importedAt: string;
+}
+
+export interface BtpPlannedProgressSnapshot {
+  plannedPct: number;
+  gapPts: number;
+  status: KpiTrafficStatus;
+  source: 'ms_project' | 'milestones' | 'linear';
+  label: string;
+}
+
 export interface BtpSiteBaseline {
   client: string | null;
   contractRef: string | null;
@@ -82,6 +116,7 @@ export interface BtpWeeklyComparisonMetrics {
     plannedPct: number | null;
     actualPct: number | null;
   }>;
+  plannedSource: 'ms_project' | 'milestones' | 'linear';
   plannedAvgWorkers: number | null;
   actualAvgWorkersWeek: number | null;
   plannedFuelMonthLiters: number | null;

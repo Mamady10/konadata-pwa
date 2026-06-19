@@ -1,8 +1,10 @@
 import type {
   BtpBudgetBreakdown,
+  BtpScheduleTask,
   BtpSiteBaseline,
   BtpSiteMilestoneRow,
   BtpWeeklyComparisonMetrics,
+  BtpPlannedProgressSnapshot,
   KpiTrafficStatus,
 } from '@/lib/btp/site-baseline-types';
 
@@ -34,8 +36,9 @@ export function buildProjectSCurve(params: {
   asOfDate: string;
   dailyProgressAll: Array<{ date: string; physicalPct: number }>;
   maxPoints?: number;
+  scheduleTasks?: BtpScheduleTask[] | null;
 }): ProgressCurvePoint[] {
-  const { baseline, asOfDate, dailyProgressAll, maxPoints = 14 } = params;
+  const { baseline, asOfDate, dailyProgressAll, maxPoints = 14, scheduleTasks } = params;
   const start = parseDate(baseline.startDate);
   const end = parseDate(baseline.endDate);
   if (!start || !end) return [];
@@ -54,12 +57,18 @@ export function buildProjectSCurve(params: {
   for (const m of baseline.milestones) {
     if (m.plannedDate) datesSet.add(m.plannedDate.slice(0, 10));
   }
+  if (scheduleTasks) {
+    for (const t of scheduleTasks) {
+      datesSet.add(t.startDate.slice(0, 10));
+      datesSet.add(t.finishDate.slice(0, 10));
+    }
+  }
 
   const dates = [...datesSet].sort();
   const longProject = totalDays > 120;
 
   return dates.map((date) => {
-    const planned = plannedPhysicalPctAt(baseline, date);
+    const planned = plannedPhysicalPctAt(baseline, date, scheduleTasks);
     let actual: number | null = null;
     if (date <= asOf) {
       const prior = sortedDaily.filter((d) => d.date <= date);
@@ -74,11 +83,73 @@ export function buildProjectSCurve(params: {
   });
 }
 
+/** % planifié cumulé à une date à partir des tâches MS Project (pondération par durée). */
+export function plannedPhysicalPctFromSchedule(
+  tasks: BtpScheduleTask[],
+  asOf: string
+): number | null {
+  if (tasks.length === 0) return null;
+  const date = parseDate(asOf);
+  if (!date) return null;
+
+  let totalWeight = 0;
+  let earned = 0;
+
+  for (const t of tasks) {
+    const start = parseDate(t.startDate);
+    const finish = parseDate(t.finishDate);
+    if (!start || !finish) continue;
+
+    const w = t.weight > 0 ? t.weight : 1;
+    totalWeight += w;
+
+    if (date < start) continue;
+    if (date >= finish || t.isMilestone) {
+      earned += w;
+      continue;
+    }
+
+    const span = Math.max(1, daysBetween(start, finish));
+    const elapsed = daysBetween(start, date);
+    earned += w * Math.min(1, Math.max(0, elapsed / span));
+  }
+
+  if (totalWeight <= 0) return null;
+  return Math.round((earned / totalWeight) * 1000) / 10;
+}
+
+export function comparePlannedVsActual(
+  plannedPct: number | null,
+  actualPct: number,
+  source: BtpPlannedProgressSnapshot['source']
+): BtpPlannedProgressSnapshot | null {
+  if (plannedPct == null) return null;
+  const gapPts = Math.round((actualPct - plannedPct) * 10) / 10;
+  let status: KpiTrafficStatus = 'neutral';
+  if (gapPts < -5) status = 'red';
+  else if (gapPts < -2) status = 'amber';
+  else status = 'green';
+
+  const label =
+    source === 'ms_project'
+      ? 'Planning MS Project'
+      : source === 'milestones'
+        ? 'Jalons contractuels'
+        : 'Référence linéaire';
+
+  return { plannedPct, gapPts, status, source, label };
+}
+
 /** Interpolation linéaire de l'avancement planifié à une date donnée. */
 export function plannedPhysicalPctAt(
   baseline: Pick<BtpSiteBaseline, 'startDate' | 'endDate' | 'milestones'>,
-  asOf: string
+  asOf: string,
+  scheduleTasks?: BtpScheduleTask[] | null
 ): number | null {
+  if (scheduleTasks && scheduleTasks.length > 0) {
+    return plannedPhysicalPctFromSchedule(scheduleTasks, asOf);
+  }
+
   const date = parseDate(asOf);
   const start = parseDate(baseline.startDate);
   const end = parseDate(baseline.endDate);
@@ -189,6 +260,7 @@ export function buildWeeklyComparisonMetrics(params: {
   fuelLitersWeek: number;
   avgWorkersWeek: number | null;
   delayDays: number;
+  scheduleTasks?: BtpScheduleTask[] | null;
 }): BtpWeeklyComparisonMetrics {
   const {
     baseline,
@@ -203,9 +275,10 @@ export function buildWeeklyComparisonMetrics(params: {
     fuelLitersWeek,
     avgWorkersWeek,
     delayDays,
+    scheduleTasks,
   } = params;
 
-  const plannedPhysical = plannedPhysicalPctAt(baseline, asOfDate);
+  const plannedPhysical = plannedPhysicalPctAt(baseline, asOfDate, scheduleTasks);
   const elapsed = timeElapsedPct(baseline.startDate, baseline.endDate, asOfDate);
   const budgetPlanned = plannedBudgetCumulativeAt(
     baseline.budget,
@@ -292,7 +365,7 @@ export function buildWeeklyComparisonMetrics(params: {
         day: 'numeric',
         month: 'short',
       }),
-      plannedPct: plannedPhysicalPctAt(baseline, d.date),
+      plannedPct: plannedPhysicalPctAt(baseline, d.date, scheduleTasks),
       actualPct: d.physicalPct,
     });
   }
@@ -310,7 +383,15 @@ export function buildWeeklyComparisonMetrics(params: {
     baseline,
     asOfDate,
     dailyProgressAll,
+    scheduleTasks,
   });
+
+  const plannedSource: BtpWeeklyComparisonMetrics['plannedSource'] =
+    scheduleTasks && scheduleTasks.length > 0
+      ? 'ms_project'
+      : baseline.milestones.length > 0
+        ? 'milestones'
+        : 'linear';
 
   return {
     asOfDate,
@@ -334,6 +415,7 @@ export function buildWeeklyComparisonMetrics(params: {
     },
     progressCurve,
     sCurve,
+    plannedSource,
     plannedAvgWorkers: baseline.plannedAvgWorkers,
     actualAvgWorkersWeek: avgWorkersWeek,
     plannedFuelMonthLiters: baseline.plannedMonthlyFuelLiters,

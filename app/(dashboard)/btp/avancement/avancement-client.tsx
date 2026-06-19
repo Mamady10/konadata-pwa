@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DataTable } from '@/components/dashboard/data-table';
+import { BtpPlannedVsActualPanel } from '@/components/btp/btp-planned-vs-actual-panel';
 import { recordBtpSiteProgress } from '@/lib/actions/btp';
 import type { BtpDailyProgressRow, BtpSiteProgressRow } from '@/lib/actions/btp';
+import type { BtpPlannedProgressSnapshot } from '@/lib/btp/site-baseline-types';
+import { kpiStatusLabel } from '@/lib/btp/site-baseline';
 import { TrendingUp, Plus, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -32,13 +35,20 @@ export function AvancementClient({
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [siteId, setSiteId] = useState('');
+  const [progressDate, setProgressDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [physicalPct, setPhysicalPct] = useState(0);
+  const [lastSavedComparison, setLastSavedComparison] = useState<BtpPlannedProgressSnapshot | null>(null);
 
   const selectedSite = useMemo(
     () => sites.find((s) => s.id === siteId),
     [sites, siteId]
   );
 
-  const today = new Date().toISOString().slice(0, 10);
+  useEffect(() => {
+    if (selectedSite) {
+      setPhysicalPct(selectedSite.physicalProgress);
+    }
+  }, [selectedSite]);
 
   async function handleSubmit(formData: FormData) {
     setError(null);
@@ -51,6 +61,9 @@ export function AvancementClient({
     if ('error' in result) {
       setError(result.error ?? 'Enregistrement impossible.');
       return;
+    }
+    if ('comparison' in result && result.comparison) {
+      setLastSavedComparison(result.comparison);
     }
     setShowForm(false);
     setSiteId('');
@@ -91,6 +104,17 @@ export function AvancementClient({
         </div>
       )}
 
+      {lastSavedComparison && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 text-sm">
+          <p className="font-medium text-emerald-800">Relevé enregistré</p>
+          <p className="text-emerald-700 mt-1">
+            Planifié {lastSavedComparison.plannedPct} % — écart{' '}
+            {lastSavedComparison.gapPts >= 0 ? '+' : ''}
+            {lastSavedComparison.gapPts} pt ({kpiStatusLabel(lastSavedComparison.status)})
+          </p>
+        </div>
+      )}
+
       {showForm && sites.length > 0 && (
         <Card>
           <CardHeader>
@@ -121,7 +145,13 @@ export function AvancementClient({
 
               <div className="space-y-2">
                 <Label>Date du relevé *</Label>
-                <Input name="progress_date" type="date" defaultValue={today} required />
+                <Input
+                  name="progress_date"
+                  type="date"
+                  value={progressDate}
+                  onChange={(e) => setProgressDate(e.target.value)}
+                  required
+                />
               </div>
 
               <div className="space-y-2">
@@ -133,9 +163,16 @@ export function AvancementClient({
                   max={100}
                   step={1}
                   required
-                  defaultValue={selectedSite?.physicalProgress ?? 0}
+                  value={physicalPct}
+                  onChange={(e) => setPhysicalPct(Number(e.target.value) || 0)}
                 />
               </div>
+
+              <BtpPlannedVsActualPanel
+                siteId={siteId}
+                progressDate={progressDate}
+                physicalPct={physicalPct}
+              />
 
               {canEditFinancial && (
                 <>
@@ -225,10 +262,15 @@ export function AvancementClient({
                         {' · '}
                         Financier <strong>{site.financialProgress}%</strong>
                       </p>
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
                         <Badge variant="outline" className="text-[10px]">
                           {site.statusLabel}
                         </Badge>
+                        {site.hasMsProjectSchedule && (
+                          <Badge variant="secondary" className="text-[10px] bg-blue-500/10 text-blue-700">
+                            MS Project
+                          </Badge>
+                        )}
                         {site.delayDays > 0 && (
                           <span className="text-[10px] text-amber-700">
                             Retard {site.delayDays}j
