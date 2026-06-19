@@ -1,0 +1,35 @@
+1
+00:00:00,000 --> 00:00:19,450
+Formation Chef de chantier KonaData. Connectez-vous : demo point chef point btp at konadata point demo. Vous ne voyez que les chantiers que la direction vous a assignés. Pas d'accès Personnel ni Finances : votre rôle est la saisie terrain et les rapports hebdomadaires.
+
+2
+00:00:19,450 --> 00:00:35,330
+Votre tableau de bord liste uniquement vos chantiers assignés. Si un chantier manque, contactez la direction pour une assignation : ce n'est pas le support KonaData. Vérifiez les alertes carburant et stock sur vos sites.
+
+3
+00:00:35,330 --> 00:00:58,420
+Avancement : bouton Saisir l'avancement, Nouveau relevé. Choisissez le chantier, la date, le pourcentage physique, la référence planning un ou deux. Le panneau planifié versus réel vous indique si vous êtes en retard. Renseignez effectif, météo, observations terrain. Enregistrer.
+
+4
+00:00:58,420 --> 00:01:16,100
+À chaque livraison : Nouveau BL, référence fournisseur, montant, lignes articles. Enregistrer en brouillon le jour de la livraison, Valider le bon une fois les quantités contrôlées. Joignez le scan depuis Documents si disponible.
+
+5
+00:01:16,100 --> 00:01:30,400
+Carburant : relevé quotidien ou hebdomadaire par engin. Litres consommés, chantier, date. Une consommation anormale peut déclencher une alerte visible par la direction.
+
+6
+00:01:30,400 --> 00:01:43,600
+Matériels : entrée ou sortie stock si votre entreprise utilise le magasin chantier. Vérifiez les seuils Alerte et Critique avant rupture.
+
+7
+00:01:43,600 --> 00:01:57,140
+Documents : téléversez photos de BL, rapports sécurité, plans. Choisissez le bon chantier avant upload. La direction peut extraire le texte automatiquement.
+
+8
+00:01:57,140 --> 00:02:17,230
+Chaque vendredi : Rapports, sélectionnez votre chantier, période Semaine, référence planning, commentaire risques semaine prochaine. Compiler le rapport, télécharger PDF, transmettre à la direction par WhatsApp ou email. C'est votre livrable hebdomadaire MOA.
+
+9
+00:02:17,230 --> 00:02:34,910
+Routine chef : avancement quotidien, BL à réception, carburant, rapport vendredi. En cas de blocage technique, lisez le bandeau rouge en haut de page. Support entreprise d'abord, puis contact at konadatagn point com.

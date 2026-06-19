@@ -152,13 +152,16 @@ async function clearExistingOrgAdmin(orgId, keepUserId, orgType) {
 }
 
 async function linkProfile(userId, account) {
-  await clearExistingOrgAdmin(account.orgId, userId, account.orgType);
+  const role = account.role ?? 'org_admin';
+  if (role === 'org_admin') {
+    await clearExistingOrgAdmin(account.orgId, userId, account.orgType);
+  }
 
   const { error } = await admin
     .from('profiles')
     .update({
       organization_id: account.orgId,
-      role: 'org_admin',
+      role,
       full_name: account.fullName,
       email: account.email,
     })

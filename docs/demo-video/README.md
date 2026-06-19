@@ -17,6 +17,14 @@
 
 Script pas à pas pour directeurs / scolarité / comptables : **[SCRIPT-DEMO-PILOTE-ECOLE-15MIN.md](SCRIPT-DEMO-PILOTE-ECOLE-15MIN.md)**
 
+## Démo live pilote BTP (15 min)
+
+Script direction + chef de chantier : **[SCRIPT-DEMO-PILOTE-BTP-15MIN.md](SCRIPT-DEMO-PILOTE-BTP-15MIN.md)**
+
+## Formation BTP
+
+Guide, PDF, PPTX et vidéos : **[../formation/README-BTP.md](../formation/README-BTP.md)**
+
 ## Démo live (comptes test)
 
 | Secteur | Email | Mot de passe |
@@ -24,6 +32,7 @@ Script pas à pas pour directeurs / scolarité / comptables : **[SCRIPT-DEMO-PIL
 | École | `demo.ecole@konadata.demo` | `DemoKona2026!` |
 | ONG | `demo.ong@konadata.demo` | `DemoKona2026!` |
 | BTP | `demo.btp@konadata.demo` | `DemoKona2026!` |
+| BTP chef | `demo.chef.btp@konadata.demo` | `DemoKona2026!` |
 | PME | `demo.pme@konadata.demo` | `DemoKona2026!` |
 
 Connexion : onglet **Email** sur `/login`.

@@ -1,0 +1,39 @@
+1
+00:00:00,000 --> 00:00:21,050
+Formation Direction BTP KonaData. Connectez-vous avec l'onglet Email ou WhatsApp. Compte démo : demo point btp at konadata point demo. Vous pilotez tous les chantiers, les finances et le personnel. Cette vidéo couvre votre routine de direction, dans l'ordre.
+
+2
+00:00:21,050 --> 00:00:41,410
+Tableau de bord BTP : chantiers actifs, avancement moyen, carburant, derniers bons de livraison, alertes stock. Le menu latéral ouvre Chantiers, Personnel, Finances, Rapports. Commencez chaque matin par ce tableau pour repérer les écarts planifié versus réel.
+
+3
+00:00:41,410 --> 00:01:07,390
+Chantiers : bouton Ajouter pour un nouveau marché. Renseignez budget total, déjà engagé au démarrage, répartition par poste en pourcentage, jalons. Sur chaque carte, configurez Référence un et Référence deux : dates linéaires, jalons KonaData, ou import MS Project en XML. La référence par défaut sert pour l'avancement et les rapports.
+
+4
+00:01:07,390 --> 00:01:24,700
+Assignations : menu Utilisateurs, puis Assignations. Cochez les chantiers pour chaque chef de terrain. Sans assignation, le collaborateur ne peut pas saisir l'avancement. Enregistrez avant d'envoyer les comptes sur le terrain.
+
+5
+00:01:24,700 --> 00:01:43,530
+Personnel : ajoutez manuellement ou importez un Excel salaires. Le modèle Excel contient Nom, Salaire mensuel, Fonction. Les salaires alimentent automatiquement la main d'œuvre en Finances. Le pointage jours fois taux journalier complète la MO terrain.
+
+6
+00:01:43,530 --> 00:02:04,940
+Finances : onglet Par chantier. Lisez le pourcentage financier, la barre budget, puis le tableau Budget versus réel par poste : main d'œuvre, matériaux, engins, sous-traitance, frais généraux. Le montant déjà engagé au démarrage s'ajoute aux dépenses saisies : ne doublez pas les montants.
+
+7
+00:02:04,940 --> 00:02:22,420
+Avancement : la direction peut saisir ou contrôler les relevés. Vérifiez le panneau planifié versus réel : Conforme, Vigilance ou Alerte. Saisissez aussi l'avancement financier et le retard en jours si vous centralisez la saisie.
+
+8
+00:02:22,420 --> 00:02:39,420
+Bons de livraison : chaque réception fournisseur passe par un BL. Brouillon, puis Valider le bon. Les montants validés entrent en matériaux. Cochez mise à jour stock si les quantités doivent alimenter le magasin chantier.
+
+9
+00:02:39,420 --> 00:03:01,420
+Rapports : choisissez chantier, période semaine mois ou trimestre, référence planning, commentaire de synthèse. Cliquez Compiler le rapport. Exportez PDF ou PPTX pour la MOA. Le rapport archive automatiquement pour la direction.
+
+10
+00:03:01,420 --> 00:03:22,020
+Récap direction BTP : créer chantiers et planning, assigner le terrain, importer le personnel, valider les BL, suivre Finances, compiler les rapports périodiques. Déléguez la saisie quotidienne aux chefs de chantier. Support : contact at konadatagn point com.

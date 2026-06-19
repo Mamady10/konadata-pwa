@@ -25,6 +25,7 @@ import {
   TEASER_SCENES,
 } from './demo-video-timeline.mjs';
 import { TRAINING_BY_ROLE } from './training-video-timeline.mjs';
+import { BTP_TRAINING_BY_ROLE } from './training-video-timeline-btp.mjs';
 
 const __dir = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dir, '..');
@@ -35,16 +36,24 @@ const MUSIC_VOL = Number(process.env.DEMO_MUSIC_VOLUME || '0.24');
 const MUSIC_ASSET = path.join(ROOT, 'docs', 'demo-video', 'assets', 'background-music.mp3');
 
 function parseTrainingRole() {
+  const btpEq = process.argv.find((a) => a.startsWith('--training-btp='));
+  if (btpEq) return { sector: 'btp', role: btpEq.slice('--training-btp='.length) };
+  const idxBtp = process.argv.indexOf('--training-btp');
+  if (idxBtp >= 0 && process.argv[idxBtp + 1] && !process.argv[idxBtp + 1].startsWith('-')) {
+    return { sector: 'btp', role: process.argv[idxBtp + 1] };
+  }
   const eq = process.argv.find((a) => a.startsWith('--training='));
-  if (eq) return eq.slice('--training='.length);
+  if (eq) return { sector: 'school', role: eq.slice('--training='.length) };
   const idx = process.argv.indexOf('--training');
   if (idx >= 0 && process.argv[idx + 1] && !process.argv[idx + 1].startsWith('-')) {
-    return process.argv[idx + 1];
+    return { sector: 'school', role: process.argv[idx + 1] };
   }
   return null;
 }
 
-const trainingRole = parseTrainingRole();
+const trainingParsed = parseTrainingRole();
+const trainingRole = trainingParsed?.role ?? null;
+const trainingSector = trainingParsed?.sector ?? 'school';
 
 const mode = trainingRole
   ? 'training'
@@ -56,10 +65,18 @@ const mode = trainingRole
         ? 'teaser'
         : 'full';
 
-const trainingPack = trainingRole ? TRAINING_BY_ROLE[trainingRole] : null;
+const trainingPack = trainingRole
+  ? trainingSector === 'btp'
+    ? BTP_TRAINING_BY_ROLE[trainingRole]
+    : TRAINING_BY_ROLE[trainingRole]
+  : null;
 if (trainingRole && !trainingPack) {
-  console.error(`Rôle formation inconnu: ${trainingRole}`);
-  console.error('Rôles:', Object.keys(TRAINING_BY_ROLE).join(', '));
+  const roles =
+    trainingSector === 'btp'
+      ? Object.keys(BTP_TRAINING_BY_ROLE).join(', ')
+      : Object.keys(TRAINING_BY_ROLE).join(', ');
+  console.error(`Rôle formation inconnu (${trainingSector}): ${trainingRole}`);
+  console.error('Rôles:', roles);
   process.exit(1);
 }
 
