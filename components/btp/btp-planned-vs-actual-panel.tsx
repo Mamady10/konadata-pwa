@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { getBtpPlannedProgressPreview } from '@/lib/actions/btp-schedule';
+import { getBtpPlannedProgressPreview } from '@/lib/actions/btp-planning-ref';
 import type { BtpPlannedProgressSnapshot } from '@/lib/btp/site-baseline-types';
 import { kpiStatusLabel } from '@/lib/btp/site-baseline';
 import { Loader2, TrendingDown, TrendingUp, Minus } from 'lucide-react';
@@ -11,6 +11,7 @@ interface Props {
   siteId: string;
   progressDate: string;
   physicalPct: number;
+  refSlot: 1 | 2;
 }
 
 const STATUS_STYLES = {
@@ -20,7 +21,7 @@ const STATUS_STYLES = {
   neutral: 'bg-slate-500/10 text-slate-600 border-slate-200',
 };
 
-export function BtpPlannedVsActualPanel({ siteId, progressDate, physicalPct }: Props) {
+export function BtpPlannedVsActualPanel({ siteId, progressDate, physicalPct, refSlot }: Props) {
   const [snapshot, setSnapshot] = useState<BtpPlannedProgressSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -31,7 +32,7 @@ export function BtpPlannedVsActualPanel({ siteId, progressDate, physicalPct }: P
     }
     let cancelled = false;
     setLoading(true);
-    getBtpPlannedProgressPreview(siteId, progressDate, physicalPct).then((result) => {
+    getBtpPlannedProgressPreview(siteId, progressDate, physicalPct, refSlot).then((result) => {
       if (!cancelled) {
         setSnapshot(result);
         setLoading(false);
@@ -40,7 +41,7 @@ export function BtpPlannedVsActualPanel({ siteId, progressDate, physicalPct }: P
     return () => {
       cancelled = true;
     };
-  }, [siteId, progressDate, physicalPct]);
+  }, [siteId, progressDate, physicalPct, refSlot]);
 
   if (!siteId) return null;
 

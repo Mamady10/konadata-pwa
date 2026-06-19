@@ -12,8 +12,9 @@ import {
   buildWeeklyComparisonMetrics,
   mapSiteRowToBaseline,
 } from '@/lib/btp/site-baseline';
-import type { BtpSiteMilestoneRow } from '@/lib/btp/site-baseline-types';
+import type { BtpSiteMilestoneRow, PlanningRefSlot } from '@/lib/btp/site-baseline-types';
 import { kpiStatusLabel } from '@/lib/btp/site-baseline';
+import { mapPlanningRefRow, resolvePlanningRef } from '@/lib/btp/planning-ref';
 
 export const BTP_WEEKLY_SITE_REPORT_TYPE = 'weekly_site';
 export const BTP_WEEKLY_SITE_REPORT_LABEL = 'Rapport de chantier hebdomadaire';
@@ -24,6 +25,7 @@ export interface BtpWeeklyCompileInput {
   isoWeek: string;
   weeklyComment?: string | null;
   orgName?: string | null;
+  planningRefSlot?: 1 | 2;
 }
 
 export interface BtpWeeklyCompileResult {
@@ -73,15 +75,15 @@ export async function compileBtpWeeklySiteReport(
     .order('sort_order', { ascending: true });
 
   const scheduleRes = await supabase
-    .from('btp_site_schedules')
-    .select('tasks')
+    .from('btp_site_planning_refs')
+    .select('*')
     .eq('organization_id', input.orgId)
     .eq('site_id', input.siteId)
+    .eq('slot', input.planningRefSlot ?? 1)
     .maybeSingle();
 
-  const scheduleTasks = scheduleRes.data?.tasks
-    ? (scheduleRes.data.tasks as import('@/lib/btp/site-baseline-types').BtpScheduleTask[])
-    : null;
+  const planningRefSlot: PlanningRefSlot = input.planningRefSlot === 2 ? 2 : 1;
+  const planningRefRow = scheduleRes.data;
 
   const milestoneRows: BtpSiteMilestoneRow[] = milestonesRes.error
     ? []
@@ -94,6 +96,27 @@ export async function compileBtpWeeklySiteReport(
   }));
 
   const baseline = mapSiteRowToBaseline(site as Record<string, unknown>, milestoneRows);
+  const resolvedRef = planningRefRow
+    ? resolvePlanningRef(baseline, mapPlanningRefRow(planningRefRow))
+    : resolvePlanningRef(baseline, {
+        id: '',
+        siteId: input.siteId,
+        slot: planningRefSlot,
+        label: 'Référence linéaire',
+        sourceType: 'linear',
+        startDate: baseline.startDate,
+        endDate: baseline.endDate,
+        milestones: milestoneRows.map((m) => ({
+          label: m.label,
+          targetPhysicalPct: m.targetPhysicalPct,
+          plannedDate: m.plannedDate,
+          sortOrder: m.sortOrder,
+        })),
+        tasks: [],
+        sourceFilename: null,
+        projectTitle: null,
+        updatedAt: new Date().toISOString(),
+      });
 
   const siteName = site.name as string;
   const title = `Rapport de chantier hebdomadaire — ${siteName}`;
@@ -201,7 +224,8 @@ export async function compileBtpWeeklySiteReport(
     .reduce((s, n) => s + Number(n.total_amount ?? 0), 0);
 
   const comparison = buildWeeklyComparisonMetrics({
-    baseline,
+    siteBaseline: baseline,
+    resolvedRef,
     asOfDate: to,
     periodFrom: from,
     periodTo: to,
@@ -219,7 +243,6 @@ export async function compileBtpWeeklySiteReport(
     fuelLitersWeek: fuel.reduce((s, l) => s + Number(l.liters ?? 0), 0),
     avgWorkersWeek,
     delayDays: Number(site.delay_days ?? 0),
-    scheduleTasks,
   });
 
   const spent = comparison.budgetConsumedCumulative;
@@ -243,11 +266,9 @@ export async function compileBtpWeeklySiteReport(
   });
 
   const comparisonLines: string[] = [];
-  if (scheduleTasks && scheduleTasks.length > 0) {
-    comparisonLines.push(
-      `Référence planifiée : planning MS Project importé (${scheduleTasks.length} tâches pondérées par durée).`
-    );
-  }
+  comparisonLines.push(
+    `Référence comparative : ${comparison.plannedRefLabel} (${comparison.plannedSource === 'ms_project' ? 'MS Project' : comparison.plannedSource === 'milestones' ? 'Jalons' : 'Dates contractuelles'}).`
+  );
   if (comparison.plannedPhysicalPct != null) {
     comparisonLines.push(
       `Avancement planifié (réf.) : ${comparison.plannedPhysicalPct} % — réalisé : ${comparison.actualPhysicalPct} % (écart ${comparison.physicalGapPts! >= 0 ? '+' : ''}${comparison.physicalGapPts} pt)`

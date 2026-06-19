@@ -88,6 +88,7 @@ export async function compileBtpWeeklySiteReportAction(
   const siteId = String(formData.get('site_id') ?? '').trim();
   const isoWeek = String(formData.get('iso_week') ?? '').trim() || getCurrentIsoWeekValue();
   const weeklyComment = String(formData.get('weekly_comment') ?? '').trim();
+  const planningRefSlot = Number(formData.get('planning_ref_slot') ?? 1) === 2 ? 2 : 1;
 
   if (!siteId) return { error: 'Chantier requis.' };
 
@@ -105,6 +106,7 @@ export async function compileBtpWeeklySiteReportAction(
       isoWeek,
       weeklyComment: weeklyComment || null,
       orgName: org?.name ?? null,
+      planningRefSlot,
     });
 
     const isDirector = await canManageAssignments();

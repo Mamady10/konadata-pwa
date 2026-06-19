@@ -12,7 +12,8 @@ import { HardHat, Plus, Search, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { BtpSiteMilestoneInput } from '@/lib/btp/site-baseline-types';
 
-import { BtpMsProjectImportPanel } from '@/components/btp/btp-ms-project-import-panel';
+import { BtpPlanningRefEditor } from '@/components/btp/btp-planning-ref-editor';
+import type { BtpSitePlanningRef } from '@/lib/btp/planning-ref';
 
 interface SiteRow {
   id: string;
@@ -21,6 +22,8 @@ interface SiteRow {
   status: string;
   date?: string;
   schedule?: { taskCount: number; projectTitle: string | null; importedAt: string };
+  planningRefs: BtpSitePlanningRef[];
+  defaultPlanningRefSlot: 1 | 2;
 }
 
 interface Props {
@@ -155,9 +158,25 @@ export function ChantiersClient({ items: initialItems, description, canCreate }:
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Chaque jalon : libellé, % physique cible et date prévue. Vous pourrez aussi importer un
-                    planning MS Project (XML) après création du chantier — il prendra la priorité sur les jalons.
+                    Choisissez le mode de la référence 1 : dates seules (linéaire), jalons détaillés, ou
+                    import MS Project après création (réf. 1 ou 2).
                   </p>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Mode référence 1 à la création</Label>
+                    <select
+                      name="ref1_mode"
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      defaultValue={milestones.length > 1 ? 'milestones' : 'linear'}
+                      onChange={(e) => {
+                        if (e.target.value === 'linear') {
+                          setMilestones([{ ...EMPTY_MILESTONE }]);
+                        }
+                      }}
+                    >
+                      <option value="linear">Dates début / fin uniquement</option>
+                      <option value="milestones">Jalons KonaData (ci-dessous)</option>
+                    </select>
+                  </div>
                   <div className="space-y-2">
                     {milestones.map((m, i) => (
                       <div key={i} className="grid gap-2 sm:grid-cols-[1fr_100px_140px_auto] items-end">
@@ -326,12 +345,22 @@ export function ChantiersClient({ items: initialItems, description, canCreate }:
                         )}
                       </div>
                       {canCreate && (
-                        <div className="mt-3">
-                          <BtpMsProjectImportPanel
+                        <div className="mt-3 space-y-1">
+                          <BtpPlanningRefEditor
                             siteId={item.id}
                             siteName={item.title}
+                            slot={1}
+                            refData={item.planningRefs.find((r) => r.slot === 1)}
+                            isDefaultRef={item.defaultPlanningRefSlot === 1}
                             canManage={canCreate}
-                            schedule={item.schedule}
+                          />
+                          <BtpPlanningRefEditor
+                            siteId={item.id}
+                            siteName={item.title}
+                            slot={2}
+                            refData={item.planningRefs.find((r) => r.slot === 2)}
+                            isDefaultRef={item.defaultPlanningRefSlot === 2}
+                            canManage={canCreate}
                           />
                         </div>
                       )}

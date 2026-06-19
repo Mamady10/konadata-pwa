@@ -48,8 +48,9 @@ export interface BtpPlannedProgressSnapshot {
   plannedPct: number;
   gapPts: number;
   status: KpiTrafficStatus;
-  source: 'ms_project' | 'milestones' | 'linear';
+  source: PlanningSourceType;
   label: string;
+  refSlot: PlanningRefSlot;
 }
 
 export interface BtpSiteBaseline {
@@ -69,6 +70,10 @@ export interface BtpSiteBaseline {
 }
 
 export type KpiTrafficStatus = 'green' | 'amber' | 'red' | 'neutral';
+
+export type PlanningRefSlot = 1 | 2;
+
+export type PlanningSourceType = 'linear' | 'milestones' | 'ms_project';
 
 export interface BtpMilestoneComparisonRow {
   label: string;
@@ -116,7 +121,9 @@ export interface BtpWeeklyComparisonMetrics {
     plannedPct: number | null;
     actualPct: number | null;
   }>;
-  plannedSource: 'ms_project' | 'milestones' | 'linear';
+  plannedSource: PlanningSourceType;
+  plannedRefSlot: PlanningRefSlot;
+  plannedRefLabel: string;
   plannedAvgWorkers: number | null;
   actualAvgWorkersWeek: number | null;
   plannedFuelMonthLiters: number | null;

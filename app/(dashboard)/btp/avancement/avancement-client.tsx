@@ -37,6 +37,7 @@ export function AvancementClient({
   const [siteId, setSiteId] = useState('');
   const [progressDate, setProgressDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [physicalPct, setPhysicalPct] = useState(0);
+  const [planningRefSlot, setPlanningRefSlot] = useState<1 | 2>(1);
   const [lastSavedComparison, setLastSavedComparison] = useState<BtpPlannedProgressSnapshot | null>(null);
 
   const selectedSite = useMemo(
@@ -47,6 +48,7 @@ export function AvancementClient({
   useEffect(() => {
     if (selectedSite) {
       setPhysicalPct(selectedSite.physicalProgress);
+      setPlanningRefSlot(selectedSite.defaultPlanningRefSlot);
     }
   }, [selectedSite]);
 
@@ -168,10 +170,27 @@ export function AvancementClient({
                 />
               </div>
 
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Référence planning</Label>
+                <Select
+                  value={String(planningRefSlot)}
+                  onValueChange={(v) => setPlanningRefSlot(v === '2' ? 2 : 1)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Référence 1</SelectItem>
+                    <SelectItem value="2">Référence 2</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <BtpPlannedVsActualPanel
                 siteId={siteId}
                 progressDate={progressDate}
                 physicalPct={physicalPct}
+                refSlot={planningRefSlot}
               />
 
               {canEditFinancial && (

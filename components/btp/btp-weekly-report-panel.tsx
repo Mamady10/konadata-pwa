@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,8 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BtpWeeklyReportExport } from '@/components/btp/btp-weekly-report-export';
 import { compileBtpWeeklySiteReportAction } from '@/lib/actions/btp-weekly-report';
+import { getBtpPlanningRefOptionsForSite } from '@/lib/actions/btp-planning-ref';
 import { getCurrentIsoWeekValue } from '@/lib/btp/week-period';
 import type { WeeklyReportExportPayload } from '@/lib/btp/weekly-report-export-types';
+import type { PlanningRefSlot } from '@/lib/btp/site-baseline-types';
 import { CalendarRange, FileStack, Loader2, CheckCircle2 } from 'lucide-react';
 
 interface SiteOption {
@@ -36,6 +38,19 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
   const [archived, setArchived] = useState(false);
   const [exportPayload, setExportPayload] = useState<WeeklyReportExportPayload | null>(null);
 
+  const [planningRefSlot, setPlanningRefSlot] = useState<PlanningRefSlot>(1);
+  const [refOptions, setRefOptions] = useState<
+    Array<{ slot: PlanningRefSlot; label: string; summary: string }>
+  >([]);
+
+  useEffect(() => {
+    if (!siteId) {
+      setRefOptions([]);
+      return;
+    }
+    getBtpPlanningRefOptionsForSite(siteId).then(setRefOptions);
+  }, [siteId]);
+
   async function handleCompile(e: React.FormEvent) {
     e.preventDefault();
     if (!siteId) {
@@ -53,6 +68,7 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
     fd.set('site_id', siteId);
     fd.set('iso_week', isoWeek);
     fd.set('weekly_comment', weeklyComment);
+    fd.set('planning_ref_slot', String(planningRefSlot));
 
     const result = await compileBtpWeeklySiteReportAction(fd);
     setLoading(false);
@@ -128,6 +144,33 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
               onChange={(e) => setIsoWeek(e.target.value)}
               required
             />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Référence planning (étude comparative)</Label>
+            <Select
+              value={String(planningRefSlot)}
+              onValueChange={(v) => setPlanningRefSlot(v === '2' ? 2 : 1)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Choisir la référence" />
+              </SelectTrigger>
+              <SelectContent>
+                {(refOptions.length > 0
+                  ? refOptions
+                  : [
+                      { slot: 1 as PlanningRefSlot, label: 'Référence 1', summary: 'Dates / jalons' },
+                      { slot: 2 as PlanningRefSlot, label: 'Référence 2', summary: 'À configurer' },
+                    ]
+                ).map((opt) => (
+                  <SelectItem key={opt.slot} value={String(opt.slot)}>
+                    Ref {opt.slot} — {opt.summary}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Choisissez sur quel planning baser la comparaison planifié vs réel dans ce rapport.
+            </p>
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label>Commentaire de synthèse (optionnel)</Label>

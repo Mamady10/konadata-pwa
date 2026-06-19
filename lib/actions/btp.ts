@@ -8,7 +8,8 @@ import { getSession } from '@/lib/actions/auth';
 import { getBtpDocuments } from '@/lib/actions/storage';
 import { canManageAssignments, getMyAssignedBtpSiteIds } from '@/lib/actions/assignments';
 import type { PersonalDashboardLink } from '@/lib/sector/personal-dashboard-types';
-import { getBtpPlannedProgressPreview } from '@/lib/actions/btp-schedule';
+import { getBtpPlannedProgressPreview } from '@/lib/actions/btp-planning-ref';
+import { ensureBtpSitePlanningRefs } from '@/lib/actions/btp-planning-ref';
 import { normalizeBudgetBreakdownInput } from '@/lib/btp/site-baseline';
 import type { BtpSiteMilestoneInput } from '@/lib/btp/site-baseline-types';
 
@@ -315,6 +316,7 @@ export interface BtpSiteProgressRow {
   financialProgress: number;
   delayDays: number;
   hasMsProjectSchedule: boolean;
+  defaultPlanningRefSlot: 1 | 2;
 }
 
 export interface BtpDailyProgressRow {
@@ -331,11 +333,26 @@ export interface BtpDailyProgressRow {
 
 export async function getBtpSitesForProgress(orgId: string): Promise<BtpSiteProgressRow[]> {
   const supabase = await createClient();
-  const [sites, scheduleRes] = await Promise.all([
+  const [sites, refsRes] = await Promise.all([
     getBtpSites(orgId),
-    supabase.from('btp_site_schedules').select('site_id').eq('organization_id', orgId),
+    supabase
+      .from('btp_site_planning_refs')
+      .select('site_id, slot, source_type')
+      .eq('organization_id', orgId),
   ]);
-  const scheduleSiteIds = new Set((scheduleRes.data ?? []).map((r) => r.site_id as string));
+  const msProjectSites = new Set(
+    (refsRes.data ?? [])
+      .filter((r) => r.source_type === 'ms_project')
+      .map((r) => r.site_id as string)
+  );
+  const defaultRefBySite = new Map<string, number>();
+  const sitesWithDefault = await supabase
+    .from('btp_sites')
+    .select('id, default_planning_ref_slot')
+    .eq('organization_id', orgId);
+  for (const s of sitesWithDefault.data ?? []) {
+    defaultRefBySite.set(s.id as string, Number(s.default_planning_ref_slot ?? 1));
+  }
 
   return sites.map((s) => ({
     id: s.id as string,
@@ -346,7 +363,8 @@ export async function getBtpSitesForProgress(orgId: string): Promise<BtpSiteProg
     physicalProgress: Math.round(Number(s.physical_progress ?? 0)),
     financialProgress: Math.round(Number(s.financial_progress ?? 0)),
     delayDays: Number(s.delay_days ?? 0),
-    hasMsProjectSchedule: scheduleSiteIds.has(s.id as string),
+    hasMsProjectSchedule: msProjectSites.has(s.id as string),
+    defaultPlanningRefSlot: (defaultRefBySite.get(s.id as string) === 2 ? 2 : 1) as 1 | 2,
   }));
 }
 
@@ -487,8 +505,9 @@ export async function createBtpSite(formData: FormData) {
   );
 
   let milestones: BtpSiteMilestoneInput[] = [];
+  const ref1Mode = (formData.get('ref1_mode') as string)?.trim() || 'milestones';
   const milestonesRaw = (formData.get('milestones_json') as string)?.trim();
-  if (milestonesRaw) {
+  if (ref1Mode === 'milestones' && milestonesRaw) {
     try {
       const parsed = JSON.parse(milestonesRaw) as BtpSiteMilestoneInput[];
       if (Array.isArray(parsed)) {
@@ -551,6 +570,20 @@ export async function createBtpSite(formData: FormData) {
       }))
     );
     if (msErr) return { error: msErr.message };
+  }
+
+  if (site?.id) {
+    await ensureBtpSitePlanningRefs({
+      orgId,
+      siteId: site.id,
+      startDate,
+      endDate,
+      ref1: {
+        sourceType: ref1Mode === 'milestones' && milestones.length > 0 ? 'milestones' : 'linear',
+        milestones,
+        label: milestones.length > 0 ? 'Référence 1 — Jalons' : 'Référence 1 — Dates contractuelles',
+      },
+    });
   }
 
   revalidatePath('/btp/chantiers');
