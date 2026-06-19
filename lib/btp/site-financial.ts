@@ -10,6 +10,7 @@ export interface SiteFinancialTotals {
   /** Hors carburant (inclus dans equipment via fuel) */
   equipmentExpenses: number;
   laborFromEntries: number;
+  laborFromPayroll: number;
   laborFromExpenses: number;
   materialsFromDeliveryNotes: number;
   materialsFromExpenses: number;
@@ -49,6 +50,7 @@ export function computeSiteFinancialTotals(params: {
   fuelCosts: number;
   deliveryAmounts: number;
   laborEntryAmounts: number;
+  laborPayrollAmounts?: number;
   expensesByCategory: Partial<Record<ExpenseCategory, number>>;
 }): SiteFinancialTotals {
   const {
@@ -57,18 +59,22 @@ export function computeSiteFinancialTotals(params: {
     fuelCosts,
     deliveryAmounts,
     laborEntryAmounts,
+    laborPayrollAmounts = 0,
     expensesByCategory,
   } = params;
 
   const laborFromExpenses = Math.round(expensesByCategory.labor ?? 0);
+  const laborFromPayroll = Math.round(laborPayrollAmounts);
   const materialsFromExpenses = Math.round(expensesByCategory.materials ?? 0);
   const equipmentExpenses = Math.round(expensesByCategory.equipment ?? 0);
   const subcontract = Math.round(expensesByCategory.subcontract ?? 0);
   const overhead = Math.round(expensesByCategory.overhead ?? 0);
   const other = Math.round(expensesByCategory.other ?? 0);
 
+  const laborTotal = laborEntryAmounts + laborFromPayroll + laborFromExpenses;
+
   const byPoste: BudgetConsumedByPoste = {
-    labor: laborEntryAmounts + laborFromExpenses,
+    labor: laborTotal,
     materials: deliveryAmounts + materialsFromExpenses,
     equipment: fuelCosts + equipmentExpenses,
     subcontract,
@@ -93,6 +99,7 @@ export function computeSiteFinancialTotals(params: {
     byPoste,
     equipmentExpenses,
     laborFromEntries: laborEntryAmounts,
+    laborFromPayroll,
     laborFromExpenses,
     materialsFromDeliveryNotes: Math.round(deliveryAmounts),
     materialsFromExpenses,

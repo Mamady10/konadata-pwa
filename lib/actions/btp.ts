@@ -86,7 +86,7 @@ export async function getBtpPersonnel(orgId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('btp_personnel')
-    .select('id, role, daily_rate, is_active, core_persons(full_name, phone), btp_sites(name)')
+    .select('id, role, daily_rate, monthly_salary, payroll_source, is_active, core_persons(full_name, phone), btp_sites(name)')
     .eq('organization_id', orgId)
     .order('created_at', { ascending: false });
   if (error) throw error;
@@ -684,6 +684,7 @@ export async function createBtpPersonnel(formData: FormData) {
     site_id: siteId && siteId !== 'none' ? siteId : null,
     role,
     daily_rate: Number(formData.get('daily_rate') || 0),
+    monthly_salary: Number(formData.get('monthly_salary') || 0),
     is_active: true,
   });
 

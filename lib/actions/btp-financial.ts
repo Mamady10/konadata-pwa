@@ -16,6 +16,7 @@ import {
 import { parseBudgetBreakdown } from '@/lib/btp/site-baseline';
 import type { BtpItemCategory } from '@/lib/btp/delivery-note-types';
 import { parseDeliveryNoteItems } from '@/lib/btp/delivery-note-types';
+import { sumPersonnelPayrollYtd } from '@/lib/btp/personnel-payroll';
 import { addDeliveryItemsToStock } from '@/lib/actions/btp-stock';
 
 export type BtpDeliveryNoteStatus = 'draft' | 'validated';
@@ -80,7 +81,7 @@ export async function fetchSiteFinancialData(
   const supabase = await createClient();
   const asOf = asOfDate ?? new Date().toISOString().slice(0, 10);
 
-  const [siteRes, fuelRes, notesRes, laborRes, expensesRes] = await Promise.all([
+  const [siteRes, fuelRes, notesRes, laborRes, expensesRes, payrollRes] = await Promise.all([
     supabase
       .from('btp_sites')
       .select('budget, spent, opening_spent, budget_breakdown')
@@ -106,6 +107,13 @@ export async function fetchSiteFinancialData(
       .select('category, amount, expense_date')
       .eq('site_id', siteId)
       .lte('expense_date', asOf),
+    supabase
+      .from('btp_personnel')
+      .select('monthly_salary, payroll_start_date')
+      .eq('organization_id', orgId)
+      .eq('site_id', siteId)
+      .eq('is_active', true)
+      .gt('monthly_salary', 0),
   ]);
 
   const site = siteRes.data;
@@ -134,12 +142,21 @@ export async function fetchSiteFinancialData(
     expensesByCategory[cat] = (expensesByCategory[cat] ?? 0) + Number(e.amount ?? 0);
   }
 
+  const laborPayrollAmounts = sumPersonnelPayrollYtd(
+    (payrollRes.data ?? []).map((p) => ({
+      monthlySalary: Number(p.monthly_salary ?? 0),
+      payrollStartDate: (p.payroll_start_date as string) ?? null,
+    })),
+    asOf
+  );
+
   const totals = computeSiteFinancialTotals({
     budget,
     openingSpent,
     fuelCosts,
     deliveryAmounts,
     laborEntryAmounts,
+    laborPayrollAmounts,
     expensesByCategory,
   });
 

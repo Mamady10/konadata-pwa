@@ -1,9 +1,12 @@
 import { requireBtpPage } from '@/lib/btp/require-btp-page';
+import { isBtpDirector } from '@/lib/btp/btp-access';
 import { getBtpPersonnel, getBtpSites } from '@/lib/actions/btp';
 import { getBtpLaborEntries, getBtpPersonnelForLabor } from '@/lib/actions/btp-financial';
 import { PersonnelClient } from './personnel-client';
 import { formatCurrency } from '@/lib/utils';
 import { sumLaborEntryAmount } from '@/lib/btp/site-financial';
+import type { AppRole } from '@/types/database';
+
 type PersonRow = { full_name?: string; phone?: string } | null;
 type SiteRow = { name?: string } | null;
 
@@ -13,8 +16,18 @@ export default async function Page() {
     return <p className="text-muted-foreground">Organisation non configurée.</p>;
   }
   const orgId = session.profile.organization_id;
+  const isDirector = isBtpDirector(session.profile.role as AppRole);
 
-  let items: { id: string; title: string; subtitle: string; status: string; date?: string }[] = [];
+  let items: {
+    id: string;
+    title: string;
+    subtitle: string;
+    status: string;
+    isActive: boolean;
+    payrollSource?: string;
+    monthlySalary?: number;
+    date?: string;
+  }[] = [];
   let sites: { id: string; name: string }[] = [];
 
   let laborEntries: Array<{
@@ -61,11 +74,22 @@ export default async function Page() {
     items = rows.map((p) => {
       const person = p.core_persons as PersonRow;
       const site = p.btp_sites as SiteRow;
+      const monthly = Number(p.monthly_salary ?? 0);
+      const daily = Number(p.daily_rate ?? 0);
+      const salaryLabel =
+        monthly > 0
+          ? `${formatCurrency(monthly)}/mois`
+          : daily > 0
+            ? `${formatCurrency(daily)}/jour`
+            : '—';
       return {
         id: p.id,
         title: person?.full_name ?? p.role ?? 'Personnel',
-        subtitle: `${p.role ?? '—'} — ${formatCurrency(Number(p.daily_rate ?? 0))}/jour`,
-        status: p.is_active ? 'Actif' : 'Inactif',
+        subtitle: `${p.role ?? '—'} — ${salaryLabel}`,
+        status: p.is_active ? 'Actif' : 'Retiré',
+        isActive: !!p.is_active,
+        payrollSource: (p.payroll_source as string) ?? 'manual',
+        monthlySalary: monthly > 0 ? monthly : undefined,
         date: site?.name ?? person?.phone ?? undefined,
       };
     });
@@ -73,5 +97,13 @@ export default async function Page() {
     items = [];
   }
 
-  return <PersonnelClient items={items} sites={sites} laborEntries={laborEntries} personnelForLabor={personnelForLabor} />;
+  return (
+    <PersonnelClient
+      items={items}
+      sites={sites}
+      laborEntries={laborEntries}
+      personnelForLabor={personnelForLabor}
+      isDirector={isDirector}
+    />
+  );
 }
