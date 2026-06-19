@@ -14,6 +14,7 @@ import {
 import type { BtpSiteMilestoneRow, PlanningRefSlot } from '@/lib/btp/site-baseline-types';
 import { kpiStatusLabel } from '@/lib/btp/site-baseline';
 import { sumLaborEntryAmount, type ExpenseCategory } from '@/lib/btp/site-financial';
+import { mapPlanningRefRow, resolvePlanningRef } from '@/lib/btp/planning-ref';
 
 export const BTP_WEEKLY_SITE_REPORT_TYPE = 'weekly_site';
 export const BTP_WEEKLY_SITE_REPORT_LABEL = 'Rapport de chantier périodique';
