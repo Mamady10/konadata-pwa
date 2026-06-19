@@ -1,0 +1,153 @@
+{
+  "generatedAt": "2026-06-19T09:32:17.666Z",
+  "password": "DemoKona2026!",
+  "loginUrl": "https://www.konadatagn.com/login",
+  "accounts": [
+    {
+      "key": "platform_admin",
+      "email": "demo.admin@konadata.demo",
+      "fullName": "Admin Plateforme KonaData",
+      "role": "platform_admin",
+      "orgId": null,
+      "sector": "Plateforme",
+      "loginUrl": "/dashboard",
+      "notes": "Accès CEO / organisations / sécurité",
+      "password": "DemoKona2026!"
+    },
+    {
+      "key": "school_director",
+      "email": "demo.ecole@konadata.demo",
+      "fullName": "Directeur Démo ISC",
+      "role": "org_admin",
+      "orgId": "11111111-1111-1111-1111-111111111101",
+      "sector": "Établissement",
+      "loginUrl": "/etablissement",
+      "password": "DemoKona2026!"
+    },
+    {
+      "key": "deputy_director",
+      "email": "demo.adjoint@konadata.demo",
+      "fullName": "Directeur Adjoint Démo",
+      "role": "deputy_director",
+      "orgId": "11111111-1111-1111-1111-111111111101",
+      "sector": "Établissement",
+      "loginUrl": "/etablissement",
+      "password": "DemoKona2026!"
+    },
+    {
+      "key": "registrar",
+      "email": "demo.scolarite@konadata.demo",
+      "fullName": "Responsable Scolarité Démo",
+      "role": "registrar",
+      "orgId": "11111111-1111-1111-1111-111111111101",
+      "sector": "Établissement",
+      "loginUrl": "/etablissement/candidatures",
+      "password": "DemoKona2026!"
+    },
+    {
+      "key": "accountant",
+      "email": "demo.comptable@konadata.demo",
+      "fullName": "Comptable Démo ISC",
+      "role": "accountant",
+      "orgId": "11111111-1111-1111-1111-111111111101",
+      "sector": "Établissement",
+      "loginUrl": "/etablissement/paiements",
+      "password": "DemoKona2026!"
+    },
+    {
+      "key": "teacher",
+      "email": "demo.prof@konadata.demo",
+      "fullName": "Professeur Démo ISC",
+      "role": "teacher",
+      "orgId": "11111111-1111-1111-1111-111111111101",
+      "sector": "Établissement",
+      "loginUrl": "/etablissement/resultats",
+      "notes": "Assigné L1 Info × Programmation",
+      "password": "DemoKona2026!"
+    },
+    {
+      "key": "student",
+      "email": "demo.eleve@konadata.demo",
+      "fullName": "Élève Démo Ousmane",
+      "role": "student",
+      "orgId": "11111111-1111-1111-1111-111111111101",
+      "sector": "Établissement",
+      "loginUrl": "/mon-espace",
+      "notes": "Élève inscrit L1 Informatique",
+      "password": "DemoKona2026!"
+    },
+    {
+      "key": "candidate",
+      "email": "demo.candidat@konadata.demo",
+      "fullName": "Candidat Démo Fatou",
+      "role": "candidate",
+      "orgId": "11111111-1111-1111-1111-111111111101",
+      "sector": "Établissement",
+      "loginUrl": "/mon-espace",
+      "notes": "Candidature en attente",
+      "password": "DemoKona2026!"
+    },
+    {
+      "key": "ngo_director",
+      "email": "demo.ong@konadata.demo",
+      "fullName": "Directrice Démo FDG",
+      "role": "org_admin",
+      "orgId": "11111111-1111-1111-1111-111111111102",
+      "sector": "ONG",
+      "loginUrl": "/ong",
+      "password": "DemoKona2026!"
+    },
+    {
+      "key": "ngo_staff",
+      "email": "demo.staff.ong@konadata.demo",
+      "fullName": "Chargé de Projet Démo ONG",
+      "role": "ngo_staff",
+      "orgId": "11111111-1111-1111-1111-111111111102",
+      "sector": "ONG",
+      "loginUrl": "/ong/projets",
+      "notes": "Assigné au 1er projet ONG",
+      "password": "DemoKona2026!"
+    },
+    {
+      "key": "btp_director",
+      "email": "demo.btp@konadata.demo",
+      "fullName": "Directeur Démo BTP",
+      "role": "org_admin",
+      "orgId": "11111111-1111-1111-1111-111111111103",
+      "sector": "BTP",
+      "loginUrl": "/btp",
+      "password": "DemoKona2026!"
+    },
+    {
+      "key": "btp_staff",
+      "email": "demo.chef.btp@konadata.demo",
+      "fullName": "Mamadou DIALLO — Chef de chantier",
+      "role": "btp_staff",
+      "orgId": "11111111-1111-1111-1111-111111111103",
+      "sector": "BTP",
+      "loginUrl": "/btp/avancement",
+      "notes": "Assigné Pont Kaloum + fiches journalières",
+      "password": "DemoKona2026!"
+    },
+    {
+      "key": "pme_director",
+      "email": "demo.pme@konadata.demo",
+      "fullName": "Gérant Démo Mamou",
+      "role": "org_admin",
+      "orgId": "11111111-1111-1111-1111-111111111104",
+      "sector": "PME",
+      "loginUrl": "/pme",
+      "password": "DemoKona2026!"
+    },
+    {
+      "key": "pme_staff",
+      "email": "demo.staff.pme@konadata.demo",
+      "fullName": "Vendeur Démo PME",
+      "role": "pme_staff",
+      "orgId": "11111111-1111-1111-1111-111111111104",
+      "sector": "PME",
+      "loginUrl": "/pme/ventes",
+      "password": "DemoKona2026!"
+    }
+  ]
+}
