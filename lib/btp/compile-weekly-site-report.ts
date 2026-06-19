@@ -24,6 +24,10 @@ export interface BtpWeeklyCompileInput {
   siteId: string;
   periodType?: ReportPeriodType;
   periodValue?: string;
+  /** Période personnalisée (clôture chantier : du début au jour J) */
+  customPeriodFrom?: string;
+  customPeriodTo?: string;
+  customPeriodLabel?: string;
   weeklyComment?: string | null;
   orgName?: string | null;
   planningRefSlot?: 1 | 2;
@@ -53,8 +57,21 @@ export interface BtpWeeklyCompileResult {
 export async function compileBtpWeeklySiteReport(
   input: BtpWeeklyCompileInput
 ): Promise<BtpWeeklyCompileResult> {
-  const resolvedPeriod = resolveReportPeriod(input.periodType ?? 'week', input.periodValue);
+  const resolvedPeriod =
+    input.customPeriodFrom && input.customPeriodTo
+      ? {
+          periodType: (input.periodType ?? 'year') as ReportPeriodType,
+          periodValue: input.periodValue ?? 'closure',
+          periodLabel:
+            input.customPeriodLabel ??
+            `Du ${input.customPeriodFrom} au ${input.customPeriodTo}`,
+          from: input.customPeriodFrom,
+          to: input.customPeriodTo,
+        }
+      : resolveReportPeriod(input.periodType ?? 'week', input.periodValue);
   const { from, to, periodLabel } = resolvedPeriod;
+  const periodType = resolvedPeriod.periodType;
+  const periodValue = resolvedPeriod.periodValue;
   const supabase = await createClient();
 
   const { data: site, error: siteErr } = await supabase

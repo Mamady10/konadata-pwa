@@ -421,6 +421,8 @@ export async function uploadBtpSiteDocument(formData: FormData) {
   });
 
   revalidatePath('/btp/documents');
+  revalidatePath('/btp/chantiers');
+  revalidatePath(`/btp/chantiers/${siteId}`);
   revalidatePath('/btp/rapports');
   revalidatePath('/data-factory');
   return { data: doc, indexing: indexResult };

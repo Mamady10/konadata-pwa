@@ -1,11 +1,9 @@
 import { getBtpSites } from '@/lib/actions/btp';
 import { canManageAssignments } from '@/lib/actions/assignments';
 import { getBtpPlanningRefsByOrg } from '@/lib/actions/btp-planning-ref';
-import type { BtpSitePlanningRef } from '@/lib/btp/planning-ref';
 import { siteStatusLabel } from '@/lib/sector/status-labels';
 import { ChantiersClient } from './chantiers-client';
 import { formatCurrency } from '@/lib/utils';
-import { createClient } from '@/lib/supabase/server';
 import { requireBtpPage } from '@/lib/btp/require-btp-page';
 
 export default async function Page() {
@@ -23,31 +21,18 @@ export default async function Page() {
     status: string;
     date?: string;
     schedule?: { taskCount: number; projectTitle: string | null; importedAt: string };
-    planningRefs: BtpSitePlanningRef[];
-    defaultPlanningRefSlot: 1 | 2;
   }[] = [];
   let description = 'Suivi des chantiers';
 
   try {
     const orgId = session.profile.organization_id;
-    const [sites, planningRefsBySite, sitesMeta] = await Promise.all([
+    const [sites, planningRefsBySite] = await Promise.all([
       getBtpSites(orgId),
       getBtpPlanningRefsByOrg(orgId),
-      createClient().then(async (sb) => {
-        const { data } = await sb
-          .from('btp_sites')
-          .select('id, default_planning_ref_slot')
-          .eq('organization_id', orgId);
-        return data ?? [];
-      }),
     ]);
     const avg = sites.length
       ? sites.reduce((s, site) => s + Number(site.physical_progress ?? 0), 0) / sites.length
       : 0;
-
-    const defaultBySite = new Map(
-      sitesMeta.map((m) => [m.id as string, Number(m.default_planning_ref_slot ?? 1)])
-    );
 
     items = sites.map((s) => {
       const refs = planningRefsBySite[s.id as string] ?? [];
@@ -65,8 +50,6 @@ export default async function Page() {
               importedAt: msRef.updatedAt,
             }
           : undefined,
-        planningRefs: refs,
-        defaultPlanningRefSlot: (defaultBySite.get(s.id as string) === 2 ? 2 : 1) as 1 | 2,
       };
     });
 

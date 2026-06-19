@@ -8,12 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { createBtpSite } from '@/lib/actions/btp';
-import { HardHat, Plus, Search, Trash2 } from 'lucide-react';
+import { HardHat, Plus, Search, ChevronRight, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 import type { BtpSiteMilestoneInput } from '@/lib/btp/site-baseline-types';
-
-import { BtpPlanningRefEditor } from '@/components/btp/btp-planning-ref-editor';
-import type { BtpSitePlanningRef } from '@/lib/btp/planning-ref';
 
 interface SiteRow {
   id: string;
@@ -22,8 +20,6 @@ interface SiteRow {
   status: string;
   date?: string;
   schedule?: { taskCount: number; projectTitle: string | null; importedAt: string };
-  planningRefs: BtpSitePlanningRef[];
-  defaultPlanningRefSlot: 1 | 2;
 }
 
 interface Props {
@@ -322,52 +318,38 @@ export function ChantiersClient({ items: initialItems, description, canCreate }:
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
             >
-              <Card className="hover:shadow-card-hover transition-shadow">
-                <CardContent className="p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                      <HardHat className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold truncate">{item.title}</h3>
-                      <p className="text-sm text-muted-foreground truncate">{item.subtitle}</p>
-                      <div className="flex flex-wrap items-center gap-2 mt-2">
-                        <Badge variant="outline" className="text-[10px]">
-                          {item.status}
-                        </Badge>
-                        {item.date && (
-                          <span className="text-[10px] text-muted-foreground">{item.date}</span>
-                        )}
-                        {item.schedule && (
-                          <Badge variant="secondary" className="text-[10px] bg-blue-500/10 text-blue-700">
-                            MS Project · {item.schedule.taskCount} tâches
-                          </Badge>
-                        )}
+              <Link href={`/btp/chantiers/${item.id}`}>
+                <Card className="hover:shadow-card-hover transition-shadow cursor-pointer h-full">
+                  <CardContent className="p-5">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+                        <HardHat className="h-5 w-5 text-primary" />
                       </div>
-                      {canCreate && (
-                        <div className="mt-3 space-y-1">
-                          <BtpPlanningRefEditor
-                            siteId={item.id}
-                            siteName={item.title}
-                            slot={1}
-                            refData={item.planningRefs.find((r) => r.slot === 1)}
-                            isDefaultRef={item.defaultPlanningRefSlot === 1}
-                            canManage={canCreate}
-                          />
-                          <BtpPlanningRefEditor
-                            siteId={item.id}
-                            siteName={item.title}
-                            slot={2}
-                            refData={item.planningRefs.find((r) => r.slot === 2)}
-                            isDefaultRef={item.defaultPlanningRefSlot === 2}
-                            canManage={canCreate}
-                          />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold truncate">{item.title}</h3>
+                        <p className="text-sm text-muted-foreground truncate">{item.subtitle}</p>
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <Badge variant="outline" className="text-[10px]">
+                            {item.status}
+                          </Badge>
+                          {item.date && (
+                            <span className="text-[10px] text-muted-foreground">{item.date}</span>
+                          )}
+                          {item.schedule && (
+                            <Badge variant="secondary" className="text-[10px] bg-blue-500/10 text-blue-700">
+                              MS Project · {item.schedule.taskCount} tâches
+                            </Badge>
+                          )}
                         </div>
-                      )}
+                        <p className="text-xs text-primary mt-3 flex items-center gap-1 font-medium">
+                          Ouvrir la fiche
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </Link>
             </motion.div>
           ))}
         </div>

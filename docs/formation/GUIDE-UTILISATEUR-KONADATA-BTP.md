@@ -98,7 +98,21 @@ Liste complète tous secteurs : `docs/demo-video/demo-accounts-all.json`
 ### 4.1 Créer un chantier (direction)
 
 1. Cliquer **Ajouter**
-2. Remplir le formulaire **Nouveau chantier** :
+2. Remplir le formulaire **Nouveau chantier** (voir champs ci-dessous)
+3. **Enregistrer le chantier**
+
+### 4.2 Fiche chantier (clic sur une carte)
+
+Chaque carte dans **Chantiers** est cliquable → `/btp/chantiers/[id]`
+
+| Onglet | Contenu |
+|--------|---------|
+| **Informations** | Modifier nom, budget, dates, statut, répartition % (direction) |
+| **Documents** | Téléverser et lister les pièces du chantier |
+| **Planning** | Références 1 et 2 (jalons, MS Project XML) |
+| **Clôture MOA** | Clôturer le chantier + dossier archivé (direction) |
+
+### 4.3 Créer un chantier — champs du formulaire
 
 | Champ | Description |
 |-------|-------------|
@@ -119,7 +133,24 @@ Liste complète tous secteurs : `docs/demo-video/demo-accounts-all.json`
 
 > **Important — `opening_spent` :** ce montant représente les dépenses déjà engagées avant la saisie dans KonaData. Il s'ajoute aux dépenses enregistrées dans l'app pour le total financier. Ne pas ressaisir ces montants en double dans les dépenses.
 
-### 4.2 Références de planning (Ref 1 et Ref 2)
+### 4.4 Clôturer un chantier (direction)
+
+1. Ouvrir la fiche chantier → onglet **Clôture MOA**
+2. Choisir la référence planning pour le rapport final
+3. Saisir le **commentaire de clôture / réception MOA**
+4. Cliquer **Clôturer le chantier**
+
+KonaData génère automatiquement :
+- un **rapport de synthèse** (période complète du chantier)
+- la **liste des documents** téléversés
+- le passage du statut en **Terminé**
+- l'**archivage** du dossier dans Rapports (type « Dossier de clôture »)
+
+**Migration Supabase 105** requise en production (`completed_at`, `closure_report_id`).
+
+Pour modifier à nouveau un chantier clôturé : bouton **Rouvrir le chantier** (direction).
+
+### 4.5 Références de planning (Ref 1 et Ref 2)
 
 Sur chaque carte chantier, configurer **Ref 1** et/ou **Ref 2** :
 
@@ -135,7 +166,7 @@ Badge **« MS Project · N tâches »** = planning actif.
 
 **Référence par défaut (saisie)** : choisir quelle référence est utilisée par défaut dans Avancement et Rapports.
 
-### 4.3 Statuts chantier
+### 4.6 Statuts chantier
 
 | Statut | Signification |
 |--------|---------------|
