@@ -7,6 +7,7 @@ export const PUBLIC_API_PREFIXES = [
   '/api/auth/register',
   '/api/auth/request-password-reset',
   '/api/auth/phone',
+  '/api/auth/email',
   '/api/contact',
   '/api/survey-participation',
   '/api/school-payment',

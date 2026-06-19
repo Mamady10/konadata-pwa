@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { AuthMethodToggle, type AuthMethod } from '@/components/auth/auth-method-toggle';
-import { registerAccount } from '@/lib/auth/register-client';
 import { ensureLearnerProfile } from '@/lib/auth/learner-signup';
+import { SignupOtpSection, useSignupOtp } from '@/components/auth/signup-otp-section';
 import { AuthBackHome } from '@/components/auth/auth-back-home';
 import { AuthPageBrand } from '@/components/auth/auth-page-brand';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
@@ -28,6 +28,11 @@ export default function RegisterCandidatPage() {
   const [loading, setLoading] = useState(false);
   const [authMethod, setAuthMethod] = useState<AuthMethod>('phone');
   const [fullName, setFullName] = useState('');
+  const signupOtp = useSignupOtp();
+
+  useEffect(() => {
+    signupOtp.resetOtp();
+  }, [authMethod]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -38,27 +43,30 @@ export default function RegisterCandidatPage() {
       const fd = new FormData(e.currentTarget);
       const password = String(fd.get('password') ?? '');
       const name = String(fd.get('full_name') ?? '').trim();
+      const phone = String(fd.get('phone') ?? '').trim();
+      const email = String(fd.get('email') ?? '').trim();
 
-      const registered = await registerAccount({
+      if (signupOtp.step === 'form') {
+        const ok = await signupOtp.requestOtp({ method: authMethod, phone, email });
+        if (!ok && signupOtp.otpError) setError(signupOtp.otpError);
+        return;
+      }
+
+      const signup = await signupOtp.completeSignup({
         method: authMethod,
-        email: authMethod === 'email' ? String(fd.get('email') ?? '').trim() : undefined,
-        phone: authMethod === 'phone' ? String(fd.get('phone') ?? '').trim() : undefined,
         password,
         fullName: name,
         accountIntent: 'learner',
       });
-
-      if ('error' in registered && registered.error) {
-        setError(registered.error);
+      if ('error' in signup) {
+        setError(signup.error);
         return;
       }
 
       const supabase = createClient();
       const rpc1 = await ensureLearnerProfile(supabase);
       if (rpc1.error) {
-        setError(
-          `Compte créé mais profil candidat non appliqué : ${rpc1.error}. Appliquez la migration 028 dans Supabase.`
-        );
+        setError('Compte créé mais profil candidat non appliqué. Contactez le support.');
         return;
       }
 
@@ -150,8 +158,27 @@ export default function RegisterCandidatPage() {
                   />
                 </div>
               </div>
-              <Button type="submit" className="w-full bg-gradient-to-r from-cyan-500 to-[#2563EB] border-0" disabled={loading}>
-                {loading ? 'Création…' : 'Créer mon compte candidat'}
+              <SignupOtpSection
+                method={authMethod}
+                step={signupOtp.step}
+                channel={signupOtp.channel}
+                onChannelChange={signupOtp.setChannel}
+                otpCode={signupOtp.otpCode}
+                onOtpCodeChange={signupOtp.setOtpCode}
+                maskedContact={signupOtp.maskedContact}
+                devCode={signupOtp.devCode}
+                error={signupOtp.otpError}
+                loading={signupOtp.otpLoading || loading}
+                onChangeContact={signupOtp.resetOtp}
+              />
+              <Button type="submit" className="w-full bg-gradient-to-r from-cyan-500 to-[#2563EB] border-0" disabled={loading || signupOtp.otpLoading}>
+                {loading || signupOtp.otpLoading
+                  ? 'Traitement…'
+                  : signupOtp.step === 'form'
+                    ? authMethod === 'phone'
+                      ? 'Recevoir le code WhatsApp / SMS'
+                      : 'Recevoir le code par email'
+                    : 'Créer mon compte candidat'}
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </form>

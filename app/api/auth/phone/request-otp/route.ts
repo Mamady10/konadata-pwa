@@ -84,7 +84,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const channel = channelRaw === 'whatsapp' ? 'whatsapp' : 'sms';
+    const channel =
+      channelRaw === 'sms'
+        ? 'sms'
+        : channelRaw === 'whatsapp'
+          ? 'whatsapp'
+          : purpose === 'signup'
+            ? 'whatsapp'
+            : 'sms';
     const code = generateOtpCode();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     const phoneHash = hashPhoneE164(phoneE164);

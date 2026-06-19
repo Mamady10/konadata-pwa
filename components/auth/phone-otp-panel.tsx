@@ -33,7 +33,7 @@ export function PhoneOtpPanel({
 }: Props) {
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phone, setPhone] = useState('');
-  const [channel, setChannel] = useState<PhoneOtpChannel>('sms');
+  const [channel, setChannel] = useState<PhoneOtpChannel>('whatsapp');
   const [code, setCode] = useState('');
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [maskedPhone, setMaskedPhone] = useState('');

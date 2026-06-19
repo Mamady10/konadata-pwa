@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Mail, Lock, User, Building2, ArrowRight, AlertCircle, KeyRound, GraduationCap, Phone } from 'lucide-react';
 import { AuthMethodToggle, type AuthMethod } from '@/components/auth/auth-method-toggle';
-import { registerAccount } from '@/lib/auth/register-client';
+import { SignupOtpSection, useSignupOtp } from '@/components/auth/signup-otp-section';
 import { motion } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { completeOrganizationRegistration } from '@/lib/actions/org-registration';
@@ -54,11 +54,16 @@ export default function RegisterForm() {
   const [authMethod, setAuthMethod] = useState<AuthMethod>('phone');
   const [fullName, setFullName] = useState('');
   const formElRef = useRef<HTMLFormElement | null>(null);
+  const signupOtp = useSignupOtp();
 
   useEffect(() => {
     setMode(modeFromSearchParams(searchParams));
     setPendingCode(getPendingAccessCode());
   }, [searchParams]);
+
+  useEffect(() => {
+    signupOtp.resetOtp();
+  }, [authMethod]);
 
   function setRegisterMode(next: RegisterMode) {
     setMode(next);
@@ -147,36 +152,44 @@ export default function RegisterForm() {
 
     const formData = new FormData(e.currentTarget);
     const password = String(formData.get('password') ?? '');
-    const fullName = String(formData.get('full_name') ?? '').trim();
+    const name = String(formData.get('full_name') ?? '').trim();
+    const phone = String(formData.get('phone') ?? '').trim();
+    const email = String(formData.get('email') ?? '').trim();
     const effectiveMode =
       searchParams.get('mode') === 'learner' ? 'learner' : mode;
 
-    const registered = await registerAccount({
-      method: authMethod,
-      email: authMethod === 'email' ? String(formData.get('email') ?? '').trim() : undefined,
-      phone: authMethod === 'phone' ? String(formData.get('phone') ?? '').trim() : undefined,
-      password,
-      fullName,
-      accountIntent: accountIntentForMode(effectiveMode),
-    });
-
-    if ('error' in registered && registered.error) {
-      setError(registered.error);
-      setLoading(false);
-      return;
-    }
-
     try {
+      if (signupOtp.step === 'form') {
+        const ok = await signupOtp.requestOtp({
+          method: authMethod,
+          phone,
+          email,
+        });
+        if (!ok && signupOtp.otpError) setError(signupOtp.otpError);
+        return;
+      }
+
+      const signup = await signupOtp.completeSignup({
+        method: authMethod,
+        password,
+        fullName: name,
+        accountIntent: accountIntentForMode(effectiveMode),
+      });
+      if ('error' in signup) {
+        setError(signup.error);
+        return;
+      }
+
       if (effectiveMode === 'join') {
-        await finishJoinAfterAuth(fullName);
+        await finishJoinAfterAuth(name);
         return;
       }
       if (effectiveMode === 'learner') {
-        await finishLearnerAfterAuth(fullName);
+        await finishLearnerAfterAuth(name);
         return;
       }
       if (effectiveMode === 'create') {
-        await finishOrganizationAfterAuth(e.currentTarget, fullName);
+        await finishOrganizationAfterAuth(e.currentTarget, name);
       }
     } finally {
       setLoading(false);
@@ -325,14 +338,31 @@ export default function RegisterForm() {
                   <Input id="password" name="password" type="password" className="pl-9" placeholder="Min. 8 caractères" minLength={8} required autoComplete="new-password" />
                 </div>
               </div>
-              <Button type="submit" className="w-full bg-[#2563EB] hover:bg-[#2563EB]/90" disabled={loading}>
-                {loading
-                  ? 'Création...'
-                  : mode === 'join'
-                    ? 'Créer et rejoindre'
-                    : mode === 'learner'
-                      ? 'Créer mon compte'
-                      : 'Créer mon organisation'}
+              <SignupOtpSection
+                method={authMethod}
+                step={signupOtp.step}
+                channel={signupOtp.channel}
+                onChannelChange={signupOtp.setChannel}
+                otpCode={signupOtp.otpCode}
+                onOtpCodeChange={signupOtp.setOtpCode}
+                maskedContact={signupOtp.maskedContact}
+                devCode={signupOtp.devCode}
+                error={signupOtp.otpError}
+                loading={signupOtp.otpLoading || loading}
+                onChangeContact={signupOtp.resetOtp}
+              />
+              <Button type="submit" className="w-full bg-[#2563EB] hover:bg-[#2563EB]/90" disabled={loading || signupOtp.otpLoading}>
+                {loading || signupOtp.otpLoading
+                  ? 'Traitement…'
+                  : signupOtp.step === 'form'
+                    ? authMethod === 'phone'
+                      ? 'Recevoir le code WhatsApp / SMS'
+                      : 'Recevoir le code par email'
+                    : mode === 'join'
+                      ? 'Créer et rejoindre'
+                      : mode === 'learner'
+                        ? 'Créer mon compte'
+                        : 'Créer mon organisation'}
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </form>

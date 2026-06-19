@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { AuthMethodToggle, type AuthMethod } from '@/components/auth/auth-method-toggle';
-import { registerAccount } from '@/lib/auth/register-client';
+import { SignupOtpSection, useSignupOtp } from '@/components/auth/signup-otp-section';
 import { normalizeGuineaPhone } from '@/lib/survey/phone';
 import { AuthBackHome } from '@/components/auth/auth-back-home';
 import { AuthPageBrand } from '@/components/auth/auth-page-brand';
@@ -38,6 +38,11 @@ export default function RegisterSurveyOnlyPage() {
   const [authMethod, setAuthMethod] = useState<AuthMethod>('phone');
   const [fullName, setFullName] = useState('');
   const formRef = useRef<HTMLFormElement | null>(null);
+  const signupOtp = useSignupOtp();
+
+  useEffect(() => {
+    signupOtp.resetOtp();
+  }, [authMethod]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -49,19 +54,24 @@ export default function RegisterSurveyOnlyPage() {
       const fd = new FormData(e.currentTarget);
       const password = String(fd.get('password') ?? '');
       const name = String(fd.get('full_name') ?? '').trim();
+      const phone = String(fd.get('phone') ?? '').trim();
+      const email = String(fd.get('email') ?? '').trim();
 
-      const registered = await registerAccount({
+      if (signupOtp.step === 'form') {
+        const ok = await signupOtp.requestOtp({ method: authMethod, phone, email });
+        if (!ok && signupOtp.otpError) setError(signupOtp.otpError);
+        return;
+      }
+
+      const signup = await signupOtp.completeSignup({
         method: authMethod,
-        email: authMethod === 'email' ? String(fd.get('email') ?? '').trim() : undefined,
-        phone: authMethod === 'phone' ? String(fd.get('phone') ?? '').trim() : undefined,
         password,
         fullName: name,
         accountIntent: 'director',
         signupIntent: 'survey_only',
       });
-
-      if ('error' in registered && registered.error) {
-        setError(registered.error);
+      if ('error' in signup) {
+        setError(signup.error);
         return;
       }
 
@@ -313,12 +323,32 @@ export default function RegisterSurveyOnlyPage() {
                 </div>
               </section>
 
+              <SignupOtpSection
+                method={authMethod}
+                step={signupOtp.step}
+                channel={signupOtp.channel}
+                onChannelChange={signupOtp.setChannel}
+                otpCode={signupOtp.otpCode}
+                onOtpCodeChange={signupOtp.setOtpCode}
+                maskedContact={signupOtp.maskedContact}
+                devCode={signupOtp.devCode}
+                error={signupOtp.otpError}
+                loading={signupOtp.otpLoading || loading}
+                onChangeContact={signupOtp.resetOtp}
+              />
+
               <Button
                 type="submit"
                 className="w-full bg-gradient-to-r from-teal-500 to-[#2563EB] border-0"
-                disabled={loading}
+                disabled={loading || signupOtp.otpLoading}
               >
-                {loading ? 'Création en cours…' : 'Créer mon compte et mon sondage'}
+                {loading || signupOtp.otpLoading
+                  ? 'Traitement…'
+                  : signupOtp.step === 'form'
+                    ? authMethod === 'phone'
+                      ? 'Recevoir le code WhatsApp / SMS'
+                      : 'Recevoir le code par email'
+                    : 'Créer mon compte et mon sondage'}
                 <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </form>
