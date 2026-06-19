@@ -91,4 +91,6 @@ export const PUBLIC_SCENES = [
   { id: '07-register-sondage', url: '/register/sondage', wait: 2000 },
   { id: '08-contact', url: '/?accueil=1', wait: 1500, scroll: '#contact' },
   { id: '19-suivi-scolarite', url: '/suivi-scolarite', wait: 2000 },
+  { id: '27-payer-scolarite', url: '/payer-scolarite', wait: 2000 },
+  { id: '28-inscription-etablissement', url: '/inscription-etablissement', wait: 2500 },
 ];

@@ -24,42 +24,72 @@ import {
   SCHOOL_TEASER_SCENES,
   TEASER_SCENES,
 } from './demo-video-timeline.mjs';
+import { TRAINING_BY_ROLE } from './training-video-timeline.mjs';
 
 const __dir = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dir, '..');
 const FFMPEG = ffmpegInstaller.path;
-const OUT_DIR = path.join(ROOT, 'docs', 'demo-video', 'output');
-const WORK_DIR = path.join(OUT_DIR, '.work');
 
 const TTS_VOICE = process.env.DEMO_TTS_VOICE || 'fr-FR-DeniseNeural';
 const MUSIC_VOL = Number(process.env.DEMO_MUSIC_VOLUME || '0.24');
 const MUSIC_ASSET = path.join(ROOT, 'docs', 'demo-video', 'assets', 'background-music.mp3');
 
-const mode = process.argv.includes('--school-teaser')
-  ? 'school-teaser'
-  : process.argv.includes('--school')
-    ? 'school'
-    : process.argv.includes('--teaser')
-      ? 'teaser'
-      : 'full';
+function parseTrainingRole() {
+  const eq = process.argv.find((a) => a.startsWith('--training='));
+  if (eq) return eq.slice('--training='.length);
+  const idx = process.argv.indexOf('--training');
+  if (idx >= 0 && process.argv[idx + 1] && !process.argv[idx + 1].startsWith('-')) {
+    return process.argv[idx + 1];
+  }
+  return null;
+}
+
+const trainingRole = parseTrainingRole();
+
+const mode = trainingRole
+  ? 'training'
+  : process.argv.includes('--school-teaser')
+    ? 'school-teaser'
+    : process.argv.includes('--school')
+      ? 'school'
+      : process.argv.includes('--teaser')
+        ? 'teaser'
+        : 'full';
+
+const trainingPack = trainingRole ? TRAINING_BY_ROLE[trainingRole] : null;
+if (trainingRole && !trainingPack) {
+  console.error(`Rôle formation inconnu: ${trainingRole}`);
+  console.error('Rôles:', Object.keys(TRAINING_BY_ROLE).join(', '));
+  process.exit(1);
+}
 
 const SCENES =
-  mode === 'school'
-    ? SCHOOL_FORMATION_SCENES
-    : mode === 'school-teaser'
-      ? SCHOOL_TEASER_SCENES
-      : mode === 'teaser'
-        ? TEASER_SCENES
-        : FULL_DEMO_SCENES;
+  mode === 'training'
+    ? trainingPack.scenes
+    : mode === 'school'
+      ? SCHOOL_FORMATION_SCENES
+      : mode === 'school-teaser'
+        ? SCHOOL_TEASER_SCENES
+        : mode === 'teaser'
+          ? TEASER_SCENES
+          : FULL_DEMO_SCENES;
+
+const OUT_DIR =
+  mode === 'training'
+    ? path.join(ROOT, 'docs', 'formation', 'training', 'output')
+    : path.join(ROOT, 'docs', 'demo-video', 'output');
+const WORK_DIR = path.join(OUT_DIR, '.work');
 
 const OUT_FILE =
-  mode === 'school'
-    ? path.join(OUT_DIR, 'konadata-formation-ecole.mp4')
-    : mode === 'school-teaser'
-      ? path.join(OUT_DIR, 'konadata-formation-ecole-teaser.mp4')
-      : mode === 'teaser'
-        ? path.join(OUT_DIR, 'konadata-demo-teaser-60s.mp4')
-        : path.join(OUT_DIR, 'konadata-demo-complete.mp4');
+  mode === 'training'
+    ? path.join(OUT_DIR, trainingPack.outputFile)
+    : mode === 'school'
+      ? path.join(OUT_DIR, 'konadata-formation-ecole.mp4')
+      : mode === 'school-teaser'
+        ? path.join(OUT_DIR, 'konadata-formation-ecole-teaser.mp4')
+        : mode === 'teaser'
+          ? path.join(OUT_DIR, 'konadata-demo-teaser-60s.mp4')
+          : path.join(OUT_DIR, 'konadata-demo-complete.mp4');
 
 const tts = new EdgeTTS({
   voice: TTS_VOICE,
@@ -67,7 +97,7 @@ const tts = new EdgeTTS({
   outputFormat: 'audio-24khz-96kbitrate-mono-mp3',
   rate: '-6%',
   pitch: '+0Hz',
-  timeout: 90000,
+  timeout: 120000,
 });
 
 function runFfmpeg(args, label) {
@@ -83,7 +113,7 @@ function escapeDrawtext(s) {
   return s
     .replace(/\\/g, '\\\\')
     .replace(/:/g, '\\:')
-    .replace(/'/g, "\\'")
+    .replace(/[''´`]/g, ' ')
     .replace(/\n/g, ' ');
 }
 
@@ -389,7 +419,11 @@ function pad(n) {
 }
 
 async function main() {
-  console.log(`🎬 Construction vidéo (${mode})`);
+  const label =
+    mode === 'training'
+      ? `formation ${trainingPack.title} (${trainingRole})`
+      : mode;
+  console.log(`🎬 Construction vidéo (${label})`);
   console.log('   Voix:', TTS_VOICE, '(Edge TTS neural)');
   console.log('   Images: fixes (sans zoom) + fondu entrée/sortie');
 
@@ -456,13 +490,15 @@ async function main() {
   muxVideoAudio(videoOnly, mixedAudio, OUT_FILE);
 
   const srtName =
-    mode === 'school'
-      ? 'konadata-formation-ecole.srt'
-      : mode === 'school-teaser'
-        ? 'konadata-formation-ecole-teaser.srt'
-        : mode === 'teaser'
-          ? 'konadata-demo-teaser.srt'
-          : 'konadata-demo-complete.srt';
+    mode === 'training'
+      ? trainingPack.outputFile.replace(/\.mp4$/i, '.srt')
+      : mode === 'school'
+        ? 'konadata-formation-ecole.srt'
+        : mode === 'school-teaser'
+          ? 'konadata-formation-ecole-teaser.srt'
+          : mode === 'teaser'
+            ? 'konadata-demo-teaser.srt'
+            : 'konadata-demo-complete.srt';
   const srtPath = path.join(OUT_DIR, srtName);
   await writeSrt(SCENES, sceneDurations, srtPath);
 

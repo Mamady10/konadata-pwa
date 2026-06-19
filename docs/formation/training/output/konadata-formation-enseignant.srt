@@ -1,0 +1,23 @@
+1
+00:00:00,000 --> 00:00:18,050
+Formation Enseignant KonaData. Connectez-vous : votre espace s'intitule Mon espace enseignant. Vous ne voyez que les classes et matières que la direction vous a assignées. Si une classe manque, contactez la direction — pas le support KonaData.
+
+2
+00:00:18,050 --> 00:00:33,450
+Ouvrez Formations : la liste Mes classes affiche uniquement vos assignations. Vérifiez le palier et le nombre d'élèves avant la saisie des notes. C'est votre point d'entrée pour savoir quelles grilles remplir.
+
+3
+00:00:33,450 --> 00:00:55,590
+Résultats : sélectionnez votre classe, votre matière, la période trimestre ou semestre. Onglet Grille : saisissez note sur vingt pour chaque élève. Zéro est une note valide. Laissez vide seulement si l'élève n'a pas été évalué. Cliquez en dehors de la cellule pour enregistrer.
+
+4
+00:00:55,590 --> 00:01:12,090
+Pour une classe entière, onglet Import : téléchargez Modèle CSV, remplissez dans Excel, réimportez. Vérifiez l'aperçu avant validation. Idéal après un devoir surveillé noté sur papier.
+
+5
+00:01:12,090 --> 00:01:25,470
+Si votre classe n'apparaît nulle part : la direction doit vous assigner dans Utilisateurs Assignations. Montrez-leur cette capture. Un seul professeur par matière et par classe.
+
+6
+00:01:25,470 --> 00:01:39,850
+Récap enseignant : vérifiez vos assignations, saisissez avant la date limite fixée par la direction, distinguez zéro et case vide. Les bulletins sont générés par la direction après votre saisie.

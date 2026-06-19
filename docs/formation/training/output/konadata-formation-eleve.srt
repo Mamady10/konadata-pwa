@@ -1,0 +1,19 @@
+1
+00:00:00,000 --> 00:00:18,540
+Formation Élève KonaData. Si vous n'avez pas encore de compte, inscrivez-vous via Inscription élève avec votre numéro WhatsApp. Sinon, connectez-vous sur la page Login. Vous accédez à Mon espace : pas le menu complet de l'établissement.
+
+2
+00:00:18,540 --> 00:00:38,630
+Mon inscription : complétez le formulaire de demande ou de réinscription. Téléversez les pièces demandées : acte de naissance, photo, certificats. Suivez le statut en cours, validé ou refusé. La scolarité traite votre dossier côté établissement.
+
+3
+00:00:38,630 --> 00:00:54,030
+Mon bulletin : seuls les bulletins publiés en définitif par la direction sont téléchargeables. Le provisoire reste interne. Ouvrez le PDF et enregistrez-le sur votre téléphone pour le montrer à vos parents.
+
+4
+00:00:54,030 --> 00:01:11,290
+Payer la scolarité : si votre établissement l'active, utilisez Payer scolarité avec votre matricule et le téléphone du tuteur. Vous recevrez un code WhatsApp. Le paiement crédite directement le compte de l'école, pas KonaData.
+
+5
+00:01:11,290 --> 00:01:25,600
+Vous pouvez aussi donner le matricule à vos parents : ils utilisent Suivi scolarité sans créer de compte. Récap élève : dossier à jour, bulletins définitifs, matricule toujours sous la main.

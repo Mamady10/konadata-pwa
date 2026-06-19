@@ -1,0 +1,19 @@
+1
+00:00:00,000 --> 00:00:15,880
+Formation Parents et tuteurs. Vous n'avez pas besoin de créer un compte KonaData. L'établissement vous communique le matricule de l'élève. Gardez-le : c'est votre identifiant pour toutes les démarches en ligne.
+
+2
+00:00:15,880 --> 00:00:35,860
+Suivi scolarité : ouvrez la page depuis le lien de l'école ou konadatagn.com. Saisissez le matricule, puis le numéro de téléphone enregistré chez l'établissement — idéalement votre WhatsApp. Cliquez Recevoir le code. Entrez le code à six chiffres reçu sur WhatsApp.
+
+3
+00:00:35,860 --> 00:00:51,260
+Une fois connecté au portail, consultez le solde des frais, les tranches payées et le reste à payer. Téléchargez le bulletin PDF uniquement s'il a été publié en définitif par la direction.
+
+4
+00:00:51,260 --> 00:01:08,860
+Payer scolarité : même principe matricule plus téléphone tuteur. Choisissez le montant ou la tranche proposée. Orange Money envoie l'argent sur le compte marchand de l'école. Conservez le reçu PDF affiché à la fin.
+
+5
+00:01:08,860 --> 00:01:23,120
+Partagez le lien Suivi scolarité par WhatsApp aux autres tuteurs. En cas de numéro incorrect, contactez la scolarité pour mettre à jour la fiche élève. Aucune application à installer.

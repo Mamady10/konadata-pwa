@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="800" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="800" fill="#ffffff"/>
+  <image href="konadata-wordmark-source.png" x="150" y="120" width="900" height="600" preserveAspectRatio="xMidYMid meet"/>
+  <text x="600" y="720" text-anchor="middle" fill="#475569" font-family="Segoe UI, system-ui, sans-serif" font-size="42" font-weight="600" letter-spacing="1.5">Simple, connecté, local.</text>
+</svg>

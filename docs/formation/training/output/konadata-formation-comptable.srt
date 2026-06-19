@@ -1,0 +1,23 @@
+1
+00:00:00,000 --> 00:00:16,250
+Formation Comptable KonaData. Votre écran est centré sur le recouvrement des frais de scolarité. Vous consultez les effectifs en lecture seule et vous encaissez les paiements. Vous ne modifiez pas le catalogue des classes.
+
+2
+00:00:16,250 --> 00:00:29,450
+Le tableau de bord affiche la vue Comptabilité : encaissements du mois, créances, alertes impayés. Cliquez directement sur Paiements dans le menu pour votre routine quotidienne.
+
+3
+00:00:29,450 --> 00:00:49,250
+Routine matinale : ouvrez Paiements, onglet Impayés. Filtrez par classe si vous gérez un niveau. Chaque ligne mène à la fiche élève. Notez vos appels ou visites dans votre registre externe, puis revenez encaisser dès qu'un parent paie.
+
+4
+00:00:49,250 --> 00:01:10,380
+Enregistrer un paiement : bouton Enregistrer un paiement, sélectionnez l'élève, le type de frais, le montant et le mode espèces ou mobile money. Validez : l'échéancier se met à jour et un reçu peut être généré. Vérifiez le montant avant validation : la correction passe par la direction si erreur.
+
+5
+00:01:10,380 --> 00:01:25,060
+Effectifs élèves : menu Étudiants en lecture seule. Utilisez-le pour vérifier un matricule ou le solde sur la fiche avant d'encaisser. Menu Formations : consultation des classes uniquement.
+
+6
+00:01:25,060 --> 00:01:42,150
+Fin de journée : exportez Impayés et Encaissements en Excel pour la direction. Comparez avec votre caisse physique. Les parents peuvent aussi payer en ligne si l'établissement a activé Orange Money : vous verrez le statut payé automatiquement.

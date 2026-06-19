@@ -1,0 +1,35 @@
+1
+00:00:00,000 --> 00:00:21,280
+Formation Direction KonaData. Connectez-vous avec l'onglet WhatsApp ou Email, selon le compte créé par votre établissement. Vous arrivez sur le tableau de bord établissement : c'est votre poste de pilotage quotidien. Cette vidéo couvre uniquement ce que la direction doit savoir faire, dans l'ordre.
+
+2
+00:00:21,280 --> 00:00:47,210
+Sur le tableau de bord, lisez les cartes effectifs, paiements et alertes. Le menu latéral ouvre tous les modules : candidatures, étudiants, formations, résultats, bulletins, paiements, rapports. En tant que directeur, vous avez accès à l'ensemble. Vérifiez la checklist de démarrage si elle s'affiche : elle liste les étapes avant la rentrée.
+
+3
+00:00:47,210 --> 00:01:13,370
+Ouvrez Formations. Onglet Classes : filtrez par palier collège ou lycée. Cochez les modèles, cliquez Créer, ou importez un Excel via Modèle Excel. Onglet Matières : activez les presets du palier. Règle clé : le palier de la classe fixe les trimestres ou semestres pour les notes et bulletins. Archivez une classe obsolète au lieu de la supprimer.
+
+4
+00:01:13,370 --> 00:01:37,520
+Menu Utilisateurs, puis Assignations. Pour chaque enseignant, cochez les couples classe et matière qu'il enseigne. Le bandeau orange signale un couple sans professeur. Un seul enseignant par couple : c'est obligatoire. Cliquez Enregistrer. Sans assignation, l'enseignant ne verra aucune classe dans Résultats.
+
+5
+00:01:37,520 --> 00:01:55,930
+Candidatures : ouvrez chaque dossier, vérifiez les pièces jointes, puis Valider ou Refuser. Un SMS peut prévenir la famille à la confirmation. Une fois validé, l'élève apparaît dans Étudiants ou peut finaliser son inscription selon votre processus.
+
+6
+00:01:55,930 --> 00:02:16,910
+Résultats : la direction peut contrôler la saisie globale. Filtrez classe, matière, période. Dans la grille, zéro sur vingt est une note saisie ; une case vide est une note manquante. Avant les bulletins, repérez les trous : le panneau complétude vous aidera ensuite.
+
+7
+00:02:16,910 --> 00:02:45,190
+Bulletins : choisissez classe, période et année. Cochez les types d'évaluation retenus : seuls ceux-ci entrent dans la moyenne et le PDF. Générez en provisoire, vérifiez la complétude, exportez le conseil de classe CSV si besoin. Configurez logo et cachet dans Paramètres bulletin avant le PDF. Publiez en définitif pour débloquer le téléchargement côté élève et parent.
+
+8
+00:02:45,190 --> 00:03:00,630
+Paiements : suivez le taux de recouvrement et l'onglet Impayés. La direction valide la politique tarifaire dans Paramètres paiements élèves. Le comptable encaisse au guichet ; vous supervisez les retards par classe.
+
+9
+00:03:00,630 --> 00:03:22,140
+Récapitulatif direction : catalogue, assignations, validation candidatures, contrôle des notes, bulletins définitifs, suivi financier. Déléguez la saisie aux enseignants et à la scolarité, gardez la validation finale. Support : contact at konadatagn.com.

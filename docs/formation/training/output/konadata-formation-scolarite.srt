@@ -1,0 +1,27 @@
+1
+00:00:00,000 --> 00:00:18,600
+Formation Scolarité KonaData. Connectez-vous avec votre compte scolarité. Vous gérez les inscriptions, les listes d'élèves et le catalogue classes-matières. Vous ne générez pas les bulletins ni les assignations enseignants : c'est le rôle de la direction.
+
+2
+00:00:18,600 --> 00:00:39,780
+Commencez par Candidatures. Triez par statut : nouveau, en cours, validé. Ouvrez un dossier, contrôlez l'acte de naissance et les pièces, ajoutez un commentaire interne si besoin, puis Valider ou Refuser. Routine rentrée : traitez les dossiers du plus ancien au plus récent.
+
+3
+00:00:39,780 --> 00:01:05,370
+Import élèves : menu Étudiants, bouton Import. Choisissez la classe cible. Déposez un CSV ou Excel — téléchargez le modèle si nécessaire — ou une photo de registre pour l'extraction KonaAI. Vérifiez l'aperçu ligne par ligne, corrigez les doublons, puis Importer. Les matricules se génèrent automatiquement si la colonne est absente.
+
+4
+00:01:05,370 --> 00:01:28,270
+Liste Étudiants : recherchez par nom ou matricule, filtrez par classe. Ouvrez la fiche : identité, tuteur, téléphone WhatsApp du tuteur, documents. Onglet Scolarité : échéancier des frais. Mettez à jour le tuteur si la famille change de numéro : c'est indispensable pour le portail parents.
+
+5
+00:01:28,270 --> 00:01:48,030
+Formations : maintenez le catalogue. Créez une nouvelle classe de rentrée, dupliquez via preset, ou importez une liste. Vérifiez que chaque classe active a le bon palier collège ou lycée. Les matières archivées n'apparaissent plus pour les nouvelles saisies mais l'historique reste.
+
+6
+00:01:48,030 --> 00:02:06,540
+Paiements : consultez les impayés par classe. Si votre établissement l'autorise, vous pouvez Enregistrer un paiement au guichet comme le comptable. Sinon, lecture seule et relance des familles. Exportez la liste Excel pour votre cahier de suivi papier.
+
+7
+00:02:06,540 --> 00:02:22,870
+Récap scolarité : candidatures, import, fiches à jour, catalogue rentrée, suivi impayés. En cas de blocage, lisez le bandeau rouge en haut de page : il indique souvent une migration ou un paramètre manquant.

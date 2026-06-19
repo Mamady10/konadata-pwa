@@ -1,0 +1,15 @@
+1
+00:00:00,000 --> 00:00:18,150
+Formation Candidat KonaData. Depuis l'accueil, choisissez Inscription élève ou candidat. Créez un compte avec WhatsApp recommandé : vous recevrez les codes de connexion sur WhatsApp. Choisissez un mot de passe d'au moins huit caractères.
+
+2
+00:00:18,150 --> 00:00:36,850
+Inscription établissement : sélectionnez l'école, le niveau visé, renseignez vos informations et celles du tuteur. Le téléphone du tuteur doit être actif sur WhatsApp : la scolarité et les paiements l'utilisent.
+
+3
+00:00:36,850 --> 00:00:53,350
+Mon inscription : déposez chaque pièce dans la zone prévue. Format PDF ou photo nette. Vérifiez que le fichier s'affiche avant de quitter la page. Statut en attente jusqu'à validation par la scolarité.
+
+4
+00:00:53,350 --> 00:01:06,550
+Connectez-vous régulièrement pour voir si votre dossier est validé ou si des pièces manquent. Après validation, la scolarité peut vous convertir en élève inscrit avec un matricule officiel.
