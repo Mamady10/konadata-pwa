@@ -1,6 +1,8 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { revalidatePath } from 'next/cache';
+import { requireOrgId } from '@/lib/actions/org';
 import { getPmeDashboardKpis } from '@/lib/actions/data';
 import { paymentStatusLabel } from '@/lib/sector/status-labels';
 
@@ -146,4 +148,129 @@ export async function getPmeDashboard(orgId: string) {
       balance: Number(c.balance),
     })),
   };
+}
+
+function nextPmeReference(prefix: string): string {
+  const d = new Date();
+  const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  const rand = Math.floor(Math.random() * 9000 + 1000);
+  return `${prefix}-${stamp}-${rand}`;
+}
+
+export async function createPmeSale(formData: FormData) {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+  const reference = (formData.get('reference') as string)?.trim() || nextPmeReference('VTE');
+  const total = Number(formData.get('total') || 0);
+  if (total <= 0) return { error: 'Montant invalide.' };
+
+  const { error } = await supabase.from('pme_sales').insert({
+    organization_id: orgId,
+    customer_id: (formData.get('customer_id') as string) || null,
+    reference,
+    total,
+    subtotal: total,
+    payment_status: (formData.get('payment_status') as string) || 'pending',
+    notes: (formData.get('notes') as string)?.trim() || null,
+  });
+  if (error) return { error: error.message };
+  revalidatePath('/pme/ventes');
+  revalidatePath('/pme');
+  return { success: true };
+}
+
+export async function createPmePurchase(formData: FormData) {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+  const reference = (formData.get('reference') as string)?.trim() || nextPmeReference('ACH');
+  const total = Number(formData.get('total') || 0);
+  if (total <= 0) return { error: 'Montant invalide.' };
+
+  const { error } = await supabase.from('pme_purchases').insert({
+    organization_id: orgId,
+    supplier_id: (formData.get('supplier_id') as string) || null,
+    reference,
+    total,
+    payment_status: (formData.get('payment_status') as string) || 'pending',
+    notes: (formData.get('notes') as string)?.trim() || null,
+  });
+  if (error) return { error: error.message };
+  revalidatePath('/pme/achats');
+  revalidatePath('/pme');
+  return { success: true };
+}
+
+export async function createPmeExpense(formData: FormData) {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+  const amount = Number(formData.get('amount') || 0);
+  const category = (formData.get('category') as string)?.trim() || 'general';
+  if (amount <= 0) return { error: 'Montant invalide.' };
+
+  const { error } = await supabase.from('pme_expenses').insert({
+    organization_id: orgId,
+    category,
+    description: (formData.get('description') as string)?.trim() || null,
+    amount,
+    expense_date: (formData.get('expense_date') as string)?.trim() || new Date().toISOString().slice(0, 10),
+  });
+  if (error) return { error: error.message };
+  revalidatePath('/pme/depenses');
+  revalidatePath('/pme');
+  return { success: true };
+}
+
+export async function createPmeProduct(formData: FormData) {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+  const name = (formData.get('name') as string)?.trim();
+  if (!name) return { error: 'Nom requis.' };
+
+  const { error } = await supabase.from('pme_products').insert({
+    organization_id: orgId,
+    name,
+    sku: (formData.get('sku') as string)?.trim() || null,
+    unit: (formData.get('unit') as string)?.trim() || 'unité',
+    unit_price: Number(formData.get('unit_price') || 0),
+    stock_quantity: Number(formData.get('stock_quantity') || 0),
+    min_stock: Number(formData.get('min_stock') || 0),
+  });
+  if (error) return { error: error.message };
+  revalidatePath('/pme/stocks');
+  revalidatePath('/pme');
+  return { success: true };
+}
+
+export async function createPmeCustomer(formData: FormData) {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+  const name = (formData.get('name') as string)?.trim();
+  if (!name) return { error: 'Nom requis.' };
+
+  const { error } = await supabase.from('pme_customers').insert({
+    organization_id: orgId,
+    name,
+    phone: (formData.get('phone') as string)?.trim() || null,
+    email: (formData.get('email') as string)?.trim() || null,
+  });
+  if (error) return { error: error.message };
+  revalidatePath('/pme/clients');
+  return { success: true };
+}
+
+export async function createPmeSupplier(formData: FormData) {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+  const name = (formData.get('name') as string)?.trim();
+  if (!name) return { error: 'Nom requis.' };
+
+  const { error } = await supabase.from('pme_suppliers').insert({
+    organization_id: orgId,
+    name,
+    phone: (formData.get('phone') as string)?.trim() || null,
+    email: (formData.get('email') as string)?.trim() || null,
+  });
+  if (error) return { error: error.message };
+  revalidatePath('/pme/fournisseurs');
+  return { success: true };
 }

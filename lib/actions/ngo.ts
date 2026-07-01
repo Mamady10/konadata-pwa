@@ -46,11 +46,19 @@ export async function getNgoBeneficiaries(orgId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('ngo_beneficiaries')
-    .select('id, region, locality, category, created_at, core_persons(full_name, gender)')
+    .select(
+      'id, region, locality, category, project_id, created_at, core_persons(full_name, gender, email, phone), ngo_projects(name)'
+    )
     .eq('organization_id', orgId)
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data ?? [];
+}
+
+export async function getNgoCartographyDetail(orgId: string) {
+  const projects = await getNgoProjects(orgId);
+  const localities = await getNgoCartography(orgId);
+  return { localities, projects };
 }
 
 export async function getNgoPrograms(orgId: string) {
@@ -125,10 +133,8 @@ export async function getNgoDashboard(orgId: string) {
   }));
 
   const budgetPrevuRealise = [
-    { trimestre: 'T1', prevu: totalBudget * 0.25, realise: totalSpent * 0.3 },
-    { trimestre: 'T2', prevu: totalBudget * 0.5, realise: totalSpent * 0.55 },
-    { trimestre: 'T3', prevu: totalBudget * 0.75, realise: totalSpent * 0.8 },
-    { trimestre: 'T4', prevu: totalBudget, realise: totalSpent },
+    { trimestre: 'Budget prévu', prevu: totalBudget, realise: 0 },
+    { trimestre: 'Dépensé', prevu: 0, realise: totalSpent },
   ];
 
   const localitesCouvertes = projectRows
@@ -296,6 +302,7 @@ export async function createNgoBeneficiary(formData: FormData) {
       full_name: fullName,
       gender: (formData.get('gender') as string) || null,
       email: (formData.get('email') as string) || null,
+      phone: (formData.get('phone') as string) || null,
     })
     .select('id')
     .single();
@@ -308,7 +315,98 @@ export async function createNgoBeneficiary(formData: FormData) {
     region: (formData.get('region') as string) || null,
     locality: (formData.get('locality') as string) || null,
     category: (formData.get('category') as string) || null,
+    project_id: (formData.get('project_id') as string)?.trim() || null,
   });
+
+  if (error) return { error: error.message };
+  revalidatePath('/ong/beneficiaires');
+  return { success: true };
+}
+
+export async function updateNgoProject(formData: FormData) {
+  const canManage = await canManageAssignments();
+  if (!canManage) return { error: 'Seuls les directeurs peuvent modifier les projets.' };
+
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+  const id = (formData.get('id') as string)?.trim();
+  if (!id) return { error: 'Projet introuvable.' };
+
+  const name = (formData.get('name') as string)?.trim();
+  if (!name) return { error: 'Le nom du projet est requis' };
+
+  const status = (formData.get('status') as string) || 'active';
+  const progressPct = Math.min(100, Math.max(0, Number(formData.get('progress_pct') || 0)));
+  const spent = Math.max(0, Number(formData.get('spent') || 0));
+  const budget = Math.max(0, Number(formData.get('budget') || 0));
+
+  const { error } = await supabase
+    .from('ngo_projects')
+    .update({
+      name,
+      region: (formData.get('region') as string) || null,
+      locality: (formData.get('locality') as string) || null,
+      budget,
+      spent,
+      status,
+      progress_pct: progressPct,
+      beneficiaries: Number(formData.get('beneficiaries') || 0),
+      description: (formData.get('description') as string)?.trim() || null,
+      start_date: (formData.get('start_date') as string) || null,
+      end_date: (formData.get('end_date') as string) || null,
+    })
+    .eq('id', id)
+    .eq('organization_id', orgId);
+
+  if (error) return { error: error.message };
+  revalidatePath('/ong/projets');
+  revalidatePath('/ong');
+  revalidatePath('/ong/cartographie');
+  revalidatePath('/ong/rapports');
+  return { success: true };
+}
+
+export async function updateNgoBeneficiary(formData: FormData) {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+  const id = (formData.get('id') as string)?.trim();
+  if (!id) return { error: 'Bénéficiaire introuvable.' };
+
+  const { data: ben } = await supabase
+    .from('ngo_beneficiaries')
+    .select('person_id')
+    .eq('id', id)
+    .eq('organization_id', orgId)
+    .single();
+  if (!ben?.person_id) return { error: 'Fiche introuvable.' };
+
+  const fullName = (formData.get('full_name') as string)?.trim();
+  if (!fullName) return { error: 'Le nom est requis' };
+
+  const projectId = (formData.get('project_id') as string)?.trim() || null;
+
+  const { error: personError } = await supabase
+    .from('core_persons')
+    .update({
+      full_name: fullName,
+      gender: (formData.get('gender') as string) || null,
+      email: (formData.get('email') as string) || null,
+      phone: (formData.get('phone') as string) || null,
+    })
+    .eq('id', ben.person_id);
+
+  if (personError) return { error: personError.message };
+
+  const { error } = await supabase
+    .from('ngo_beneficiaries')
+    .update({
+      region: (formData.get('region') as string) || null,
+      locality: (formData.get('locality') as string) || null,
+      category: (formData.get('category') as string) || null,
+      project_id: projectId,
+    })
+    .eq('id', id)
+    .eq('organization_id', orgId);
 
   if (error) return { error: error.message };
   revalidatePath('/ong/beneficiaires');

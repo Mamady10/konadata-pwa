@@ -8,13 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DataTable } from '@/components/dashboard/data-table';
 import { BtpPlannedVsActualPanel } from '@/components/btp/btp-planned-vs-actual-panel';
-import { recordBtpSiteProgress } from '@/lib/actions/btp';
+import { recordBtpSiteProgress, updateBtpDailyProgress, deleteBtpDailyProgress } from '@/lib/actions/btp';
 import type { BtpDailyProgressRow, BtpSiteProgressRow } from '@/lib/actions/btp';
 import type { BtpPlannedProgressSnapshot } from '@/lib/btp/site-baseline-types';
 import { kpiStatusLabel } from '@/lib/btp/site-baseline';
-import { TrendingUp, Plus, Search } from 'lucide-react';
+import { TrendingUp, Plus, Search, Pencil, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface Props {
@@ -39,6 +38,7 @@ export function AvancementClient({
   const [physicalPct, setPhysicalPct] = useState(0);
   const [planningRefSlot, setPlanningRefSlot] = useState<1 | 2>(1);
   const [lastSavedComparison, setLastSavedComparison] = useState<BtpPlannedProgressSnapshot | null>(null);
+  const [editingHistory, setEditingHistory] = useState<BtpDailyProgressRow | null>(null);
 
   const selectedSite = useMemo(
     () => sites.find((s) => s.id === siteId),
@@ -309,24 +309,80 @@ export function AvancementClient({
         )
       )}
 
-      <DataTable
-        title="Historique des relevés"
-        data={history.map((h) => ({
-          id: h.id,
-          date: new Date(h.progressDate).toLocaleDateString('fr-FR'),
-          chantier: h.siteName,
-          physique: `${h.physicalPct}%`,
-          effectif: h.workersCount != null ? String(h.workersCount) : '—',
-          detail: [h.weather, h.notes].filter(Boolean).join(' — ') || '—',
-        }))}
-        columns={[
-          { key: 'date', label: 'Date' },
-          { key: 'chantier', label: 'Chantier' },
-          { key: 'physique', label: 'Physique' },
-          { key: 'effectif', label: 'Effectif' },
-          { key: 'detail', label: 'Notes / météo' },
-        ]}
-      />
+      <Card>
+        <CardHeader><CardTitle className="text-base">Historique des relevés</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {history.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucun relevé enregistré.</p>
+          ) : (
+            history.map((h) => (
+              <div key={h.id} className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 last:border-0 text-sm">
+                <div>
+                  <span className="font-medium">{h.siteName}</span>
+                  <span className="text-muted-foreground">
+                    {' · '}
+                    {new Date(h.progressDate).toLocaleDateString('fr-FR')}
+                    {' · '}
+                    {h.physicalPct}%
+                  </span>
+                </div>
+                <div className="flex gap-1">
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingHistory(h)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={async () => {
+                    if (!confirm('Supprimer ce relevé ?')) return;
+                    await deleteBtpDailyProgress(h.id);
+                    router.refresh();
+                  }}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      {editingHistory && (
+        <Card className="border-primary/30">
+          <CardHeader><CardTitle className="text-base">Modifier le relevé</CardTitle></CardHeader>
+          <CardContent>
+            <form
+              action={async (formData) => {
+                formData.set('id', editingHistory.id);
+                const res = await updateBtpDailyProgress(formData);
+                if (!('error' in res)) {
+                  setEditingHistory(null);
+                  router.refresh();
+                }
+              }}
+              className="grid gap-3 sm:grid-cols-2"
+            >
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Input name="progress_date" type="date" defaultValue={editingHistory.progressDate.slice(0, 10)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Avancement physique (%)</Label>
+                <Input name="physical_pct" type="number" min="0" max="100" defaultValue={editingHistory.physicalPct} />
+              </div>
+              <div className="space-y-2">
+                <Label>Effectif</Label>
+                <Input name="workers_count" type="number" min="0" defaultValue={editingHistory.workersCount ?? ''} />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Notes</Label>
+                <Input name="notes" defaultValue={editingHistory.notes ?? ''} />
+              </div>
+              <div className="sm:col-span-2 flex gap-2">
+                <Button type="submit" size="sm">Enregistrer</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setEditingHistory(null)}>Annuler</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

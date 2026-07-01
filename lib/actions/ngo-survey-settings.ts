@@ -37,9 +37,16 @@ export async function updateNgoSurveySettings(settings: NgoSurveySettings) {
   }
   const orgId = await requireOrgId();
   const supabase = await createClient();
+  const { settings: current } = await getNgoSurveySettings();
+  const isPlatform = session?.profile?.role === 'platform_admin';
+  const payload: NgoSurveySettings = { ...settings };
+  if (!isPlatform) {
+    payload.enabled = current.enabled;
+    payload.require_survey_payment = current.require_survey_payment;
+  }
   const { error } = await supabase.rpc('update_ngo_survey_settings', {
     p_org_id: orgId,
-    p_settings: settings,
+    p_settings: payload,
   });
   if (error) return { error: error.message };
   revalidatePath('/parametres/sondages-ong');

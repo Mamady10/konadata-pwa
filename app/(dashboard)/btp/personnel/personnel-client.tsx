@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { createBtpPersonnel } from '@/lib/actions/btp';
-import { createBtpLaborEntry } from '@/lib/actions/btp-financial';
+import { createBtpLaborEntry, updateBtpLaborEntry, deleteBtpLaborEntry } from '@/lib/actions/btp-financial';
 import {
   parseBtpPersonnelImportFile,
   importBtpPersonnelFromList,
@@ -19,7 +19,7 @@ import {
 } from '@/lib/actions/btp-personnel-import';
 import type { BtpPersonnelImportRow } from '@/lib/btp/personnel-import';
 import { formatCurrency } from '@/lib/utils';
-import { Users, Plus, Search, CalendarDays, Upload, Download, Trash2, RotateCcw } from 'lucide-react';
+import { Users, Plus, Search, CalendarDays, Upload, Download, Trash2, RotateCcw, Pencil } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface Row {
@@ -42,6 +42,7 @@ interface Props {
     personName: string;
     workDate: string;
     days: number;
+    dailyRate: number;
     amount: number;
   }>;
   personnelForLabor: Array<{ id: string; name: string; dailyRate: number; siteName?: string }>;
@@ -78,6 +79,7 @@ export function PersonnelClient({
   const [query, setQuery] = useState('');
   const [siteId, setSiteId] = useState('none');
   const [laborSiteId, setLaborSiteId] = useState('');
+  const [editingLabor, setEditingLabor] = useState<(typeof laborEntries)[0] | null>(null);
   const [personnelId, setPersonnelId] = useState('');
   const [importSiteId, setImportSiteId] = useState('');
   const [deactivateMissing, setDeactivateMissing] = useState(true);
@@ -376,13 +378,61 @@ export function PersonnelClient({
           <CardHeader><CardTitle className="text-base">Derniers pointages</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {laborEntries.slice(0, 8).map((e) => (
-              <div key={e.id} className="flex flex-wrap justify-between gap-2 text-sm border-b pb-2 last:border-0">
+              <div key={e.id} className="flex flex-wrap justify-between gap-2 text-sm border-b pb-2 last:border-0 items-center">
                 <span>{e.personName} — {e.siteName}</span>
                 <span className="text-muted-foreground">
                   {new Date(e.workDate).toLocaleDateString('fr-FR')} · {e.days} j · {formatCurrency(e.amount)}
                 </span>
+                <div className="flex gap-1">
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingLabor(e)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={async () => {
+                    if (!confirm('Supprimer ce pointage ?')) return;
+                    await deleteBtpLaborEntry(e.id);
+                    router.refresh();
+                  }}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
             ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {editingLabor && (
+        <Card className="border-primary/30">
+          <CardHeader><CardTitle className="text-base">Modifier le pointage</CardTitle></CardHeader>
+          <CardContent>
+            <form
+              action={async (formData) => {
+                formData.set('id', editingLabor.id);
+                const res = await updateBtpLaborEntry(formData);
+                if (!('error' in res)) {
+                  setEditingLabor(null);
+                  router.refresh();
+                }
+              }}
+              className="grid gap-3 sm:grid-cols-3"
+            >
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Input name="work_date" type="date" defaultValue={editingLabor.workDate} />
+              </div>
+              <div className="space-y-2">
+                <Label>Jours</Label>
+                <Input name="days" type="number" min="0.5" step="0.5" defaultValue={editingLabor.days} />
+              </div>
+              <div className="space-y-2">
+                <Label>Taux journalier</Label>
+                <Input name="daily_rate" type="number" min="0" defaultValue={editingLabor.dailyRate} />
+              </div>
+              <div className="sm:col-span-3 flex gap-2">
+                <Button type="submit" size="sm">Enregistrer</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => setEditingLabor(null)}>Annuler</Button>
+              </div>
+            </form>
           </CardContent>
         </Card>
       )}

@@ -1,6 +1,6 @@
 import { requirePmePage } from '@/lib/pme/require-pme-page';
-import { getPmeSuppliers } from '@/lib/actions/pme';
-import { SectorPage } from '@/components/dashboard/sector-page';
+import { createPmeSupplier, getPmeSuppliers } from '@/lib/actions/pme';
+import { PmeCrudPage } from '@/components/pme/pme-crud-page';
 import { Truck } from 'lucide-react';
 
 export default async function Page() {
@@ -9,7 +9,7 @@ export default async function Page() {
     return <p className="text-muted-foreground">Organisation non configurée.</p>;
   }
 
-  const items: { id: string; title: string; subtitle: string; status: string; date?: string }[] = [];
+  const items: { id: string; title: string; subtitle: string; status: string }[] = [];
 
   try {
     const suppliers = await getPmeSuppliers(session.profile.organization_id);
@@ -17,22 +17,27 @@ export default async function Page() {
       items.push({
         id: s.id,
         title: s.name,
-        subtitle: s.phone ?? s.email ?? '—',
+        subtitle: [s.phone, s.email].filter(Boolean).join(' · ') || '—',
         status: s.is_active ? 'Actif' : 'Inactif',
       });
     }
   } catch {
-    // empty
+    /* empty */
   }
 
   return (
-    <SectorPage
+    <PmeCrudPage
       title="Fournisseurs"
-      description={`${items.length} fournisseur${items.length !== 1 ? 's' : ''}`}
+      description={`${items.length} fournisseur(s)`}
       icon={Truck}
       items={items}
-      connected
-      emptyMessage="Aucun fournisseur enregistré."
+      emptyMessage="Aucun fournisseur."
+      onCreate={createPmeSupplier}
+      fields={[
+        { name: 'name', label: 'Nom', required: true },
+        { name: 'phone', label: 'Téléphone' },
+        { name: 'email', label: 'Email' },
+      ]}
     />
   );
 }

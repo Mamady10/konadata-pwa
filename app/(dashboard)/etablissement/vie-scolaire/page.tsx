@@ -5,6 +5,7 @@ import { getClasses, getSubjects, getStudents, getTeachers } from '@/lib/actions
 import { getClassSchedule } from '@/lib/actions/school-schedules';
 import { listAttendanceSessions } from '@/lib/actions/school-attendance';
 import { personName } from '@/lib/school/person-utils';
+import { getSchoolAnnouncements } from '@/lib/actions/school-announcements';
 import type { ScheduleSlotRow } from '@/lib/actions/school-schedules';
 import type { AttendanceSessionSummary } from '@/lib/actions/school-attendance';
 import { VieScolaireClient } from './vie-scolaire-client';
@@ -23,14 +24,16 @@ export default async function VieScolairePage() {
   let students: Array<{ id: string; name: string; class_id: string | null; matricule: string | null }> = [];
   let initialSchedule: ScheduleSlotRow[] = [];
   let initialSessions: AttendanceSessionSummary[] = [];
+  let initialAnnouncements: Awaited<ReturnType<typeof getSchoolAnnouncements>> = [];
 
   try {
-    const [cls, sub, tch, stu, sess] = await Promise.all([
+    const [cls, sub, tch, stu, sess, announcements] = await Promise.all([
       getClasses(orgId),
       getSubjects(orgId),
       getTeachers(orgId),
       getStudents(orgId),
       listAttendanceSessions(),
+      getSchoolAnnouncements(orgId),
     ]);
     classes = cls.map((c) => ({ id: c.id as string, name: c.name as string }));
     subjects = sub.map((s) => ({ id: s.id as string, name: s.name as string }));
@@ -45,6 +48,7 @@ export default async function VieScolairePage() {
       matricule: (s.matricule as string) || null,
     }));
     initialSessions = Array.isArray(sess) ? sess : [];
+    initialAnnouncements = announcements;
 
     const firstClass = classes[0]?.id;
     if (firstClass) {
@@ -64,6 +68,7 @@ export default async function VieScolairePage() {
       initialClassId={classes[0]?.id ?? ''}
       initialSchedule={initialSchedule}
       initialSessions={initialSessions}
+      initialAnnouncements={initialAnnouncements}
       canManage={canManage}
     />
   );

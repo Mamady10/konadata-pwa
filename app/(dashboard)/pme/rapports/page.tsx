@@ -1,7 +1,6 @@
 import { requirePmePage } from '@/lib/pme/require-pme-page';
 import { getPmeDashboardKpis } from '@/lib/actions/data';
-import { SectorPage } from '@/components/dashboard/sector-page';
-import { FileText } from 'lucide-react';
+import { PmeRapportsClient } from './pme-rapports-client';
 import { formatCurrency } from '@/lib/utils';
 
 export default async function Page() {
@@ -50,14 +49,5 @@ export default async function Page() {
     // empty
   }
 
-  return (
-    <SectorPage
-      title="Rapports"
-      description="Synthèse commerciale"
-      icon={FileText}
-      items={items}
-      connected
-      emptyMessage="Aucune donnée pour générer les rapports."
-    />
-  );
+  return <PmeRapportsClient items={items} />;
 }

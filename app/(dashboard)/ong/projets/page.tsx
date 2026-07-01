@@ -1,8 +1,6 @@
 import { getNgoProjects } from '@/lib/actions/ngo';
 import { canManageAssignments } from '@/lib/actions/assignments';
-import { projectStatusLabel } from '@/lib/sector/status-labels';
 import { ProjetsClient } from './projets-client';
-import { formatCurrency } from '@/lib/utils';
 import { requireOngPage } from '@/lib/ong/require-ong-page';
 
 export default async function Page() {
@@ -12,20 +10,28 @@ export default async function Page() {
   }
 
   const isDirector = await canManageAssignments();
+  let projects: Awaited<ReturnType<typeof getNgoProjects>> = [];
 
-  let items: { id: string; title: string; subtitle: string; status: string; date?: string }[] = [];
   try {
-    const projects = await getNgoProjects(session.profile.organization_id);
-    items = projects.map((p) => ({
-      id: p.id,
-      title: p.name,
-      subtitle: `${p.region ?? '—'} — Budget ${formatCurrency(Number(p.budget ?? 0))}`,
-      status: projectStatusLabel(p.status),
-      date: `${Math.round(Number(p.progress_pct ?? 0))}% avancement`,
-    }));
+    projects = await getNgoProjects(session.profile.organization_id);
   } catch {
-    items = [];
+    projects = [];
   }
 
-  return <ProjetsClient items={items} canCreate={isDirector} />;
+  return (
+    <ProjetsClient
+      projects={projects.map((p) => ({
+        id: p.id,
+        name: p.name,
+        region: p.region,
+        locality: p.locality,
+        budget: Number(p.budget ?? 0),
+        spent: Number(p.spent ?? 0),
+        status: p.status as string,
+        progress_pct: Number(p.progress_pct ?? 0),
+        beneficiaries: Number(p.beneficiaries ?? 0),
+      }))}
+      canEdit={isDirector}
+    />
+  );
 }

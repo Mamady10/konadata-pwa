@@ -28,6 +28,7 @@ import {
   Lock,
   Upload,
 } from 'lucide-react';
+import { AiReportDiffusion } from '@/components/ai/ai-report-diffusion';
 
 interface DocRow {
   id: string;
@@ -499,10 +500,16 @@ export function BtpSiteDetailClient({
                   </>
                 )}
                 {closureReport && (
-                  <pre className="text-xs whitespace-pre-wrap max-h-64 overflow-y-auto font-mono border rounded-lg p-3 bg-muted/30">
-                    {closureReport.slice(0, 4000)}
-                    {closureReport.length > 4000 ? '\n…' : ''}
-                  </pre>
+                  <div className="space-y-2">
+                    <pre className="text-xs whitespace-pre-wrap max-h-64 overflow-y-auto font-mono border rounded-lg p-3 bg-muted/30">
+                      {closureReport}
+                    </pre>
+                    <AiReportDiffusion
+                      title={`Dossier de clôture — ${site.name}`}
+                      content={closureReport}
+                      archiveId={closureArchiveId}
+                    />
+                  </div>
                 )}
               </CardContent>
             </Card>

@@ -1,7 +1,7 @@
 import { requirePmePage } from '@/lib/pme/require-pme-page';
-import { getPmeProducts } from '@/lib/actions/pme';
-import { SectorPage } from '@/components/dashboard/sector-page';
-import { Package } from 'lucide-react';
+import { createPmeProduct, getPmeProducts } from '@/lib/actions/pme';
+import { PmeCrudPage } from '@/components/pme/pme-crud-page';
+import { Boxes } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 export default async function Page() {
@@ -17,27 +17,34 @@ export default async function Page() {
     for (const p of products) {
       const stock = Number(p.stock_quantity);
       const min = Number(p.min_stock);
-      const low = stock <= min;
       items.push({
         id: p.id,
         title: p.name,
-        subtitle: `${stock.toLocaleString('fr-FR')} ${p.unit ?? ''} — Prix ${formatCurrency(Number(p.unit_price))}`,
-        status: low ? 'Stock bas' : 'OK',
-        date: p.sku ?? undefined,
+        subtitle: `Stock ${stock} ${p.unit ?? ''} · ${formatCurrency(Number(p.unit_price))}`,
+        status: stock <= min ? 'Stock bas' : 'OK',
       });
     }
   } catch {
-    // empty
+    /* empty */
   }
 
   return (
-    <SectorPage
+    <PmeCrudPage
       title="Stocks"
-      description={`${items.length} article${items.length !== 1 ? 's' : ''} en catalogue`}
-      icon={Package}
+      description={`${items.length} article(s)`}
+      icon={Boxes}
       items={items}
-      connected
-      emptyMessage="Aucun produit en stock."
+      emptyMessage="Aucun article en stock."
+      onCreate={createPmeProduct}
+      addLabel="Nouvel article"
+      fields={[
+        { name: 'name', label: 'Nom', required: true },
+        { name: 'sku', label: 'SKU / code' },
+        { name: 'unit', label: 'Unité', defaultValue: 'unité' },
+        { name: 'unit_price', label: 'Prix unitaire', type: 'number' },
+        { name: 'stock_quantity', label: 'Quantité en stock', type: 'number', defaultValue: '0' },
+        { name: 'min_stock', label: 'Seuil alerte', type: 'number', defaultValue: '0' },
+      ]}
     />
   );
 }

@@ -1,7 +1,7 @@
 import { requirePmePage } from '@/lib/pme/require-pme-page';
-import { getPmeCustomers } from '@/lib/actions/pme';
-import { SectorPage } from '@/components/dashboard/sector-page';
-import { UserCircle } from 'lucide-react';
+import { createPmeCustomer, getPmeCustomers } from '@/lib/actions/pme';
+import { PmeCrudPage } from '@/components/pme/pme-crud-page';
+import { Users } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 export default async function Page() {
@@ -10,7 +10,7 @@ export default async function Page() {
     return <p className="text-muted-foreground">Organisation non configurée.</p>;
   }
 
-  const items: { id: string; title: string; subtitle: string; status: string; date?: string }[] = [];
+  const items: { id: string; title: string; subtitle: string; status: string }[] = [];
 
   try {
     const customers = await getPmeCustomers(session.profile.organization_id);
@@ -18,24 +18,28 @@ export default async function Page() {
       items.push({
         id: c.id,
         title: c.name,
-        subtitle: c.phone ?? c.email ?? '—',
-        status: c.is_active ? 'Actif' : 'Inactif',
-        date:
-          Number(c.balance) > 0 ? `Créance ${formatCurrency(Number(c.balance))}` : undefined,
+        subtitle: [c.phone, c.email].filter(Boolean).join(' · ') || '—',
+        status: Number(c.balance) > 0 ? `Dû ${formatCurrency(Number(c.balance))}` : 'À jour',
       });
     }
   } catch {
-    // empty
+    /* empty */
   }
 
   return (
-    <SectorPage
+    <PmeCrudPage
       title="Clients"
-      description={`${items.length} client${items.length !== 1 ? 's' : ''}`}
-      icon={UserCircle}
+      description={`${items.length} client(s)`}
+      icon={Users}
       items={items}
-      connected
-      emptyMessage="Aucun client enregistré."
+      emptyMessage="Aucun client."
+      onCreate={createPmeCustomer}
+      addLabel="Nouveau client"
+      fields={[
+        { name: 'name', label: 'Nom', required: true },
+        { name: 'phone', label: 'Téléphone' },
+        { name: 'email', label: 'Email' },
+      ]}
     />
   );
 }

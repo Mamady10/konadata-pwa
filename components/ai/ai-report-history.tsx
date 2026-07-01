@@ -11,7 +11,8 @@ import {
   type AiGeneratedReportRow,
 } from '@/lib/actions/ai-report-archive';
 import { AiReportDiffusion } from '@/components/ai/ai-report-diffusion';
-import { Archive, Eye, Loader2, Trash2 } from 'lucide-react';
+import { downloadTextAsPdf } from '@/lib/reports/download-text-as-pdf';
+import { Archive, Download, Eye, Loader2, Trash2 } from 'lucide-react';
 
 interface Props {
   history: AiGeneratedReportRow[];
@@ -22,6 +23,7 @@ export function AiReportHistory({ history: initialHistory, sectorLabel }: Props)
   const router = useRouter();
   const [history, setHistory] = useState(initialHistory);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [pdfLoadingId, setPdfLoadingId] = useState<string | null>(null);
   const [viewing, setViewing] = useState<{
     id: string;
     title: string;
@@ -44,6 +46,22 @@ export function AiReportHistory({ history: initialHistory, sectorLabel }: Props)
       title: result.title,
       content: result.content,
       engine: result.engine,
+    });
+  }
+
+  async function handleDownloadPdf(id: string, fallbackTitle: string) {
+    setPdfLoadingId(id);
+    setError(null);
+    const result = await getAiGeneratedReport(id);
+    setPdfLoadingId(null);
+    if ('error' in result) {
+      setError(result.error);
+      return;
+    }
+    await downloadTextAsPdf({
+      title: result.title || fallbackTitle,
+      content: result.content,
+      archiveRef: result.id,
     });
   }
 
@@ -101,6 +119,20 @@ export function AiReportHistory({ history: initialHistory, sectorLabel }: Props)
                   <Badge variant="outline" className="text-[10px]">
                     {row.engine === 'openai' ? 'OpenAI' : 'Local'}
                   </Badge>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={pdfLoadingId === row.id}
+                    onClick={() => void handleDownloadPdf(row.id, row.title)}
+                  >
+                    {pdfLoadingId === row.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    PDF
+                  </Button>
                   <Button
                     type="button"
                     variant="outline"

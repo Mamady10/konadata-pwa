@@ -760,3 +760,65 @@ export async function getBtpPersonnelForLabor(orgId: string) {
   if (error) throw error;
   return data ?? [];
 }
+
+export async function updateBtpLaborEntry(formData: FormData): Promise<{ success: true } | { error: string }> {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+  const id = (formData.get('id') as string)?.trim();
+  if (!id) return { error: 'Pointage introuvable.' };
+
+  const { data: row } = await supabase
+    .from('btp_labor_entries')
+    .select('site_id')
+    .eq('id', id)
+    .eq('organization_id', orgId)
+    .single();
+  if (!row?.site_id) return { error: 'Pointage introuvable.' };
+
+  const access = await assertSiteAccess(row.site_id as string);
+  if ('error' in access) return access;
+
+  const days = Number(formData.get('days') || 1);
+  const dailyRate = Number(formData.get('daily_rate') || 0);
+  if (days <= 0) return { error: 'Nombre de jours invalide.' };
+
+  const { error } = await supabase
+    .from('btp_labor_entries')
+    .update({
+      days,
+      daily_rate: dailyRate,
+      notes: (formData.get('notes') as string)?.trim() || null,
+      work_date: (formData.get('work_date') as string)?.trim() || undefined,
+    })
+    .eq('id', id)
+    .eq('organization_id', orgId);
+
+  if (error) return { error: error.message };
+  await syncBtpSiteSpent(orgId, row.site_id as string);
+  revalidateFinancialPaths(orgId);
+  revalidatePath('/btp/personnel');
+  return { success: true };
+}
+
+export async function deleteBtpLaborEntry(id: string): Promise<{ success: true } | { error: string }> {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+
+  const { data: row } = await supabase
+    .from('btp_labor_entries')
+    .select('site_id')
+    .eq('id', id)
+    .eq('organization_id', orgId)
+    .single();
+  if (!row?.site_id) return { error: 'Pointage introuvable.' };
+
+  const access = await assertSiteAccess(row.site_id as string);
+  if ('error' in access) return access;
+
+  const { error } = await supabase.from('btp_labor_entries').delete().eq('id', id).eq('organization_id', orgId);
+  if (error) return { error: error.message };
+  await syncBtpSiteSpent(orgId, row.site_id as string);
+  revalidateFinancialPaths(orgId);
+  revalidatePath('/btp/personnel');
+  return { success: true };
+}

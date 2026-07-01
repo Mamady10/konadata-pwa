@@ -59,10 +59,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: String(result.error) }, { status: 400 });
     }
 
+    let announcements: Array<Record<string, unknown>> = [];
+    const orgId = challenge.organization_id as string;
+    const { data: ann } = await supabase
+      .from('school_announcements')
+      .select('id, title, body, category, event_date, published_at')
+      .eq('organization_id', orgId)
+      .eq('visible_to_parents', true)
+      .order('published_at', { ascending: false })
+      .limit(15);
+    if (ann) announcements = ann;
+
     return NextResponse.json({
       success: true,
       challengeId,
-      data: result,
+      data: { ...(result as Record<string, unknown>), announcements },
     });
   } catch (e) {
     return NextResponse.json(

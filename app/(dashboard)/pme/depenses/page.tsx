@@ -1,6 +1,6 @@
 import { requirePmePage } from '@/lib/pme/require-pme-page';
-import { getPmeExpenses } from '@/lib/actions/pme';
-import { SectorPage } from '@/components/dashboard/sector-page';
+import { createPmeExpense, getPmeExpenses } from '@/lib/actions/pme';
+import { PmeCrudPage } from '@/components/pme/pme-crud-page';
 import { Wallet } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
@@ -18,25 +18,31 @@ export default async function Page() {
       items.push({
         id: e.id,
         title: e.category,
-        subtitle: e.description ?? '—',
+        subtitle: e.description ?? e.category,
         status: formatCurrency(Number(e.amount)),
         date: e.expense_date
           ? new Date(e.expense_date).toLocaleDateString('fr-FR')
-          : undefined,
+          : '—',
       });
     }
   } catch {
-    // empty
+    /* empty */
   }
 
   return (
-    <SectorPage
+    <PmeCrudPage
       title="Dépenses"
-      description={`${items.length} dépense${items.length !== 1 ? 's' : ''}`}
+      description={`${items.length} dépense(s)`}
       icon={Wallet}
       items={items}
-      connected
-      emptyMessage="Aucune dépense enregistrée."
+      emptyMessage="Aucune dépense."
+      onCreate={createPmeExpense}
+      fields={[
+        { name: 'category', label: 'Catégorie', required: true, defaultValue: 'general' },
+        { name: 'description', label: 'Description' },
+        { name: 'amount', label: 'Montant (GNF)', type: 'number', required: true },
+        { name: 'expense_date', label: 'Date', type: 'date' },
+      ]}
     />
   );
 }

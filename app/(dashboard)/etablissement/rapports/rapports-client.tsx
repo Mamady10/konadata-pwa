@@ -27,6 +27,8 @@ import {
   type SchoolAiReportType,
 } from '@/lib/ai/sector-report-types';
 import { AiReportHistory } from '@/components/ai/ai-report-history';
+import { AiReportDiffusion } from '@/components/ai/ai-report-diffusion';
+import { downloadTextAsPdf } from '@/lib/reports/download-text-as-pdf';
 import type { AiGeneratedReportRow } from '@/lib/actions/ai-report-archive';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -94,6 +96,7 @@ export function RapportsEtablissementClient({
   const [uploading, setUploading] = useState(false);
   const [monthlyLoading, setMonthlyLoading] = useState(false);
   const [monthlyMsg, setMonthlyMsg] = useState<string | null>(null);
+  const [monthlyReport, setMonthlyReport] = useState<{ title: string; content: string; archiveId: string } | null>(null);
   const [mepsLoading, setMepsLoading] = useState(false);
   const [mepsMsg, setMepsMsg] = useState<string | null>(null);
 
@@ -153,7 +156,10 @@ export function RapportsEtablissementClient({
                 const res = await generateSchoolMonthlyReport();
                 setMonthlyLoading(false);
                 if ('error' in res && res.error) setMonthlyMsg(res.error);
-                else if ('title' in res) setMonthlyMsg(`Rapport archivé : ${res.title}`);
+                else if ('title' in res) {
+                  setMonthlyMsg(`Rapport archivé : ${res.title}`);
+                  setMonthlyReport({ title: res.title, content: res.report, archiveId: res.archiveId });
+                }
                 router.refresh();
               }}
             >
@@ -164,6 +170,13 @@ export function RapportsEtablissementClient({
               <p className={`text-sm ${monthlyMsg.startsWith('Rapport') ? 'text-emerald-700' : 'text-destructive'}`}>
                 {monthlyMsg}
               </p>
+            )}
+            {monthlyReport && (
+              <AiReportDiffusion
+                title={monthlyReport.title}
+                content={monthlyReport.content}
+                archiveId={monthlyReport.archiveId}
+              />
             )}
           </CardContent>
         </Card>
@@ -188,30 +201,55 @@ export function RapportsEtablissementClient({
                 Paramètres établissement MEPS
               </Link>
             </Button>
-            <Button
-              variant="outline"
-              disabled={mepsLoading}
-              onClick={async () => {
-                setMepsLoading(true);
-                setMepsMsg(null);
-                const res = await exportMepsSchoolStats();
-                setMepsLoading(false);
-                if ('error' in res && res.error) setMepsMsg(res.error);
-                else {
-                  const blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = res.fileName;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                  setMepsMsg(`${res.rowCount} classe(s) exportée(s).`);
-                }
-              }}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              {mepsLoading ? 'Export…' : 'Télécharger le CSV'}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                disabled={mepsLoading}
+                onClick={async () => {
+                  setMepsLoading(true);
+                  setMepsMsg(null);
+                  const res = await exportMepsSchoolStats();
+                  setMepsLoading(false);
+                  if ('error' in res && res.error) setMepsMsg(res.error);
+                  else {
+                    const blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = res.fileName;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    setMepsMsg(`${res.rowCount} classe(s) exportée(s).`);
+                  }
+                }}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {mepsLoading ? 'Export…' : 'Télécharger le CSV'}
+              </Button>
+              <Button
+                variant="outline"
+                disabled={mepsLoading}
+                onClick={async () => {
+                  setMepsLoading(true);
+                  setMepsMsg(null);
+                  const res = await exportMepsSchoolStats();
+                  setMepsLoading(false);
+                  if ('error' in res && res.error) setMepsMsg(res.error);
+                  else {
+                    await downloadTextAsPdf({
+                      title: 'Export MEPS / bailleurs',
+                      content: res.csv,
+                      fileName: res.fileName.replace(/\.csv$/i, '.pdf'),
+                      metaLine: `${res.rowCount} classe(s) — KonaData`,
+                    });
+                    setMepsMsg(`${res.rowCount} classe(s) exportée(s) en PDF.`);
+                  }
+                }}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {mepsLoading ? 'Export…' : 'Télécharger le PDF'}
+              </Button>
+            </div>
             {mepsMsg && (
               <p className={`text-sm ${mepsMsg.includes('exportée') ? 'text-emerald-700' : 'text-destructive'}`}>
                 {mepsMsg}
@@ -307,7 +345,8 @@ export function RapportsEtablissementClient({
         </Card>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="grid gap-4 sm:grid-cols-4 flex-1">
         <div className="rounded-xl border p-4">
           <p className="text-sm text-muted-foreground">Élèves inscrits</p>
           <p className="text-2xl font-bold">{stats.totalStudents}</p>
@@ -324,6 +363,28 @@ export function RapportsEtablissementClient({
           <p className="text-sm text-muted-foreground">Bulletins générés</p>
           <p className="text-2xl font-bold">{stats.reportCards}</p>
         </div>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shrink-0"
+          onClick={() =>
+            void downloadTextAsPdf({
+              title: 'Synthèse établissement',
+              content: [
+                `Élèves inscrits : ${stats.totalStudents}`,
+                `Paiements enregistrés : ${stats.totalPayments}`,
+                `Montant encaissé : ${formatCurrency(stats.amountCollected)}`,
+                `Bulletins générés : ${stats.reportCards}`,
+              ].join('\n'),
+              metaLine: 'Rapports Établissement — KonaData',
+            })
+          }
+        >
+          <Download className="h-4 w-4 mr-1" />
+          Synthèse PDF
+        </Button>
       </div>
 
       {showFinance && financeOverview && (

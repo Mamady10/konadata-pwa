@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { rapports } from "@/lib/mock-data";
 import { SECTOR_LABELS, Report } from "@/types";
+import { downloadTextAsPdf } from "@/lib/reports/download-text-as-pdf";
 import { FileText, FileSpreadsheet, Download, Share2, Plus, FileType } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -23,6 +24,22 @@ const typeColors = {
 
 function ReportCard({ report }: { report: Report }) {
   const Icon = typeIcons[report.type];
+
+  async function handleDownload() {
+    await downloadTextAsPdf({
+      title: report.title,
+      content: [
+        `Secteur : ${SECTOR_LABELS[report.sector]}`,
+        `Type : ${report.type.toUpperCase()}`,
+        `Date : ${report.date}`,
+        `Taille : ${report.size}`,
+        '',
+        'Document de démonstration KonaData.',
+      ].join('\n'),
+      metaLine: 'Rapports — KonaData',
+    });
+  }
+
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
       <Card className="hover:shadow-card-hover transition-shadow">
@@ -41,9 +58,9 @@ function ReportCard({ report }: { report: Report }) {
             </div>
           </div>
           <div className="flex gap-2 mt-4">
-            <Button size="sm" variant="outline" className="flex-1">
+            <Button size="sm" variant="outline" className="flex-1" onClick={() => void handleDownload()}>
               <Download className="h-3 w-3" />
-              Télécharger
+              Télécharger PDF
             </Button>
             <Button size="sm" variant="outline" className="flex-1">
               <Share2 className="h-3 w-3" />

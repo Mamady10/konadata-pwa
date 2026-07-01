@@ -27,7 +27,9 @@ import {
   type AttendanceSessionSummary,
 } from '@/lib/actions/school-attendance';
 import { SCHEDULE_DAYS, scheduleDayLabel } from '@/lib/school/schedule-utils';
-import { CalendarDays, Clock, Plus, Trash2, UserCheck } from 'lucide-react';
+import { CalendarDays, Clock, Megaphone, Plus, Trash2, UserCheck } from 'lucide-react';
+import { SchoolAnnouncementsPanel } from '@/components/etablissement/school-announcements-panel';
+import type { SchoolAnnouncementRow } from '@/lib/actions/school-announcements';
 
 interface Props {
   classes: Array<{ id: string; name: string }>;
@@ -37,6 +39,7 @@ interface Props {
   initialClassId: string;
   initialSchedule: ScheduleSlotRow[];
   initialSessions: AttendanceSessionSummary[];
+  initialAnnouncements: SchoolAnnouncementRow[];
   canManage: boolean;
 }
 
@@ -48,10 +51,11 @@ export function VieScolaireClient({
   initialClassId,
   initialSchedule,
   initialSessions,
+  initialAnnouncements,
   canManage,
 }: Props) {
   const router = useRouter();
-  const [tab, setTab] = useState<'emploi' | 'presences'>('emploi');
+  const [tab, setTab] = useState<'actualites' | 'emploi' | 'presences'>('actualites');
   const [classId, setClassId] = useState(initialClassId);
   const [schedule, setSchedule] = useState(initialSchedule);
   const [sessions, setSessions] = useState(initialSessions);
@@ -186,11 +190,19 @@ export function VieScolaireClient({
           Vie scolaire
         </h1>
         <p className="text-muted-foreground">
-          Emploi du temps et registre de présences — exportable vers les rapports MEPS.
+          Actualités, emploi du temps et présences — partagé avec les parents via le portail suivi scolarité.
         </p>
       </div>
 
       <div className="flex flex-wrap gap-2">
+        <Button
+          variant={tab === 'actualites' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setTab('actualites')}
+        >
+          <Megaphone className="h-4 w-4 mr-1" />
+          Actualités
+        </Button>
         <Button
           variant={tab === 'emploi' ? 'default' : 'outline'}
           size="sm"
@@ -209,6 +221,12 @@ export function VieScolaireClient({
         </Button>
       </div>
 
+      {tab === 'actualites' && (
+        <SchoolAnnouncementsPanel announcements={initialAnnouncements} canManage={canManage} />
+      )}
+
+      {tab !== 'actualites' && (
+      <>
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Classe</CardTitle>
@@ -449,6 +467,8 @@ export function VieScolaireClient({
             ]}
           />
         </>
+      )}
+      </>
       )}
 
       {msg && <p className="text-sm font-medium">{msg}</p>}

@@ -317,6 +317,23 @@ export function SuiviScolariteClient({ schools }: Props) {
                 </div>
               )}
 
+              {Array.isArray(data.announcements) && (data.announcements as Array<Record<string, unknown>>).length > 0 && (
+                <div className="rounded-lg border p-3 space-y-3">
+                  <p className="font-medium">Actualités de l&apos;établissement</p>
+                  {(data.announcements as Array<Record<string, unknown>>).map((a) => (
+                    <div key={String(a.id)} className="border-b last:border-0 pb-2 last:pb-0">
+                      <p className="font-medium text-sm">{String(a.title)}</p>
+                      {a.body ? <p className="text-muted-foreground text-xs mt-1 whitespace-pre-wrap">{String(a.body)}</p> : null}
+                      {a.event_date ? (
+                        <p className="text-[10px] text-primary mt-1">
+                          {new Date(String(a.event_date)).toLocaleDateString('fr-FR')}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <Button asChild className="w-full" variant="outline">
                 <Link href={LANDING_LINKS.payerScolarite}>
                   <CreditCard className="h-4 w-4 mr-2" />

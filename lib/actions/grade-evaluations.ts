@@ -45,6 +45,12 @@ export interface GradeEvaluationDocument {
   studentName: string | null;
 }
 
+function isMissingCoefficientColumn(message: string | undefined): boolean {
+  if (!message) return false;
+  const m = message.toLowerCase();
+  return m.includes('coefficient') && (m.includes('schema cache') || m.includes('does not exist'));
+}
+
 async function assertCanGradeEvaluation(
   orgId: string,
   key: EvaluationKey
@@ -88,7 +94,8 @@ export async function getGradeEvaluationSettings(
   if (guard) return guard;
 
   const supabase = await createClient();
-  const { data } = await supabase
+  let data: { max_score: number | null; coefficient?: number | null } | null = null;
+  const full = await supabase
     .from('school_grade_evaluations')
     .select('max_score, coefficient')
     .eq('organization_id', orgId)
@@ -98,6 +105,22 @@ export async function getGradeEvaluationSettings(
     .eq('semester', key.semester.trim())
     .eq('academic_year', key.academicYear.trim())
     .maybeSingle();
+
+  if (full.error && isMissingCoefficientColumn(full.error.message)) {
+    const minimal = await supabase
+      .from('school_grade_evaluations')
+      .select('max_score')
+      .eq('organization_id', orgId)
+      .eq('class_id', key.classId)
+      .eq('subject_id', key.subjectId)
+      .eq('exam_type', key.examType.trim())
+      .eq('semester', key.semester.trim())
+      .eq('academic_year', key.academicYear.trim())
+      .maybeSingle();
+    if (!minimal.error) data = minimal.data;
+  } else if (!full.error) {
+    data = full.data;
+  }
 
   const { normalizeEvaluationCoefficient, normalizeEvaluationMaxScore } = await import(
     '@/lib/school/evaluation-defaults'
@@ -109,7 +132,9 @@ export async function getGradeEvaluationSettings(
         data.max_score,
         defaults?.maxScore ?? 20
       ),
-      coefficient: normalizeEvaluationCoefficient(data.coefficient),
+      coefficient: normalizeEvaluationCoefficient(
+        data.coefficient ?? defaults?.coefficient ?? 1
+      ),
     };
   }
 
@@ -132,11 +157,19 @@ async function upsertEvaluationSettings(
   const maxScore = normalizeEvaluationMaxScore(settings.maxScore);
   const coefficient = normalizeEvaluationCoefficient(settings.coefficient);
 
-  await supabase
+  const patch: Record<string, number> = { max_score: maxScore };
+  const withCoef = await supabase
     .from('school_grade_evaluations')
     .update({ max_score: maxScore, coefficient })
     .eq('id', evaluationId)
     .eq('organization_id', orgId);
+  if (withCoef.error && isMissingCoefficientColumn(withCoef.error.message)) {
+    await supabase
+      .from('school_grade_evaluations')
+      .update(patch)
+      .eq('id', evaluationId)
+      .eq('organization_id', orgId);
+  }
 }
 
 export async function getOrCreateGradeEvaluation(
@@ -169,21 +202,34 @@ export async function getOrCreateGradeEvaluation(
   const maxScore = normalizeEvaluationMaxScore(settings?.maxScore, 20);
   const coefficient = normalizeEvaluationCoefficient(settings?.coefficient ?? 1);
 
-  const { data: created, error } = await supabase
+  const insertPayload: Record<string, unknown> = {
+    organization_id: orgId,
+    class_id: key.classId,
+    subject_id: key.subjectId,
+    exam_type: key.examType.trim(),
+    semester: key.semester.trim(),
+    academic_year: key.academicYear.trim(),
+    max_score: maxScore,
+    coefficient,
+    created_by: session?.user?.id ?? null,
+  };
+
+  let { data: created, error } = await supabase
     .from('school_grade_evaluations')
-    .insert({
-      organization_id: orgId,
-      class_id: key.classId,
-      subject_id: key.subjectId,
-      exam_type: key.examType.trim(),
-      semester: key.semester.trim(),
-      academic_year: key.academicYear.trim(),
-      max_score: maxScore,
-      coefficient,
-      created_by: session?.user?.id ?? null,
-    })
+    .insert(insertPayload)
     .select('id')
     .single();
+
+  if (error && isMissingCoefficientColumn(error.message)) {
+    const { coefficient: _c, ...withoutCoef } = insertPayload;
+    const retry = await supabase
+      .from('school_grade_evaluations')
+      .insert(withoutCoef)
+      .select('id')
+      .single();
+    created = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     if (error.code === '23505') {

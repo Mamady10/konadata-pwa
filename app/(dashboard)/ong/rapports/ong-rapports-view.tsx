@@ -1,6 +1,6 @@
 'use client';
 
-import { SectorPage } from '@/components/dashboard/sector-page';
+import { ReportItemsList } from '@/components/reports/report-items-list';
 import { SectorAiReportPanel } from '@/components/ai/sector-ai-report-panel';
 import { generateNgoAiReport } from '@/lib/actions/ai-reports';
 import { NGO_AI_REPORT_TYPES, type NgoAiReportType } from '@/lib/ai/sector-report-types';
@@ -44,7 +44,7 @@ export function OngRapportsView({ isDirector, projects, items, description, repo
         />
       )}
       {isDirector && <AiReportHistory history={reportHistory} sectorLabel="ONG" />}
-      <SectorPage
+      <ReportItemsList
         title="Rapports ONG"
         description={description}
         icon={FileText}

@@ -3,20 +3,12 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Check, Copy, Download, Printer } from 'lucide-react';
+import { downloadTextAsPdf, slugifyReportFilename } from '@/lib/reports/download-text-as-pdf';
 
 interface Props {
   title: string;
   content: string;
   archiveId?: string | null;
-}
-
-function slugify(name: string): string {
-  return name
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 60) || 'rapport';
 }
 
 export function AiReportDiffusion({ title, content, archiveId }: Props) {
@@ -28,7 +20,6 @@ export function AiReportDiffusion({ title, content, archiveId }: Props) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      /* fallback */
       const ta = document.createElement('textarea');
       ta.value = content;
       document.body.appendChild(ta);
@@ -40,13 +31,21 @@ export function AiReportDiffusion({ title, content, archiveId }: Props) {
     }
   }
 
+  async function handleDownloadPdf() {
+    await downloadTextAsPdf({
+      title,
+      content,
+      archiveRef: archiveId,
+    });
+  }
+
   function handleDownload() {
     const date = new Date().toISOString().slice(0, 10);
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${slugify(title)}-${date}.txt`;
+    a.download = `${slugifyReportFilename(title)}-${date}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -80,6 +79,10 @@ export function AiReportDiffusion({ title, content, archiveId }: Props) {
       <Button type="button" variant="outline" size="sm" onClick={handleCopy}>
         {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
         {copied ? 'Copié' : 'Copier'}
+      </Button>
+      <Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadPdf()}>
+        <Download className="h-4 w-4" />
+        Télécharger PDF
       </Button>
       <Button type="button" variant="outline" size="sm" onClick={handleDownload}>
         <Download className="h-4 w-4" />

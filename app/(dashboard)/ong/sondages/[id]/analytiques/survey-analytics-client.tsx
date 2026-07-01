@@ -26,6 +26,7 @@ import {
   KonaAreaChart,
 } from '@/components/dashboard/charts';
 import { SurveyGpsMap } from '@/components/survey/survey-gps-map';
+import { AiReportDiffusion } from '@/components/ai/ai-report-diffusion';
 import {
   SurveyReportTemplateCard,
   type SurveyReportTemplateInfo,
@@ -64,6 +65,14 @@ export function SurveyAnalyticsClient({
   const [aiAnswer, setAiAnswer] = useState<string | null>(null);
   const [aiReport, setAiReport] = useState<string | null>(null);
   const [showExcluded, setShowExcluded] = useState(false);
+  const [periodFrom, setPeriodFrom] = useState('');
+  const [periodTo, setPeriodTo] = useState('');
+
+  const filteredByDay = analytics.byDay.filter((d) => {
+    if (periodFrom && d.day < periodFrom) return false;
+    if (periodTo && d.day > periodTo) return false;
+    return true;
+  });
 
   const pieData = analytics.stats.byChoice.map((c) => ({
     name: c.label,
@@ -75,7 +84,7 @@ export function SurveyAnalyticsClient({
     count: r.count,
   }));
 
-  const daySeries = analytics.byDay.map((d) => ({
+  const daySeries = filteredByDay.map((d) => ({
     day: d.day.slice(5),
     responses: d.count,
   }));
@@ -179,6 +188,24 @@ export function SurveyAnalyticsClient({
       </div>
 
       {msg && <p className="text-sm bg-muted rounded-lg px-3 py-2">{msg}</p>}
+
+      <Card>
+        <CardContent className="pt-4 flex flex-wrap gap-4 items-end">
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">Période du rapport (réponses / jour)</p>
+            <div className="flex flex-wrap gap-2">
+              <Input type="date" value={periodFrom} onChange={(e) => setPeriodFrom(e.target.value)} className="w-auto" />
+              <span className="text-muted-foreground self-center">→</span>
+              <Input type="date" value={periodTo} onChange={(e) => setPeriodTo(e.target.value)} className="w-auto" />
+              {(periodFrom || periodTo) && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => { setPeriodFrom(''); setPeriodTo(''); }}>
+                  Réinitialiser
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -441,9 +468,15 @@ export function SurveyAnalyticsClient({
                     Générer le rapport KonaAI
                   </Button>
                   {aiReport && (
-                    <pre className="text-xs whitespace-pre-wrap bg-muted rounded-lg p-4 max-h-96 overflow-y-auto">
-                      {aiReport}
-                    </pre>
+                    <div className="space-y-2">
+                      <pre className="text-xs whitespace-pre-wrap bg-muted rounded-lg p-4 max-h-96 overflow-y-auto">
+                        {aiReport}
+                      </pre>
+                      <AiReportDiffusion
+                        title={`Rapport sondage — ${analytics.title}`}
+                        content={aiReport}
+                      />
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -485,8 +518,14 @@ export function SurveyAnalyticsClient({
                     </Button>
                   </div>
                   {aiAnswer && (
-                    <div className="text-sm bg-muted rounded-lg p-4 whitespace-pre-wrap">
-                      {aiAnswer}
+                    <div className="space-y-2">
+                      <div className="text-sm bg-muted rounded-lg p-4 whitespace-pre-wrap">
+                        {aiAnswer}
+                      </div>
+                      <AiReportDiffusion
+                        title={`Analyse KonaAI — ${analytics.title}`}
+                        content={aiAnswer}
+                      />
                     </div>
                   )}
                 </CardContent>

@@ -66,20 +66,21 @@ export function SondagesOngSettingsClient({ initialSettings, loadError, orgName 
           <CardTitle className="text-base flex items-center gap-2">
             Module enquêtes
             <Badge variant={settings.enabled ? 'default' : 'secondary'}>
-              {settings.enabled ? 'Activé' : 'Désactivé'}
+              {settings.enabled ? 'Activé par KonaData' : 'Désactivé par KonaData'}
             </Badge>
           </CardTitle>
           <CardDescription>
-            Désactivé = aucune nouvelle collecte ; les sondages existants restent visibles en lecture.
+            L&apos;activation du module sondages et du forfait est gérée par KonaData. Contactez le support pour toute modification.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex items-center justify-between rounded-lg border p-4">
-            <div>
-              <p className="font-medium">Autoriser les sondages</p>
-              <p className="text-sm text-muted-foreground">Active la création et la collecte.</p>
-            </div>
-            <Switch checked={settings.enabled} onCheckedChange={(v) => patch({ enabled: v })} />
+          <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground">Statut actuel</p>
+            <p className="mt-1">
+              Sondages : <strong>{settings.enabled ? 'autorisés' : 'suspendus'}</strong>
+              {' · '}
+              Devis CEO avant activation : <strong>{settings.require_survey_payment ? 'oui' : 'non'}</strong>
+            </p>
           </div>
 
           <div className="flex items-center justify-between rounded-lg border p-4">
@@ -120,21 +121,12 @@ export function SondagesOngSettingsClient({ initialSettings, loadError, orgName 
           <div className="rounded-lg border p-4 space-y-3">
             <p className="font-medium">Facturation campagne (hors abonnement)</p>
             <p className="text-sm text-muted-foreground">
-              Chaque sondage fait l&apos;objet d&apos;un devis validé par le CEO KonaData (organisation,
-              nombre de cibles, contexte). Aucune estimation automatique côté ONG.
+              Chaque sondage fait l&apos;objet d&apos;un devis validé par le CEO KonaData. L&apos;ONG ne peut pas modifier cette règle.
             </p>
-            <div className="flex items-center justify-between rounded-lg border p-3">
-              <div>
-                <p className="text-sm font-medium">Devis CEO obligatoire avant activation</p>
-                <p className="text-xs text-muted-foreground">
-                  Soumission → tarif fixé par KonaData → paiement → activation.
-                </p>
-              </div>
-              <Switch
-                checked={settings.require_survey_payment}
-                onCheckedChange={(v) => patch({ require_survey_payment: v })}
-              />
-            </div>
+            <p className="text-sm">
+              Devis CEO obligatoire avant activation :{' '}
+              <Badge variant="outline">{settings.require_survey_payment ? 'Oui' : 'Non'}</Badge>
+            </p>
           </div>
 
           <div className="rounded-lg border p-4 space-y-4">

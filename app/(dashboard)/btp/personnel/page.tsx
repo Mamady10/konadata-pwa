@@ -68,6 +68,7 @@ export default async function Page() {
         personName,
         workDate: (r.work_date as string).slice(0, 10),
         days: Number(r.days),
+        dailyRate: Number(r.daily_rate ?? 0),
         amount: sumLaborEntryAmount(Number(r.days), Number(r.daily_rate)),
       };
     });

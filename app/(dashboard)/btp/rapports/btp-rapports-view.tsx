@@ -1,6 +1,6 @@
 'use client';
 
-import { SectorPage } from '@/components/dashboard/sector-page';
+import { ReportItemsList } from '@/components/reports/report-items-list';
 import { SectorAiReportPanel } from '@/components/ai/sector-ai-report-panel';
 import { generateBtpAiReport } from '@/lib/actions/ai-reports';
 import { BTP_AI_REPORT_TYPES, type BtpAiReportType } from '@/lib/ai/sector-report-types';
@@ -48,7 +48,7 @@ export function BtpRapportsView({ isDirector, sites, items, description, reportH
         />
       )}
       {isDirector && <AiReportHistory history={reportHistory} sectorLabel="BTP" />}
-      <SectorPage
+      <ReportItemsList
         title="Rapports BTP"
         description={description}
         icon={FileText}

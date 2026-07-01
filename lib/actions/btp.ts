@@ -396,6 +396,78 @@ export async function recordBtpSiteProgress(formData: FormData) {
   return { success: true, comparison };
 }
 
+export async function updateBtpDailyProgress(formData: FormData) {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+  const id = (formData.get('id') as string)?.trim();
+  if (!id) return { error: 'Relevé introuvable.' };
+
+  const { data: row } = await supabase
+    .from('btp_daily_progress')
+    .select('site_id')
+    .eq('id', id)
+    .eq('organization_id', orgId)
+    .single();
+  if (!row?.site_id) return { error: 'Relevé introuvable.' };
+
+  const access = await assertCanEditBtpSite(row.site_id as string);
+  if ('error' in access) return access;
+
+  const physicalPct = Number(formData.get('physical_pct'));
+  if (Number.isNaN(physicalPct) || physicalPct < 0 || physicalPct > 100) {
+    return { error: 'Avancement physique invalide (0 à 100 %).' };
+  }
+
+  const workersRaw = formData.get('workers_count') as string;
+  const workersCount = workersRaw && workersRaw !== '' ? Number(workersRaw) : null;
+
+  const { error } = await supabase
+    .from('btp_daily_progress')
+    .update({
+      progress_date: (formData.get('progress_date') as string)?.trim() || undefined,
+      physical_pct: physicalPct,
+      workers_count: workersCount,
+      notes: ((formData.get('notes') as string) || '').trim() || null,
+      weather: ((formData.get('weather') as string) || '').trim() || null,
+    })
+    .eq('id', id)
+    .eq('organization_id', orgId);
+
+  if (error) return { error: error.message };
+
+  const { error: siteErr } = await supabase
+    .from('btp_sites')
+    .update({ physical_progress: physicalPct })
+    .eq('id', row.site_id)
+    .eq('organization_id', orgId);
+  if (siteErr) return { error: siteErr.message };
+
+  revalidateBtpDashboardCache(orgId, ['/btp/avancement', '/btp/chantiers', '/btp/rapports']);
+  return { success: true };
+}
+
+export async function deleteBtpDailyProgress(id: string) {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+
+  const { data: row } = await supabase
+    .from('btp_daily_progress')
+    .select('site_id')
+    .eq('id', id)
+    .eq('organization_id', orgId)
+    .single();
+  if (!row?.site_id) return { error: 'Relevé introuvable.' };
+
+  const access = await assertCanEditBtpSite(row.site_id as string);
+  if ('error' in access) return access;
+
+  const { error } = await supabase.from('btp_daily_progress').delete().eq('id', id).eq('organization_id', orgId);
+  if (error) return { error: error.message };
+
+  revalidateBtpDashboardCache(orgId, ['/btp/avancement', '/btp/chantiers', '/btp/rapports']);
+  return { success: true };
+}
+
 export async function createBtpSite(formData: FormData) {
   const canManage = await canManageAssignments();
   if (!canManage) return { error: 'Seuls les directeurs peuvent créer des chantiers.' };
