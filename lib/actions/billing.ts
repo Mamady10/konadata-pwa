@@ -13,6 +13,8 @@ import {
 import type { AppRole } from '@/types/database';
 import { sendPaymentOfferEmail } from '@/lib/email/send-payment-offer';
 import { getResendConfig } from '@/lib/email/resend-client';
+import { buildPaymentOfferUrl, getAppBaseUrlFromEnv } from '@/lib/http/app-base-url';
+import { formatCurrency } from '@/lib/utils';
 
 function canManageBilling(role: AppRole | string | undefined): boolean {
   return role === 'org_admin' || role === 'platform_admin' || role === 'deputy_director';
@@ -341,6 +343,9 @@ export async function platformSetBillingOffer(
     } else if (!ctx.directorEmail) {
       emailWarning = 'Tarif enregistré — email directeur introuvable (copiez le lien manuellement).';
     }
+  } else {
+    emailWarning =
+      'RESEND_API_KEY non configurée — utilisez « Copier lien + montant » ou configurez Resend (Vercel).';
   }
 
   revalidatePath('/organisations');
@@ -464,6 +469,31 @@ export async function getOrgPaymentToken(orgId: string): Promise<string | null> 
     .eq('organization_id', orgId)
     .maybeSingle();
   return (data?.payment_token as string) ?? null;
+}
+
+/** Texte prêt à coller (WhatsApp, email manuel) avec URL canonique. */
+export async function getPaymentOfferClipboardText(
+  orgId: string,
+  orgName: string,
+  amountGnf: number,
+  ceoNotes?: string | null
+): Promise<{ text: string } | { error: string }> {
+  const session = await getSession();
+  if (session?.profile?.role !== 'platform_admin') {
+    return { error: 'Non autorisé' };
+  }
+  const token = await getOrgPaymentToken(orgId);
+  if (!token) {
+    return { error: 'Aucun lien — validez d’abord le tarif (statut « À payer »).' };
+  }
+  const url = buildPaymentOfferUrl(token, getAppBaseUrlFromEnv());
+  const lines = [
+    `${orgName} — Activation KonaData`,
+    `Montant validé : ${formatCurrency(amountGnf)}`,
+    url,
+  ];
+  if (ceoNotes?.trim()) lines.push(`Note : ${ceoNotes.trim()}`);
+  return { text: lines.join('\n') };
 }
 
 export async function recordSchoolInvoicePayment(invoiceId: string, reference?: string) {

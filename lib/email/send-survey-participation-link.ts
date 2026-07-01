@@ -1,5 +1,6 @@
+import { buildParticipationUrl, getAppBaseUrlFromEnv } from '@/lib/http/app-base-url';
 import { konaEmailLayout } from '@/lib/email/layout';
-import { getResendConfig, sendResendEmail, type ResendSendResult } from '@/lib/email/resend-client';
+import { sendResendEmail, type ResendSendResult } from '@/lib/email/resend-client';
 
 export interface SurveyParticipationEmailParams {
   to: string | string[];
@@ -16,8 +17,7 @@ export interface SurveyParticipationEmailParams {
 export async function sendSurveyParticipationLinkEmail(
   params: SurveyParticipationEmailParams
 ): Promise<ResendSendResult> {
-  const { appUrl } = getResendConfig();
-  const participationUrl = `${appUrl.replace(/\/$/, '')}/participation-ong/${params.publicToken}`;
+  const participationUrl = buildParticipationUrl(params.publicToken, getAppBaseUrlFromEnv());
 
   const optionsHtml =
     params.options?.length ?

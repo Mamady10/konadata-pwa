@@ -1,6 +1,7 @@
+import { getAppBaseUrlFromEnv, buildPaymentOfferUrl } from '@/lib/http/app-base-url';
 import { formatCurrency } from '@/lib/utils';
 import { konaEmailLayout } from '@/lib/email/layout';
-import { getResendConfig, sendResendEmail, type ResendSendResult } from '@/lib/email/resend-client';
+import { sendResendEmail, type ResendSendResult } from '@/lib/email/resend-client';
 
 export interface PaymentOfferEmailParams {
   to: string;
@@ -15,8 +16,7 @@ export interface PaymentOfferEmailParams {
 export async function sendPaymentOfferEmail(
   params: PaymentOfferEmailParams
 ): Promise<ResendSendResult> {
-  const { appUrl } = getResendConfig();
-  const paymentUrl = `${appUrl}/paiement-organisation/${params.paymentToken}`;
+  const paymentUrl = buildPaymentOfferUrl(params.paymentToken, getAppBaseUrlFromEnv());
   const greeting = params.directorName?.trim() ? `Bonjour ${params.directorName},` : 'Bonjour,';
   const isTrial = params.accessMode === 'trial_30d';
   const amountLine =

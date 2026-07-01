@@ -86,9 +86,20 @@ export function BtpDashboardClient({
   }
 
   const { kpis } = dashboard;
+  const isDemoEmpty = kpis.chantiers === 0 && kpis.chantiersActifs === 0;
 
   return (
     <div className="space-y-6">
+      {isDemoEmpty && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-medium">Aucun chantier enregistré</p>
+          <p className="text-xs mt-1">
+            Compte démo : exécutez la migration <code className="bg-amber-100 px-1 rounded">109_btp_demo_seed_repair</code>{' '}
+            ou <code className="bg-amber-100 px-1 rounded">011_ngo_btp_seed</code> en base, puis{' '}
+            <code className="bg-amber-100 px-1 rounded">npm run seed:demo</code> pour lier le profil directeur.
+          </p>
+        </div>
+      )}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-bold tracking-tight">{title}</h1>

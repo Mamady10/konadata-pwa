@@ -14,6 +14,7 @@ import {
   platformRestoreOrganizationAccess,
   recordOfferActivationPayment,
   prepareSchoolRenewalBilling,
+  getPaymentOfferClipboardText,
   type PendingOrganizationRow,
   type PlatformAccessMode,
 } from '@/lib/actions/billing';
@@ -91,20 +92,24 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
   }
 
   async function copyPaymentLink(
+    orgId: string,
     token: string,
     orgName: string,
     amountGnf: number,
     ceoNotes?: string | null
   ) {
-    const url = `${window.location.origin}/paiement-organisation/${token}`;
-    const lines = [
-      `${orgName} — Activation KonaData`,
-      `Montant validé : ${formatCurrency(amountGnf)}`,
-      url,
-    ];
-    if (ceoNotes?.trim()) lines.push(`Note : ${ceoNotes.trim()}`);
-    await navigator.clipboard.writeText(lines.join('\n'));
-    setMsg('Lien + montant copiés — envoyez au responsable de l’organisation.');
+    try {
+      const res = await getPaymentOfferClipboardText(orgId, orgName, amountGnf, ceoNotes);
+      if ('error' in res && res.error) {
+        setMsg(res.error);
+        return;
+      }
+      await navigator.clipboard.writeText(res.text);
+      setMsg('Lien + montant copiés — envoyez au responsable de l’organisation.');
+    } catch {
+      const url = `${window.location.origin}/paiement-organisation/${token}`;
+      setMsg(`Copie impossible — lien : ${url}`);
+    }
   }
 
   async function saveOffer(
@@ -523,6 +528,7 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
                           variant="outline"
                           onClick={() =>
                             copyPaymentLink(
+                              org.id,
                               org.payment_token!,
                               org.name,
                               Number(org.activation_amount_gnf ?? 0),

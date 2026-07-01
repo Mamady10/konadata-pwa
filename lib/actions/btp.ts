@@ -115,10 +115,7 @@ export async function getBtpEquipment(orgId: string) {
 }
 
 export async function getBtpDashboard(orgId: string) {
-  return unstable_cache(() => loadBtpDashboard(orgId), ['btp-dashboard', orgId], {
-    revalidate: DASHBOARD_CACHE_SECONDS,
-    tags: [btpDashboardTag(orgId)],
-  })();
+  return loadBtpDashboard(orgId);
 }
 
 export interface PersonalBtpDashboard {

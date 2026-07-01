@@ -57,6 +57,7 @@ interface Props {
   availableStaff: { id: string; name: string }[];
   isDirector: boolean;
   participationUrl: string | null;
+  participationReady: boolean;
   directorEmail: string | null;
   onActivate: (id: string, status: string) => Promise<{ error?: string }>;
   onClose: (id: string, status: string) => Promise<{ error?: string }>;
@@ -89,6 +90,7 @@ export function SondageDetailClient({
   availableStaff,
   isDirector,
   participationUrl,
+  participationReady,
   directorEmail,
   onActivate,
   onClose,
@@ -336,8 +338,31 @@ export function SondageDetailClient({
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {!participationReady && (
+              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                <p className="font-medium">Le QR / lien ne fonctionnera pas tant que :</p>
+                <ul className="list-disc pl-5 mt-1 space-y-0.5 text-xs">
+                  {survey.rawStatus === 'draft' && (
+                    <li>le sondage n&apos;est pas <strong>activé</strong> (bouton Activer)</li>
+                  )}
+                  {charge &&
+                    !['paid', 'waived'].includes(charge.status) && (
+                      <li>
+                        la campagne n&apos;est pas payée (statut :{' '}
+                        {SURVEY_CHARGE_STATUS_LABELS[charge.status] ?? charge.status})
+                      </li>
+                    )}
+                </ul>
+              </div>
+            )}
             <div className="flex flex-col md:flex-row gap-6">
-              <ParticipationQrCode url={participationUrl} surveyTitle={survey.title} />
+              {participationReady ? (
+                <ParticipationQrCode url={participationUrl} surveyTitle={survey.title} />
+              ) : (
+                <div className="w-[260px] h-[260px] shrink-0 rounded-lg border border-dashed flex items-center justify-center text-center text-xs text-muted-foreground p-4">
+                  QR disponible après activation et paiement de la campagne
+                </div>
+              )}
               <div className="flex-1 space-y-4 min-w-0">
                 <p className="text-sm text-muted-foreground">
                   Copiez le lien, envoyez-le par email ou publiez le QR code sur vos réseaux pour

@@ -1,3 +1,5 @@
+import { getAppBaseUrlFromEnv } from '@/lib/http/app-base-url';
+
 export type ResendSendResult = {
   ok: boolean;
   error?: string;
@@ -8,7 +10,7 @@ export type ResendSendResult = {
 export function getResendConfig() {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const from = process.env.RESEND_FROM_EMAIL?.trim() || 'KonaData <onboarding@resend.dev>';
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const appUrl = getAppBaseUrlFromEnv();
   const contactInbox =
     process.env.KONA_CONTACT_INBOX?.trim() ||
     process.env.RESEND_REPLY_TO?.trim() ||

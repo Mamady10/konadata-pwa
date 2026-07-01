@@ -10,6 +10,7 @@ import { surveyStatusLabel } from '@/lib/sector/status-labels';
 import { COLLECTION_MODE_LABELS } from '@/lib/ngo/survey-settings';
 import { isOngDirector } from '@/lib/ong/ong-access';
 import { requireOngPage } from '@/lib/ong/require-ong-page';
+import { buildParticipationUrl, getAppBaseUrl } from '@/lib/http/app-base-url';
 import { SondageDetailClient } from './sondage-detail-client';
 
 interface Props {
@@ -61,11 +62,13 @@ export default async function SondageDetailPage({ params }: Props) {
   const collectionModeRaw = survey.collection_mode as string;
   const allowsOnlineParticipation = collectionModeRaw !== 'field_agent';
   const publicToken = (survey.public_token as string) ?? null;
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const rawStatus = survey.status as string;
+  const appUrl = await getAppBaseUrl();
   const participationUrl =
     publicToken && allowsOnlineParticipation
-      ? `${appUrl}/participation-ong/${publicToken}`
+      ? buildParticipationUrl(publicToken, appUrl)
       : null;
+  const participationReady = rawStatus === 'active' || rawStatus === 'scheduled';
   const directorEmail =
     (session.profile?.email as string | undefined) ??
     (session.user?.email as string | undefined) ??
@@ -93,6 +96,7 @@ export default async function SondageDetailPage({ params }: Props) {
         allowsOnlineParticipation,
       }}
       participationUrl={participationUrl}
+      participationReady={participationReady}
       directorEmail={directorEmail}
       stats={{
         responseCount: Number(statsObj.response_count ?? 0),

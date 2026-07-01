@@ -26,6 +26,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   not_started: 'Ce sondage n\'a pas encore commencé.',
   ended: 'Ce sondage est terminé.',
   field_agent_only: 'Ce sondage est réservé à la collecte terrain (pas de participation en ligne).',
+  campaign_expired:
+    'Cette campagne sondage est terminée ou non payée. Activez et réglez la campagne avant de partager le lien.',
 };
 
 export async function getNgoSurveyByPublicToken(token: string) {
