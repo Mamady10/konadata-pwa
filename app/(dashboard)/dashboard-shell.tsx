@@ -2,6 +2,7 @@
 
 import { AppProvider } from '@/lib/contexts/app-context';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { QueryProvider } from '@/components/providers/query-provider';
 import type { AppRole, Organization } from '@/types/database';
 
 export interface DashboardInitialProfile {
@@ -21,8 +22,10 @@ export function DashboardShell({
   initialProfile: DashboardInitialProfile | null;
 }) {
   return (
-    <AppProvider initialProfile={initialProfile}>
-      <DashboardLayout>{children}</DashboardLayout>
-    </AppProvider>
+    <QueryProvider>
+      <AppProvider initialProfile={initialProfile}>
+        <DashboardLayout>{children}</DashboardLayout>
+      </AppProvider>
+    </QueryProvider>
   );
 }

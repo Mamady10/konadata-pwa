@@ -9,19 +9,15 @@ import { getBtpDocuments } from '@/lib/actions/storage';
 import { canManageAssignments, getMyAssignedBtpSiteIds } from '@/lib/actions/assignments';
 import type { PersonalDashboardLink } from '@/lib/sector/personal-dashboard-types';
 import { getBtpPlannedProgressPreview } from '@/lib/actions/btp-planning-ref';
-import { ensureBtpSitePlanningRefs, getBtpPlanningRefsByOrg } from '@/lib/actions/btp-planning-ref';
-import { normalizeBudgetBreakdownInput, mapSiteRowToBaseline } from '@/lib/btp/site-baseline';
-import { resolvePlanningRef, plannedPhysicalPctFromResolvedRef } from '@/lib/btp/planning-ref';
+import { ensureBtpSitePlanningRefs } from '@/lib/actions/btp-planning-ref';
+import { normalizeBudgetBreakdownInput } from '@/lib/btp/site-baseline';
 import type { BtpSiteMilestoneInput } from '@/lib/btp/site-baseline-types';
+import { loadBtpDashboard } from '@/lib/btp/load-btp-dashboard';
+
+export type { BtpDashboardData } from '@/lib/btp/dashboard-types';
 
 const DASHBOARD_CACHE_SECONDS = 45;
 const btpDashboardTag = (orgId: string) => `btp-dashboard-${orgId}`;
-
-function fuelLogsSinceMonths(months: number): string {
-  const d = new Date();
-  d.setMonth(d.getMonth() - months);
-  return d.toISOString().slice(0, 10);
-}
 
 function revalidateBtpDashboardCache(orgId: string, paths: string[] = []) {
   revalidateTag(btpDashboardTag(orgId));
@@ -123,166 +119,6 @@ export async function getBtpDashboard(orgId: string) {
     revalidate: DASHBOARD_CACHE_SECONDS,
     tags: [btpDashboardTag(orgId)],
   })();
-}
-
-async function loadBtpDashboard(orgId: string) {
-  const supabase = await createClient();
-  const fuelSince = fuelLogsSinceMonths(13);
-
-  const [sitesRes, fuelRes, notesRes, personnelRes, stockAlertsRes, progressRes] = await Promise.all([
-    supabase
-      .from('btp_sites')
-      .select('id, name, location, budget, spent, status, physical_progress, financial_progress, delay_days, default_planning_ref_slot, start_date, end_date, budget_breakdown, opening_spent')
-      .eq('organization_id', orgId)
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('btp_fuel_logs')
-      .select('id, liters, cost, logged_at, is_anomaly, site_id')
-      .eq('organization_id', orgId)
-      .gte('logged_at', `${fuelSince}T00:00:00`)
-      .order('logged_at', { ascending: false })
-      .limit(500),
-    supabase
-      .from('btp_delivery_notes')
-      .select('id, reference, supplier, total_amount, delivery_date')
-      .eq('organization_id', orgId)
-      .order('delivery_date', { ascending: false })
-      .limit(5),
-    supabase
-      .from('btp_personnel')
-      .select('id', { count: 'exact', head: true })
-      .eq('organization_id', orgId)
-      .eq('is_active', true),
-    supabase
-      .from('btp_stock')
-      .select('id', { count: 'exact', head: true })
-      .eq('organization_id', orgId)
-      .neq('alert_level', 'normal'),
-    supabase
-      .from('btp_daily_progress')
-      .select('site_id, progress_date, physical_pct')
-      .eq('organization_id', orgId)
-      .gte('progress_date', new Date(Date.now() - 35 * 86400000).toISOString().slice(0, 10)),
-  ]);
-
-  const sites = sitesRes.data ?? [];
-  const fuelLogs = fuelRes.data ?? [];
-  const notes = notesRes.data ?? [];
-
-  const activeSites = sites.filter((s) => s.status === 'active');
-  const totalFuel = fuelLogs.reduce((s, f) => s + Number(f.liters ?? 0), 0);
-  const avgProgress = sites.length
-    ? sites.reduce((s, site) => s + Number(site.physical_progress ?? 0), 0) / sites.length
-    : 0;
-
-  const siteById = new Map(sites.map((s) => [s.id, s.name]));
-
-  const progressRows = progressRes.data ?? [];
-  const planningBySite = await getBtpPlanningRefsByOrg(orgId);
-
-  const weekEnds: string[] = [];
-  for (let i = 3; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i * 7);
-    weekEnds.push(d.toISOString().slice(0, 10));
-  }
-
-  const planifieRealise = weekEnds.map((weekEnd, i) => {
-    let plannedSum = 0;
-    let plannedCount = 0;
-    let actualSum = 0;
-    let actualCount = 0;
-    const weekStart = new Date(weekEnd);
-    weekStart.setDate(weekStart.getDate() - 6);
-    const weekStartStr = weekStart.toISOString().slice(0, 10);
-
-    for (const site of activeSites) {
-      const siteId = site.id as string;
-      const refs = planningBySite[siteId] ?? [];
-      const slot = Number(site.default_planning_ref_slot ?? 1) as 1 | 2;
-      const ref = refs.find((r) => r.slot === slot) ?? refs[0];
-      if (ref) {
-        const baseline = mapSiteRowToBaseline(site as Record<string, unknown>, []);
-        const resolved = resolvePlanningRef(baseline, ref);
-        const planned = plannedPhysicalPctFromResolvedRef(resolved, weekEnd);
-        if (planned != null) {
-          plannedSum += planned;
-          plannedCount++;
-        }
-      }
-
-      const weekEntries = progressRows.filter((p) => {
-        if (p.site_id !== siteId) return false;
-        const d = (p.progress_date as string).slice(0, 10);
-        return d >= weekStartStr && d <= weekEnd;
-      });
-      const actual =
-        weekEntries.length > 0
-          ? Math.max(...weekEntries.map((p) => Number(p.physical_pct ?? 0)))
-          : Number(site.physical_progress ?? 0);
-      actualSum += actual;
-      actualCount++;
-    }
-
-    return {
-      semaine: `S${i + 1}`,
-      planifie: plannedCount > 0 ? Math.round(plannedSum / plannedCount) : Math.round(avgProgress),
-      realise: actualCount > 0 ? Math.round(actualSum / actualCount) : Math.round(avgProgress),
-    };
-  });
-
-  const monthMap = new Map<string, number>();
-  for (const log of fuelLogs) {
-    const d = new Date(log.logged_at as string);
-    const key = d.toLocaleDateString('fr-FR', { month: 'short' });
-    monthMap.set(key, (monthMap.get(key) ?? 0) + Number(log.liters ?? 0));
-  }
-  const consommationCarburant = Array.from(monthMap.entries()).map(([mois, litres]) => ({ mois, litres }));
-
-  const effectifsChantier = activeSites.slice(0, 4).map((s) => ({
-    chantier: s.name,
-    effectif: personnelRes.count ?? 0,
-  }));
-
-  const alertesCarburant = fuelLogs
-    .filter((f) => f.is_anomaly)
-    .slice(0, 5)
-    .map((f) => ({
-      chantier: siteById.get(f.site_id as string) ?? '—',
-      consommation: `${Number(f.liters).toLocaleString('fr-FR')} L`,
-      seuil: 'Alerte',
-    }));
-
-  return {
-    kpis: {
-      chantiers: sites.length,
-      chantiersActifs: activeSites.length,
-      consommationCarburant: totalFuel,
-      heuresMachines: 0,
-      tauxAvancement: avgProgress,
-      personnel: personnelRes.count ?? 0,
-      alertesStock: stockAlertsRes.count ?? 0,
-    },
-    chantiersActifs: activeSites.map((s) => ({
-      id: s.id,
-      nom: s.name,
-      avancement: Math.round(Number(s.physical_progress ?? 0)),
-      retard: s.delay_days ?? 0,
-      statut: siteStatusLabel(s.status),
-    })),
-    derniersBons: notes.map((n) => ({
-      id: n.id,
-      type: 'Bon de livraison',
-      fournisseur: n.supplier ?? '—',
-      date: n.delivery_date
-        ? new Date(n.delivery_date).toLocaleDateString('fr-FR')
-        : '—',
-    })),
-    planifieRealise,
-    consommationCarburant,
-    effectifsChantier,
-    alertesCarburant,
-  };
 }
 
 export interface PersonalBtpDashboard {

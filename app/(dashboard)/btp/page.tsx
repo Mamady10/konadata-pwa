@@ -1,15 +1,11 @@
-import { getBtpDashboard, getPersonalBtpDashboard } from '@/lib/actions/btp';
-import { buildBtpRecommendations } from '@/lib/ai/recommendations';
-import type { AIRecommendation, AppRole, Organization } from '@/types/database';
-import { getOrgType } from '@/types/database';
-import { sectorHomeFromOrgType } from '@/lib/sector/post-login';
-import { BtpDashboardClient } from './dashboard-client';
+import type { Organization } from '@/types/database';
+import type { AppRole } from '@/types/database';
 import { redirect } from 'next/navigation';
 import { requireBtpPage } from '@/lib/btp/require-btp-page';
-import {
-  canViewOrgWideDashboard,
-  getSectorDashboardTitle,
-} from '@/lib/sector/dashboard-access';
+import { canViewOrgWideDashboard, getSectorDashboardTitle } from '@/lib/sector/dashboard-access';
+import { getOrgType } from '@/types/database';
+import { sectorHomeFromOrgType } from '@/lib/sector/post-login';
+import { BtpDashboardRoot } from './btp-dashboard-root';
 
 export default async function BTPDashboardPage() {
   const session = await requireBtpPage('dashboard');
@@ -33,46 +29,15 @@ export default async function BTPDashboardPage() {
     );
   }
 
-  if (!canViewOrgWideDashboard(role, 'btp')) {
-    const personal = await getPersonalBtpDashboard(orgId);
-    return (
-      <BtpDashboardClient
-        orgName={org?.name ?? 'BTP'}
-        title={title}
-        viewMode="personal"
-        personal={personal}
-        dashboard={null}
-        recommendations={[]}
-        showAiRecommendations={false}
-      />
-    );
-  }
-
-  let dashboard = null;
-  let recommendations: AIRecommendation[] = [];
-  try {
-    dashboard = await getBtpDashboard(orgId);
-    recommendations = buildBtpRecommendations({
-      sites: dashboard.kpis.chantiers,
-      activeSites: dashboard.kpis.chantiersActifs,
-      avgProgress: dashboard.kpis.tauxAvancement,
-      fuelAnomalies: dashboard.alertesCarburant.length,
-      stockAlerts: dashboard.kpis.alertesStock,
-      delayedSites: dashboard.chantiersActifs.filter((c) => c.retard > 0).length,
-    });
-  } catch {
-    dashboard = null;
-  }
+  const viewMode = canViewOrgWideDashboard(role, 'btp') ? 'organization' : 'personal';
 
   return (
-    <BtpDashboardClient
+    <BtpDashboardRoot
+      orgId={orgId}
       orgName={org?.name ?? 'BTP'}
       title={title}
-      viewMode="organization"
-      personal={null}
-      dashboard={dashboard}
-      recommendations={recommendations}
-      showAiRecommendations
+      viewMode={viewMode}
+      showAiRecommendations={viewMode === 'organization'}
     />
   );
 }
