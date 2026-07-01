@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/lib/actions/auth';
 import { requireOrgId } from '@/lib/actions/org';
 import { CURRENT_DPA_VERSION, isDpaAcceptanceCurrent } from '@/lib/legal/dpa';
+import { CURRENT_CGU_VERSION, isCguAcceptanceCurrent } from '@/lib/legal/cgu';
 import { revalidatePath } from 'next/cache';
 
 export type OrgPrivacySettings = {
@@ -13,6 +14,11 @@ export type OrgPrivacySettings = {
   dpaAcceptedBy: string | null;
   currentDpaVersion: string;
   dpaUpToDate: boolean;
+  cguVersion: string | null;
+  cguAcceptedAt: string | null;
+  cguAcceptedBy: string | null;
+  currentCguVersion: string;
+  cguUpToDate: boolean;
 };
 
 function parsePrivacyRow(data: Record<string, unknown> | null): OrgPrivacySettings {
@@ -24,6 +30,13 @@ function parsePrivacyRow(data: Record<string, unknown> | null): OrgPrivacySettin
     dpaAcceptedBy: data?.dpa_accepted_by != null ? String(data.dpa_accepted_by) : null,
     currentDpaVersion: String(data?.current_dpa_version ?? CURRENT_DPA_VERSION),
     dpaUpToDate: isDpaAcceptanceCurrent(version),
+    cguVersion: data?.cgu_version != null ? String(data.cgu_version) : null,
+    cguAcceptedAt: data?.cgu_accepted_at != null ? String(data.cgu_accepted_at) : null,
+    cguAcceptedBy: data?.cgu_accepted_by != null ? String(data.cgu_accepted_by) : null,
+    currentCguVersion: String(data?.current_cgu_version ?? CURRENT_CGU_VERSION),
+    cguUpToDate: isCguAcceptanceCurrent(
+      data?.cgu_version != null ? String(data.cgu_version) : null
+    ),
   };
 }
 

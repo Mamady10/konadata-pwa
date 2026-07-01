@@ -67,6 +67,7 @@ export default async function ParametresPage() {
       konaAiDisabled={privacy?.konaAiDisabled ?? false}
       dpaUpToDate={privacy?.dpaUpToDate ?? false}
       canManagePrivacy={canManageBilling && hasOrg}
+      canRenameOrganization={role === 'org_admin' && hasOrg}
     />
   );
 }

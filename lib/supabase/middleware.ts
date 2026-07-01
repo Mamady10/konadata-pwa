@@ -99,6 +99,7 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/paiement-sondage') ||
     pathname.startsWith('/payer-scolarite') ||
     pathname.startsWith('/suivi-scolarite') ||
+    pathname.startsWith('/legal/') ||
     pathname === '/';
 
   const isProtectedRoute =
@@ -383,6 +384,32 @@ export async function updateSession(request: NextRequest) {
       pathname.startsWith('/etablissement/candidatures') ||
       pathname.startsWith('/inscription-etablissement') ||
       pathname.startsWith('/corriger-parcours');
+
+    const isCguExemptPath =
+      pathname.startsWith('/parametres/confidentialite') ||
+      pathname.startsWith('/legal/') ||
+      isBillingExemptPath(pathname);
+
+    if (
+      !needsOnboarding &&
+      profile?.organization_id &&
+      profile?.role === 'org_admin' &&
+      isProtectedRoute &&
+      !isCguExemptPath
+    ) {
+      const { data: cguOrg } = await supabase
+        .from('organizations')
+        .select('settings')
+        .eq('id', profile.organization_id)
+        .maybeSingle();
+      const cguSettings = (cguOrg?.settings as Record<string, unknown> | null) ?? {};
+      if (!cguSettings.cgu_accepted_at) {
+        const url = request.nextUrl.clone();
+        url.pathname = '/parametres/confidentialite';
+        url.searchParams.set('cgu', '1');
+        return NextResponse.redirect(url);
+      }
+    }
 
     if (
       !needsOnboarding &&

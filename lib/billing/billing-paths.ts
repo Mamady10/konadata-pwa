@@ -15,6 +15,7 @@ export const BILLING_EXEMPT_PREFIXES = [
   '/participation-ong',
   '/paiement-sondage',
   '/api/',
+  '/legal/',
 ];
 
 export const BILLING_HOME_PATH = '/parametres/facturation';

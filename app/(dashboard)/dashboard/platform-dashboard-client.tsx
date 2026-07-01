@@ -9,6 +9,7 @@ import { Building2, Users, FileStack, GraduationCap, Heart, HardHat } from 'luci
 import { motion } from 'framer-motion';
 import type { AIRecommendation } from '@/types/database';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   stats: {
@@ -45,6 +46,9 @@ export function PlatformDashboardClient({ stats, recommendations }: Props) {
           </Badge>
         </div>
         <p className="text-muted-foreground">Vue globale multi-tenant KonaData</p>
+        <Button asChild variant="outline" size="sm" className="mt-2">
+          <a href="/organisations">Console CEO — finances &amp; organisations</a>
+        </Button>
       </motion.div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">

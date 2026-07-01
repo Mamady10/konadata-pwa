@@ -39,13 +39,22 @@ import {
 } from '@/lib/org/org-registration-profile';
 import { AiPlanOfferFields } from '@/components/platform/ai-plan-offer-fields';
 import { getAiPlanDefaults } from '@/lib/ai/quota/plan-defaults';
+import type { OrgUsageRow } from '@/lib/actions/platform-ceo';
+import {
+  platformAdminUpdateOrganizationName,
+  platformAdminSendDirectorPasswordReset,
+} from '@/lib/actions/platform-ceo';
+import { Pencil, KeyRound } from 'lucide-react';
 
 interface Props {
   rows: PendingOrganizationRow[];
+  usageMap?: Record<string, OrgUsageRow>;
 }
 
-export function OrganisationsClient({ rows }: Props) {
+export function OrganisationsClient({ rows, usageMap = {} }: Props) {
   const [editing, setEditing] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
   const [activation, setActivation] = useState('');
   const [monthlyBase, setMonthlyBase] = useState('');
   const [perStudent, setPerStudent] = useState('');
@@ -171,6 +180,25 @@ export function OrganisationsClient({ rows }: Props) {
     );
   }
 
+  async function saveRename(orgId: string) {
+    const res = await platformAdminUpdateOrganizationName(orgId, renameValue);
+    if ('error' in res && res.error) setMsg(res.error);
+    else {
+      setMsg(`Organisation renommée : ${res.name}`);
+      setRenaming(null);
+    }
+  }
+
+  async function resetDirectorPassword(orgId: string, orgName: string) {
+    if (!confirm(`Envoyer un lien de réinitialisation au directeur de « ${orgName} » ?`)) return;
+    const res = await platformAdminSendDirectorPasswordReset(orgId);
+    setMsg(
+      'error' in res && res.error
+        ? res.error
+        : `Lien envoyé à ${res.sentTo}`
+    );
+  }
+
   function billingStatusLabel(status: string): string {
     if (status === 'pending_payment') return 'En attente paiement';
     if (status === 'pending_renewal') return 'Renouvellement à payer';
@@ -207,10 +235,11 @@ export function OrganisationsClient({ rows }: Props) {
       </Card>
 
       <div className="grid gap-4">
-        {rows.map((org) => {
-          const type = org.type as OrganizationType;
-          const isEditing = editing === org.id;
-          return (
+          {rows.map((org) => {
+            const type = org.type as OrganizationType;
+            const isEditing = editing === org.id;
+            const usage = usageMap[org.id];
+            return (
             <Card key={org.id}>
               <CardContent className="p-6 space-y-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -219,11 +248,67 @@ export function OrganisationsClient({ rows }: Props) {
                       <Building2 className="h-6 w-6 text-primary" />
                     </div>
                     <div>
-                      <h3 className="font-semibold">{org.name}</h3>
+                      {renaming === org.id ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Input
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            className="h-8 max-w-xs"
+                          />
+                          <Button type="button" size="sm" onClick={() => void saveRename(org.id)}>
+                            OK
+                          </Button>
+                          <Button type="button" size="sm" variant="ghost" onClick={() => setRenaming(null)}>
+                            Annuler
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold">{org.name}</h3>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => {
+                              setRenaming(org.id);
+                              setRenameValue(org.name);
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
                       <Badge variant="outline" className="mt-1">
                         {ORG_TYPE_LABELS[type] ?? org.type}
                       </Badge>
                       <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
+                        {usage && (
+                          <>
+                            <span className="flex items-center gap-1">
+                              <Users className="h-3 w-3" />
+                              {usage.user_count} utilisateur(s)
+                            </span>
+                            {usage.student_count > 0 && (
+                              <span>{usage.student_count} élève(s)</span>
+                            )}
+                            {usage.project_count > 0 && (
+                              <span>{usage.project_count} projet(s) ONG</span>
+                            )}
+                            {usage.site_count > 0 && (
+                              <span>{usage.site_count} chantier(s)</span>
+                            )}
+                            {(usage.platform_payments_gnf > 0 || usage.survey_payments_gnf > 0) && (
+                              <span className="text-emerald-700">
+                                Payé :{' '}
+                                {formatCurrency(
+                                  Number(usage.platform_payments_gnf) +
+                                    Number(usage.survey_payments_gnf)
+                                )}
+                              </span>
+                            )}
+                          </>
+                        )}
                         {org.declared_expected_students != null && (
                           <span className="flex items-center gap-1">
                             <Users className="h-3 w-3" />
@@ -414,6 +499,14 @@ export function OrganisationsClient({ rows }: Props) {
                   </form>
                 ) : (
                   <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void resetDirectorPassword(org.id, org.name)}
+                    >
+                      <KeyRound className="h-4 w-4" />
+                      Réinitialiser MDP directeur
+                    </Button>
                     <Button size="sm" variant="outline" onClick={() => startEdit(org)}>
                       Fixer le tarif
                     </Button>

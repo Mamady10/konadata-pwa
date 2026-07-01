@@ -4,6 +4,12 @@ import { listOrganizationsForPlatformAdmin } from '@/lib/actions/billing';
 import { listNgoSurveyChargesForCeoManagement } from '@/lib/actions/ngo-survey-billing';
 import { OrganisationsClient } from './organisations-client';
 import { PendingSurveyQuotes } from './pending-survey-quotes';
+import { CeoPlatformOverview } from './ceo-platform-overview';
+import {
+  getOrganizationsUsageStats,
+  getPlatformBillingSummary,
+  listPlatformBillingPayments,
+} from '@/lib/actions/platform-ceo';
 
 export default async function OrganisationsPage() {
   const session = await getSession();
@@ -12,10 +18,24 @@ export default async function OrganisationsPage() {
     redirect('/dashboard');
   }
 
-  const [{ rows, error }, { rows: surveyQuotes }] = await Promise.all([
-    listOrganizationsForPlatformAdmin(),
-    listNgoSurveyChargesForCeoManagement(),
-  ]);
+  const [{ rows, error }, { rows: surveyQuotes }, usageRes, billingRes, paymentsRes] =
+    await Promise.all([
+      listOrganizationsForPlatformAdmin(),
+      listNgoSurveyChargesForCeoManagement(),
+      getOrganizationsUsageStats(),
+      getPlatformBillingSummary(),
+      listPlatformBillingPayments(30),
+    ]);
+
+  const usageMap = new Map(
+    ('rows' in usageRes ? usageRes.rows : []).map((r) => [r.org_id, r])
+  );
+  const ceoLoadError =
+    'error' in usageRes
+      ? usageRes.error
+      : 'error' in billingRes
+        ? billingRes.error
+        : undefined;
 
   if (error) {
     return (
@@ -29,9 +49,15 @@ export default async function OrganisationsPage() {
   }
 
   return (
-    <div className="space-y-0">
+    <div className="space-y-8">
+      <CeoPlatformOverview
+        usageRows={'rows' in usageRes ? usageRes.rows : []}
+        billing={'error' in billingRes ? null : billingRes}
+        payments={'rows' in paymentsRes ? paymentsRes.rows : []}
+        loadError={ceoLoadError}
+      />
       <PendingSurveyQuotes rows={surveyQuotes} />
-      <OrganisationsClient rows={rows} />
+      <OrganisationsClient rows={rows} usageMap={Object.fromEntries(usageMap)} />
     </div>
   );
 }

@@ -33,7 +33,8 @@ import {
   Zap,
   CalendarRange,
 } from 'lucide-react';
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
+import { updateOrganizationName } from '@/lib/actions/org-legal';
 
 interface Props {
   phone?: string | null;
@@ -49,6 +50,7 @@ interface Props {
   konaAiDisabled?: boolean;
   dpaUpToDate?: boolean;
   canManagePrivacy?: boolean;
+  canRenameOrganization?: boolean;
 }
 
 function QuotaBar({ used, total, label }: { used: number; total: number; label: string }) {
@@ -88,8 +90,12 @@ export function ParametresClient({
   konaAiDisabled,
   dpaUpToDate,
   canManagePrivacy,
+  canRenameOrganization,
 }: Props) {
   const { darkMode, toggleDarkMode, user, organization, refreshUser } = useApp();
+  const [orgName, setOrgName] = useState(organization?.name ?? '');
+  const [orgNameMsg, setOrgNameMsg] = useState<string | null>(null);
+  const [orgNameSaving, setOrgNameSaving] = useState(false);
   const [state, formAction, pending] = useActionState(
     async (_prev: { error?: string; success?: boolean } | null, formData: FormData) => {
       const result = await updateProfile(formData);
@@ -520,15 +526,55 @@ export function ParametresClient({
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Organisation</Label>
-              <Input
-                value={
-                  organization?.name
-                    ? `${organization.name}${orgType ? ` (${ORG_TYPE_LABELS[orgType] ?? orgType})` : ''}`
-                    : '—'
-                }
-                disabled
-              />
+              <Label htmlFor="org_name">Organisation</Label>
+              {canRenameOrganization ? (
+                <div className="flex flex-wrap gap-2">
+                  <Input
+                    id="org_name"
+                    value={orgName}
+                    onChange={(e) => setOrgName(e.target.value)}
+                    className="max-w-md"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={orgNameSaving || !orgName.trim()}
+                    onClick={async () => {
+                      setOrgNameSaving(true);
+                      setOrgNameMsg(null);
+                      const res = await updateOrganizationName(orgName);
+                      setOrgNameSaving(false);
+                      if ('error' in res) setOrgNameMsg(res.error);
+                      else {
+                        setOrgNameMsg('Nom enregistré');
+                        await refreshUser();
+                      }
+                    }}
+                  >
+                    {orgNameSaving ? '…' : 'Renommer'}
+                  </Button>
+                </div>
+              ) : (
+                <Input
+                  value={
+                    organization?.name
+                      ? `${organization.name}${orgType ? ` (${ORG_TYPE_LABELS[orgType] ?? orgType})` : ''}`
+                      : '—'
+                  }
+                  disabled
+                />
+              )}
+              {orgType && canRenameOrganization && (
+                <p className="text-xs text-muted-foreground">
+                  Secteur : {ORG_TYPE_LABELS[orgType] ?? orgType}
+                </p>
+              )}
+              {orgNameMsg && (
+                <p className={`text-xs ${orgNameMsg === 'Nom enregistré' ? 'text-emerald-600' : 'text-destructive'}`}>
+                  {orgNameMsg}
+                </p>
+              )}
             </div>
             {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
             {state?.success && (

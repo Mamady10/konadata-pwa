@@ -8,13 +8,11 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import {
-  acceptOrganizationDpa,
-  setOrganizationKonaAiDisabled,
-  type OrgPrivacySettings,
-} from '@/lib/actions/org-privacy';
+import { acceptOrganizationDpa, setOrganizationKonaAiDisabled, type OrgPrivacySettings } from '@/lib/actions/org-privacy';
+import { acceptOrganizationCgu } from '@/lib/actions/org-legal';
 import { DPA_SECTIONS, DPA_TITLE } from '@/lib/legal/dpa';
-import { Shield, Bot, FileText, ArrowLeft, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { CGU_SECTIONS, CGU_TITLE } from '@/lib/legal/cgu';
+import { Shield, Bot, FileText, ArrowLeft, CheckCircle2, AlertTriangle, ScrollText } from 'lucide-react';
 
 interface Props {
   canManage: boolean;
@@ -101,6 +99,51 @@ export function ConfidentialiteClient({ canManage, privacy, privacyError }: Prop
             <p className="text-xs text-muted-foreground mt-3">
               Seul le directeur ou la direction peut modifier ce réglage.
             </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-violet-200">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <ScrollText className="h-4 w-4 text-violet-600" />
+            {CGU_TITLE}
+          </CardTitle>
+          <CardDescription>
+            Conditions générales — obligatoires pour le directeur.{' '}
+            <Link href="/legal/cgu" className="text-primary underline" target="_blank">
+              Lire en ligne
+            </Link>
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {privacy?.cguAcceptedAt && (
+            <p className="text-xs text-muted-foreground">
+              Acceptées le {new Date(privacy.cguAcceptedAt).toLocaleString('fr-FR')}
+              {privacy.cguVersion && ` (v${privacy.cguVersion})`}
+            </p>
+          )}
+          <div className="max-h-40 overflow-y-auto rounded-lg border bg-muted/20 p-4 space-y-2 text-xs text-muted-foreground">
+            {CGU_SECTIONS.slice(0, 3).map((section) => (
+              <p key={section.id}>
+                <strong className="text-foreground">{section.title}</strong> — {section.paragraphs[0]}
+              </p>
+            ))}
+          </div>
+          {canManage && !privacy?.cguUpToDate && (
+            <Button
+              className="bg-violet-600 hover:bg-violet-700"
+              disabled={pending}
+              onClick={() => run(() => acceptOrganizationCgu())}
+            >
+              J&apos;accepte les CGU pour mon organisation
+            </Button>
+          )}
+          {privacy?.cguUpToDate && (
+            <Badge variant="outline" className="text-emerald-700 border-emerald-200">
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              CGU à jour
+            </Badge>
           )}
         </CardContent>
       </Card>

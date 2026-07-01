@@ -53,6 +53,7 @@ export default function RegisterForm() {
   const [pendingCode, setPendingCode] = useState<string | null>(null);
   const [authMethod, setAuthMethod] = useState<AuthMethod>('phone');
   const [fullName, setFullName] = useState('');
+  const [acceptCgu, setAcceptCgu] = useState(false);
   const formElRef = useRef<HTMLFormElement | null>(null);
   const signupOtp = useSignupOtp();
 
@@ -311,6 +312,27 @@ export default function RegisterForm() {
                     orgType={orgType}
                     hideDeclaredPhone={authMethod === 'phone'}
                   />
+                  <label className="flex items-start gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="accept_cgu"
+                      checked={acceptCgu}
+                      onChange={(e) => setAcceptCgu(e.target.checked)}
+                      className="mt-1"
+                      required
+                    />
+                    <span>
+                      J&apos;accepte les{' '}
+                      <Link href="/legal/cgu" className="text-primary underline" target="_blank">
+                        conditions générales d&apos;utilisation
+                      </Link>{' '}
+                      et la{' '}
+                      <Link href="/legal/confidentialite" className="text-primary underline" target="_blank">
+                        politique de confidentialité
+                      </Link>
+                      .
+                    </span>
+                  </label>
                 </>
               )}
               {authMethod === 'email' ? (

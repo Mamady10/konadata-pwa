@@ -90,6 +90,10 @@ export async function completeOrganizationRegistration(
   if (!heardFrom) {
     return { error: 'Indiquez comment vous avez connu KonaData.' };
   }
+  const acceptCgu = formData.get('accept_cgu') === 'on';
+  if (!acceptCgu) {
+    return { error: 'Vous devez accepter les conditions générales d\'utilisation.' };
+  }
   const summary = applicationProfile.organization_summary?.trim();
   if (!summary || summary.length < 20) {
     return {
@@ -124,6 +128,8 @@ export async function completeOrganizationRegistration(
   if (fullName) {
     await supabase.from('profiles').update({ full_name: fullName }).eq('id', user.id);
   }
+
+  await supabase.rpc('accept_organization_cgu', { p_version: '2026-06-01' });
 
   const requestedPlan = applicationProfile.requested_ai_plan;
   const aiPlanUpdate = PLATFORM_V1_AI_OFFERS_ENABLED
