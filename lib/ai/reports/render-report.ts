@@ -78,7 +78,12 @@ export async function finalizeSectorReport(params: {
 }
 
 export function formatCurrencyGnf(amount: number): string {
-  return `${Math.round(amount).toLocaleString('fr-FR')} GNF`;
+  // Séparateur = espace normale (pas l'espace fine insécable U+202F de
+  // toLocaleString('fr-FR'), mal rendue par jsPDF / l'impression).
+  const grouped = Math.round(amount)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return `${grouped} GNF`;
 }
 
 export function formatPercent(value: number): string {

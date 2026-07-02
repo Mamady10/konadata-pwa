@@ -28,6 +28,7 @@ import {
 } from '@/lib/ai/sector-report-types';
 import { AiReportHistory } from '@/components/ai/ai-report-history';
 import { AiReportDiffusion } from '@/components/ai/ai-report-diffusion';
+import { SchoolDirectorReport } from '@/components/etablissement/school-director-report';
 import { downloadTextAsPdf } from '@/lib/reports/download-text-as-pdf';
 import type { AiGeneratedReportRow } from '@/lib/actions/ai-report-archive';
 
@@ -134,12 +135,14 @@ export function RapportsEtablissementClient({
         )}
       </div>
 
+      {isDirector && <SchoolDirectorReport />}
+
       {isDirector && (
         <Card className="border-primary/25 bg-primary/[0.03]">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <Calendar className="h-5 w-5 text-primary" />
-              Rapport mensuel direction
+              Rapport mensuel direction (texte / IA)
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
