@@ -14,6 +14,7 @@ import {
   resolveSchoolPeriod,
   schoolAcademicYearLabel,
   type SchoolReportPeriod,
+  type SchoolCustomRange,
 } from '@/lib/school/report-period';
 
 export interface FinanceReportRow {
@@ -76,17 +77,22 @@ export type GetSchoolDirectorReportResult =
   | { data: SchoolDirectorReportData };
 
 export async function getSchoolDirectorReport(
-  period: SchoolReportPeriod
+  period: SchoolReportPeriod,
+  customRange?: SchoolCustomRange
 ): Promise<GetSchoolDirectorReportResult> {
   const isDirector = await canManageAssignments();
   if (!isDirector) {
     return { error: "Cette fonction est réservée aux directeurs de l'organisation." };
   }
 
+  if (period === 'custom' && (!customRange?.start || !customRange?.end)) {
+    return { error: 'Sélectionnez une date de début et une date de fin.' };
+  }
+
   try {
     const orgId = await requireOrgId();
     const supabase = await createClient();
-    const win = resolveSchoolPeriod(period);
+    const win = resolveSchoolPeriod(period, new Date(), customRange);
     const startIso = win.start.toISOString();
     const endIso = win.end.toISOString();
 

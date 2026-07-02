@@ -74,15 +74,25 @@ function ProgressBar({ ratio, color }: { ratio: number; color: string }) {
 
 export function SchoolDirectorReport() {
   const [period, setPeriod] = useState<SchoolReportPeriod>('month');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<SchoolDirectorReportData | null>(null);
 
   async function generate(p: SchoolReportPeriod) {
+    if (p === 'custom' && (!customStart || !customEnd)) {
+      setPeriod(p);
+      setError('Sélectionnez une date de début et une date de fin.');
+      return;
+    }
     setPeriod(p);
     setLoading(true);
     setError(null);
-    const res = await getSchoolDirectorReport(p);
+    const res = await getSchoolDirectorReport(
+      p,
+      p === 'custom' ? { start: customStart, end: customEnd } : undefined
+    );
     setLoading(false);
     if ('error' in res) {
       setError(res.error);
@@ -146,6 +156,46 @@ export function SchoolDirectorReport() {
               </Button>
             </div>
           )}
+        </div>
+
+        {/* Période personnalisée */}
+        <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-background/60 p-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground" htmlFor="report-start">
+              Du
+            </label>
+            <input
+              id="report-start"
+              type="date"
+              value={customStart}
+              max={customEnd || undefined}
+              onChange={(e) => setCustomStart(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground" htmlFor="report-end">
+              Au
+            </label>
+            <input
+              id="report-end"
+              type="date"
+              value={customEnd}
+              min={customStart || undefined}
+              onChange={(e) => setCustomEnd(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            />
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant={period === 'custom' ? 'default' : 'outline'}
+            className={period === 'custom' ? 'bg-[#2563EB]' : ''}
+            disabled={loading || !customStart || !customEnd}
+            onClick={() => void generate('custom')}
+          >
+            Générer cette période
+          </Button>
         </div>
 
         {loading && (

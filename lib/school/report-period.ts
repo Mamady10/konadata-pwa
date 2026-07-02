@@ -1,6 +1,12 @@
 /** Fenêtres temporelles pour les rapports de direction (établissement). */
 
-export type SchoolReportPeriod = 'month' | 'trimester' | 'semester' | 'year';
+export type SchoolReportPeriod = 'month' | 'trimester' | 'semester' | 'year' | 'custom';
+
+/** Plage de dates personnalisée (format ISO `yyyy-mm-dd`). */
+export interface SchoolCustomRange {
+  start: string;
+  end: string;
+}
 
 export interface SchoolPeriodWindow {
   period: SchoolReportPeriod;
@@ -49,10 +55,33 @@ export function schoolAcademicYearLabel(now: Date = new Date()): string {
   return `${y}-${y + 1}`;
 }
 
+function dayLabel(d: Date): string {
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
 export function resolveSchoolPeriod(
   period: SchoolReportPeriod,
-  now: Date = new Date()
+  now: Date = new Date(),
+  customRange?: SchoolCustomRange
 ): SchoolPeriodWindow {
+  if (period === 'custom') {
+    const rawStart = customRange?.start ? new Date(customRange.start) : now;
+    const rawEnd = customRange?.end ? new Date(customRange.end) : now;
+    const s = Number.isNaN(rawStart.getTime()) ? now : rawStart;
+    const e = Number.isNaN(rawEnd.getTime()) ? now : rawEnd;
+    const lo = s <= e ? s : e;
+    const hi = s <= e ? e : s;
+    const start = startOfDay(lo);
+    const end = endOfDay(hi);
+    return {
+      period,
+      start,
+      end,
+      periodLabel: 'Période personnalisée',
+      rangeLabel: `${dayLabel(start)} – ${dayLabel(end)}`,
+    };
+  }
+
   const yStart = schoolYearStartYear(now);
 
   if (period === 'month') {
