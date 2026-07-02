@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3, Printer, Sparkles } from 'lucide-react';
+import { BarChart3, Download, Printer, Sparkles } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import {
   getSchoolDirectorReport,
@@ -14,6 +14,7 @@ import {
   type SchoolReportPeriod,
 } from '@/lib/school/report-period';
 import { buildDirectorReportPrintHtml } from '@/lib/school/director-report-print';
+import { downloadDirectorReportPdf } from '@/lib/school/director-report-pdf';
 
 const STATUS_COLORS = ['#2563EB', '#059669', '#D97706', '#7C3AED', '#DC2626', '#0891B2', '#64748B'];
 
@@ -129,16 +130,21 @@ export function SchoolDirectorReport() {
             </Button>
           ))}
           {data && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="ml-auto"
-              onClick={handlePrint}
-            >
-              <Printer className="h-4 w-4 mr-1" />
-              Imprimer / PDF
-            </Button>
+            <div className="ml-auto flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700"
+                onClick={() => void downloadDirectorReportPdf(data)}
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Télécharger PDF
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={handlePrint}>
+                <Printer className="h-4 w-4 mr-1" />
+                Imprimer
+              </Button>
+            </div>
           )}
         </div>
 
