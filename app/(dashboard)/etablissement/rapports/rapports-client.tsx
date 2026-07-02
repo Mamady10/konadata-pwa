@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
-import { Calendar, Download, FileStack, Settings, Sparkles, Upload } from 'lucide-react';
+import { Download, FileStack, Settings, Upload } from 'lucide-react';
 import type { SchoolFinanceOverview } from '@/lib/actions/school';
 import type { DocumentAiAdaptation } from '@/lib/ai/template-adaptation-types';
 import type { CaptureExtractionResult } from '@/lib/ai/extraction/capture-extract-types';
@@ -20,14 +20,13 @@ import { DirectorAiModelsLink } from '@/components/documents/director-ai-models-
 import { uploadSchoolCaptureDocument } from '@/lib/actions/storage';
 import { reRunCaptureExtraction } from '@/lib/actions/capture-extraction';
 import { SectorAiReportPanel } from '@/components/ai/sector-ai-report-panel';
-import { generateSchoolAiReport, generateSchoolMonthlyReport } from '@/lib/actions/ai-reports';
+import { generateSchoolAiReport } from '@/lib/actions/ai-reports';
 import { exportMepsSchoolStats } from '@/lib/actions/school-compliance';
 import {
   SCHOOL_AI_REPORT_TYPES,
   type SchoolAiReportType,
 } from '@/lib/ai/sector-report-types';
 import { AiReportHistory } from '@/components/ai/ai-report-history';
-import { AiReportDiffusion } from '@/components/ai/ai-report-diffusion';
 import { SchoolDirectorReport } from '@/components/etablissement/school-director-report';
 import { downloadTextAsPdf } from '@/lib/reports/download-text-as-pdf';
 import type { AiGeneratedReportRow } from '@/lib/actions/ai-report-archive';
@@ -95,9 +94,6 @@ export function RapportsEtablissementClient({
   const [classId, setClassId] = useState('');
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [monthlyLoading, setMonthlyLoading] = useState(false);
-  const [monthlyMsg, setMonthlyMsg] = useState<string | null>(null);
-  const [monthlyReport, setMonthlyReport] = useState<{ title: string; content: string; archiveId: string } | null>(null);
   const [mepsLoading, setMepsLoading] = useState(false);
   const [mepsMsg, setMepsMsg] = useState<string | null>(null);
 
@@ -136,54 +132,6 @@ export function RapportsEtablissementClient({
       </div>
 
       {isDirector && <SchoolDirectorReport />}
-
-      {isDirector && (
-        <Card className="border-primary/25 bg-primary/[0.03]">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary" />
-              Rapport mensuel direction (texte / IA)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Synthèse KonaAI du mois en cours : inscriptions, encaissements, notes saisies et
-              bulletins — tout l&apos;établissement, en un clic.
-            </p>
-            <Button
-              className="bg-[#2563EB]"
-              disabled={monthlyLoading}
-              onClick={async () => {
-                setMonthlyLoading(true);
-                setMonthlyMsg(null);
-                const res = await generateSchoolMonthlyReport();
-                setMonthlyLoading(false);
-                if ('error' in res && res.error) setMonthlyMsg(res.error);
-                else if ('title' in res) {
-                  setMonthlyMsg(`Rapport archivé : ${res.title}`);
-                  setMonthlyReport({ title: res.title, content: res.report, archiveId: res.archiveId });
-                }
-                router.refresh();
-              }}
-            >
-              <Sparkles className="h-4 w-4 mr-2" />
-              {monthlyLoading ? 'Génération…' : 'Générer le rapport du mois'}
-            </Button>
-            {monthlyMsg && (
-              <p className={`text-sm ${monthlyMsg.startsWith('Rapport') ? 'text-emerald-700' : 'text-destructive'}`}>
-                {monthlyMsg}
-              </p>
-            )}
-            {monthlyReport && (
-              <AiReportDiffusion
-                title={monthlyReport.title}
-                content={monthlyReport.content}
-                archiveId={monthlyReport.archiveId}
-              />
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {isDirector && (
         <Card className="border-emerald-500/25 bg-emerald-500/[0.03]">
