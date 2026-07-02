@@ -867,6 +867,81 @@ export async function updateStudent(id: string, formData: FormData) {
   return { success: true };
 }
 
+export interface UnassignedEnrolledStudent {
+  id: string;
+  name: string;
+  currentClassName: string | null;
+  reason: 'no_class' | 'inactive_class';
+}
+
+/**
+ * Élèves inscrits qui ne sont rattachés à aucune classe active de l'année en
+ * cours (classe nulle, inactive ou d'une autre année). Ils faussent le suivi
+ * financier par classe tant qu'ils ne sont pas réaffectés.
+ */
+export async function getUnassignedEnrolledStudents(
+  orgId: string
+): Promise<UnassignedEnrolledStudent[]> {
+  const supabase = await createClient();
+  const currentYear = await getOrgDefaultAcademicYear(orgId);
+
+  const { data: students } = await supabase
+    .from('school_students')
+    .select(
+      'id, class_id, enrollment_status, core_persons(full_name), school_classes(name, is_active, academic_year)'
+    )
+    .eq('organization_id', orgId)
+    .eq('enrollment_status', 'enrolled');
+
+  const list: UnassignedEnrolledStudent[] = [];
+  for (const s of students ?? []) {
+    const cls = s.school_classes as
+      | { name?: string; is_active?: boolean; academic_year?: string }
+      | null;
+    const isActiveCurrent =
+      !!s.class_id && !!cls && cls.is_active === true && cls.academic_year === currentYear;
+    if (isActiveCurrent) continue;
+    list.push({
+      id: s.id as string,
+      name: personName(s as Record<string, unknown>),
+      currentClassName: cls?.name ?? null,
+      reason: s.class_id ? 'inactive_class' : 'no_class',
+    });
+  }
+  return list.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+}
+
+/** Réaffecte un élève inscrit à une classe (active de l'année en cours). */
+export async function assignStudentClass(studentId: string, classId: string) {
+  const caps = await getSessionEtablissementCapabilities();
+  if (!caps.manageStudents) return { error: 'Non autorisé' };
+
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+
+  const { data: cls } = await supabase
+    .from('school_classes')
+    .select('id')
+    .eq('id', classId)
+    .eq('organization_id', orgId)
+    .maybeSingle();
+  if (!cls) return { error: 'Classe introuvable' };
+
+  const { error } = await supabase
+    .from('school_students')
+    .update({ class_id: classId })
+    .eq('id', studentId)
+    .eq('organization_id', orgId)
+    .eq('enrollment_status', 'enrolled');
+
+  if (error) return { error: error.message };
+
+  revalidatePath('/etablissement');
+  revalidatePath('/etablissement/paiements');
+  revalidatePath('/etablissement/etudiants');
+  return { success: true };
+}
+
 // ─── Teachers ────────────────────────────────────────────────
 
 export async function getTeachers(orgId: string) {

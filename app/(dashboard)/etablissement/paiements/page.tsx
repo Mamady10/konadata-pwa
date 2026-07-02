@@ -4,7 +4,9 @@ import {
   getSchoolFinanceByClass,
   getEnrollmentOptionsForStaffPayments,
   getOrgDefaultAcademicYear,
+  getUnassignedEnrolledStudents,
 } from '@/lib/actions/school';
+import type { UnassignedEnrolledStudent } from '@/lib/actions/school';
 import { getStudentPaymentSettings } from '@/lib/actions/student-payments';
 import { getTuitionDebtors } from '@/lib/actions/tuition-finance';
 import type { TuitionDebtorRow } from '@/lib/school/tuition-debtors';
@@ -85,6 +87,8 @@ export default async function PaiementsPage() {
     }
   }
 
+  let unassignedStudents: UnassignedEnrolledStudent[] = [];
+
   if (caps.viewFinanceStats) {
     try {
       financeOverview = await getSchoolFinanceByClass(orgId);
@@ -92,6 +96,11 @@ export default async function PaiementsPage() {
       loadErrors.push(
         e instanceof Error ? e.message : 'Impossible de charger la synthèse financière.'
       );
+    }
+    try {
+      unassignedStudents = await getUnassignedEnrolledStudents(orgId);
+    } catch {
+      // non bloquant
     }
   }
 
@@ -139,6 +148,8 @@ export default async function PaiementsPage() {
       academicYear={academicYear}
       debtors={debtors}
       canViewDebtors={canViewTuitionFinance}
+      unassignedStudents={unassignedStudents}
+      canReassignClass={caps.manageStudents}
       loadErrors={loadErrors}
       debtorsLoadError={debtorsLoadError}
     />

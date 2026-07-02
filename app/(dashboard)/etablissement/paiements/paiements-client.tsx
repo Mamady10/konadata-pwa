@@ -15,7 +15,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 import { DataTable, StatusBadge } from '@/components/dashboard/data-table';
 
-import { recordPayment, type SchoolFinanceOverview } from '@/lib/actions/school';
+import {
+  recordPayment,
+  type SchoolFinanceOverview,
+  type UnassignedEnrolledStudent,
+} from '@/lib/actions/school';
+import { UnassignedStudentsCard } from '@/components/school/unassigned-students-card';
 
 import { formatCurrency } from '@/lib/utils';
 
@@ -95,6 +100,8 @@ interface Props {
   academicYear?: string;
   debtors?: TuitionDebtorRow[];
   canViewDebtors?: boolean;
+  unassignedStudents?: UnassignedEnrolledStudent[];
+  canReassignClass?: boolean;
   loadErrors?: string[];
   debtorsLoadError?: string | null;
 }
@@ -130,6 +137,8 @@ export function PaiementsClient({
   academicYear,
   debtors = [],
   canViewDebtors = false,
+  unassignedStudents = [],
+  canReassignClass = false,
   loadErrors = [],
   debtorsLoadError = null,
 }: Props) {
@@ -590,6 +599,12 @@ export function PaiementsClient({
         </Card>
 
       )}
+
+      <UnassignedStudentsCard
+        students={unassignedStudents}
+        classes={classes}
+        canReassign={canReassignClass}
+      />
 
 
 
