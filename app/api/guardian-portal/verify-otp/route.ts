@@ -63,12 +63,34 @@ export async function POST(request: NextRequest) {
     const orgId = challenge.organization_id as string;
     const { data: ann } = await supabase
       .from('school_announcements')
-      .select('id, title, body, category, event_date, published_at')
+      .select('id, title, body, category, event_date, published_at, image_path')
       .eq('organization_id', orgId)
       .eq('visible_to_parents', true)
       .order('published_at', { ascending: false })
       .limit(15);
-    if (ann) announcements = ann;
+    if (ann) {
+      const paths = [
+        ...new Set(
+          ann
+            .map((a) => (a as Record<string, unknown>).image_path as string | null)
+            .filter((p): p is string => Boolean(p))
+        ),
+      ];
+      const urlByPath: Record<string, string> = {};
+      await Promise.all(
+        paths.map(async (path) => {
+          const { data } = await supabase.storage
+            .from('documents')
+            .createSignedUrl(path, 3600);
+          if (data?.signedUrl) urlByPath[path] = data.signedUrl;
+        })
+      );
+      announcements = ann.map((a) => {
+        const row = a as Record<string, unknown>;
+        const imagePath = row.image_path as string | null;
+        return { ...row, imageUrl: imagePath ? (urlByPath[imagePath] ?? null) : null };
+      });
+    }
 
     return NextResponse.json({
       success: true,

@@ -324,6 +324,16 @@ export function SuiviScolariteClient({ schools }: Props) {
                     <div key={String(a.id)} className="border-b last:border-0 pb-2 last:pb-0">
                       <p className="font-medium text-sm">{String(a.title)}</p>
                       {a.body ? <p className="text-muted-foreground text-xs mt-1 whitespace-pre-wrap">{String(a.body)}</p> : null}
+                      {a.imageUrl ? (
+                        <a href={String(a.imageUrl)} target="_blank" rel="noopener noreferrer" className="mt-2 block">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={String(a.imageUrl)}
+                            alt={String(a.title)}
+                            className="max-h-56 w-full rounded-md border object-contain bg-muted/30"
+                          />
+                        </a>
+                      ) : null}
                       {a.event_date ? (
                         <p className="text-[10px] text-primary mt-1">
                           {new Date(String(a.event_date)).toLocaleDateString('fr-FR')}
