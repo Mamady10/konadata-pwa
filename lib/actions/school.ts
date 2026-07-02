@@ -146,14 +146,12 @@ export async function getSchoolFinanceByClass(orgId: string): Promise<SchoolFina
   const tuitionFeeGnf = await getDefaultTuitionFee(orgId);
   const currentYear = await getOrgDefaultAcademicYear(orgId);
 
-  const [{ data: classes }, { data: students }, { data: enrollments }, { data: payments }] =
+  const [{ data: allClasses }, { data: students }, { data: enrollments }, { data: payments }] =
     await Promise.all([
       supabase
         .from('school_classes')
-        .select('id, name, level, capacity, tuition_fee_gnf')
-        .eq('organization_id', orgId)
-        .eq('is_active', true)
-        .eq('academic_year', currentYear),
+        .select('id, name, level, capacity, tuition_fee_gnf, is_active, academic_year')
+        .eq('organization_id', orgId),
       supabase
         .from('school_students')
         .select('id, class_id, enrollment_status')
@@ -164,27 +162,47 @@ export async function getSchoolFinanceByClass(orgId: string): Promise<SchoolFina
         .eq('organization_id', orgId),
       supabase
         .from('school_payments')
-        .select(`amount, status, student_id, school_students(class_id, school_classes(name))`)
+        .select('amount, status, student_id, payment_kind')
         .eq('organization_id', orgId),
     ]);
 
-  const paidByClass = new Map<string, number>();
-  for (const p of payments ?? []) {
-    if (p.status !== 'paid' && p.status !== 'partial') continue;
-    const sid = p.student_id as string;
-    const student = (students ?? []).find((s) => s.id === sid);
-    const classId =
-      (student?.class_id as string) ||
-      ((p.school_students as { class_id?: string } | null)?.class_id ?? null);
-    if (!classId) continue;
-    paidByClass.set(classId, (paidByClass.get(classId) ?? 0) + Number(p.amount ?? 0));
+  const feeByClassId = new Map<string, number>();
+  for (const c of allClasses ?? []) {
+    feeByClassId.set(c.id as string, resolveClassTuitionFee(c, tuitionFeeGnf));
   }
 
-  const rows: ClassFinanceRow[] = (classes ?? []).map((c) => {
+  const activeClasses = (allClasses ?? []).filter(
+    (c) => c.is_active && c.academic_year === currentYear
+  );
+  const activeClassIds = new Set(activeClasses.map((c) => c.id as string));
+
+  // Périmètre : élèves inscrits uniquement.
+  const enrolledStudents = (students ?? []).filter((s) => s.enrollment_status === 'enrolled');
+  const enrolledById = new Map(enrolledStudents.map((s) => [s.id as string, s]));
+
+  // Encaissé = paiements de scolarité (on exclut les frais d'inscription/réinscription ;
+  // les paiements sans type sont considérés comme scolarité pour la rétro-compatibilité)
+  // réglés (paid/partial) par des élèves inscrits uniquement.
+  const isTuitionPayment = (kind: unknown) =>
+    kind === 'tuition' || kind === null || kind === undefined || kind === '';
+  const paidByClass = new Map<string, number>();
+  let unassignedCollected = 0;
+  for (const p of payments ?? []) {
+    if (p.status !== 'paid' && p.status !== 'partial') continue;
+    if (!isTuitionPayment(p.payment_kind)) continue;
+    const student = enrolledById.get(p.student_id as string);
+    if (!student) continue;
+    const classId = (student.class_id as string) || null;
+    if (classId && activeClassIds.has(classId)) {
+      paidByClass.set(classId, (paidByClass.get(classId) ?? 0) + Number(p.amount ?? 0));
+    } else {
+      unassignedCollected += Number(p.amount ?? 0);
+    }
+  }
+
+  const rows: ClassFinanceRow[] = activeClasses.map((c) => {
     const classId = c.id as string;
-    const enrolledCount = (students ?? []).filter(
-      (s) => s.class_id === classId && s.enrollment_status === 'enrolled'
-    ).length;
+    const enrolledCount = enrolledStudents.filter((s) => s.class_id === classId).length;
     const pendingCandidates = (enrollments ?? []).filter(
       (e) => e.class_id === classId && e.status === 'pending'
     ).length;
@@ -204,6 +222,33 @@ export async function getSchoolFinanceByClass(orgId: string): Promise<SchoolFina
       gap: collectedAmount - expectedAmount,
     };
   });
+
+  // Élèves inscrits non rattachés à une classe active de l'année (classe nulle,
+  // inactive ou d'une autre année) : ils doivent tout de même compter dans
+  // l'attendu et les créances de l'établissement.
+  const unassignedStudents = enrolledStudents.filter(
+    (s) => !s.class_id || !activeClassIds.has(s.class_id as string)
+  );
+  const unassignedExpected = unassignedStudents.reduce(
+    (sum, s) =>
+      sum +
+      (s.class_id ? feeByClassId.get(s.class_id as string) ?? tuitionFeeGnf : tuitionFeeGnf),
+    0
+  );
+  if (unassignedStudents.length > 0 || unassignedCollected > 0) {
+    rows.push({
+      classId: 'unassigned',
+      className: 'Autres inscrits (hors classe active)',
+      level: null,
+      capacity: 0,
+      tuitionFeeGnf: 0,
+      enrolledCount: unassignedStudents.length,
+      pendingCandidates: 0,
+      collectedAmount: unassignedCollected,
+      expectedAmount: unassignedExpected,
+      gap: unassignedCollected - unassignedExpected,
+    });
+  }
 
   const totals = rows.reduce(
     (acc, r) => ({
@@ -404,7 +449,7 @@ export async function getSchoolDashboard(orgId: string) {
   const supabase = await createClient();
   const currentYear = await getOrgDefaultAcademicYear(orgId);
 
-  const [students, teachers, classes, enrollments, payments, grades] = await Promise.all([
+  const [students, teachers, classes, enrollments, payments, grades, finance] = await Promise.all([
     supabase
       .from('school_students')
       .select('id, enrollment_status, matricule, class_id')
@@ -419,6 +464,7 @@ export async function getSchoolDashboard(orgId: string) {
     supabase.from('school_enrollments').select('id, status, created_at').eq('organization_id', orgId),
     supabase.from('school_payments').select('amount, status, paid_at, created_at').eq('organization_id', orgId),
     supabase.from('school_grades').select('score, max_score').eq('organization_id', orgId),
+    getSchoolFinanceByClass(orgId),
   ]);
 
   const studentRows = students.data ?? [];
@@ -433,7 +479,12 @@ export async function getSchoolDashboard(orgId: string) {
   const paidPayments = paymentRows.filter((p) => p.status === 'paid');
   const pendingPayments = paymentRows.filter((p) => p.status === 'pending' || p.status === 'overdue');
   const totalReceived = paidPayments.reduce((s, p) => s + Number(p.amount), 0);
-  const paymentRate = paymentRows.length ? (paidPayments.length / paymentRows.length) * 100 : 0;
+  // Taux de paiement = scolarité encaissée / scolarité totale attendue (selon les
+  // élèves inscrits), en montants — et non plus en nombre de transactions.
+  const paymentRate =
+    finance.totals.expected > 0
+      ? (finance.totals.collected / finance.totals.expected) * 100
+      : 0;
   const successRate = gradeRows.length
     ? (gradeRows.filter((g) => Number(g.score) >= Number(g.max_score) * 0.5).length / gradeRows.length) * 100
     : 0;

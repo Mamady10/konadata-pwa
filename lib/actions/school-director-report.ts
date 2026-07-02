@@ -8,7 +8,6 @@ import {
   getEnrollments,
   getGrades,
   getClasses,
-  getOrgDefaultAcademicYear,
 } from '@/lib/actions/school';
 import {
   resolveSchoolPeriod,
@@ -102,8 +101,6 @@ export async function getSchoolDirectorReport(
       enrollments,
       grades,
       classes,
-      defaultYear,
-      { data: allPaidPayments },
       { count: studentsEnrolled },
       { count: newEnrollmentsPeriod },
       { data: periodPayments },
@@ -115,12 +112,6 @@ export async function getSchoolDirectorReport(
       getEnrollments(orgId),
       getGrades(orgId),
       getClasses(orgId),
-      getOrgDefaultAcademicYear(orgId).catch(() => null),
-      supabase
-        .from('school_payments')
-        .select('amount, academic_year, status')
-        .eq('organization_id', orgId)
-        .in('status', ['paid', 'partial']),
       supabase
         .from('school_students')
         .select('id', { count: 'exact', head: true })
@@ -158,13 +149,8 @@ export async function getSchoolDirectorReport(
       0
     );
 
-    // Encaissé cumulé réel de l'année (tous paiements paid/partial, quel que soit
-    // le rattachement de l'élève à une classe). Sert à réconcilier le tableau
-    // pour ne jamais « perdre » un encaissement non affecté à une classe.
-    const cumulativeCollected = (allPaidPayments ?? [])
-      .filter((p) => !defaultYear || !p.academic_year || p.academic_year === defaultYear)
-      .reduce((s, p) => s + Number(p.amount ?? 0), 0);
-
+    // getSchoolFinanceByClass couvre déjà tous les élèves inscrits (y compris
+    // ceux hors classe active, regroupés dans une ligne dédiée) : on l'utilise tel quel.
     const financeRows: FinanceReportRow[] = finance.rows.map((r) => ({
       className: r.className,
       enrolled: r.enrolledCount,
@@ -173,19 +159,6 @@ export async function getSchoolDirectorReport(
       collected: r.collectedAmount,
       gap: r.gap,
     }));
-    const attributedCollected = finance.totals.collected;
-    const unassignedCollected = Math.max(0, cumulativeCollected - attributedCollected);
-    if (unassignedCollected > 0) {
-      financeRows.push({
-        className: 'Autres (paiements non affectés à une classe)',
-        enrolled: 0,
-        pending: 0,
-        expected: 0,
-        collected: unassignedCollected,
-        gap: unassignedCollected,
-      });
-    }
-    const financeTotalsCollected = attributedCollected + unassignedCollected;
 
     // Répartition des candidatures/inscriptions par statut.
     const statusMap = new Map<string, number>();
@@ -266,8 +239,8 @@ export async function getSchoolDirectorReport(
             enrolled: finance.totals.enrolled,
             pending: finance.totals.pending,
             expected: finance.totals.expected,
-            collected: financeTotalsCollected,
-            gap: financeTotalsCollected - finance.totals.expected,
+            collected: finance.totals.collected,
+            gap: finance.totals.gap,
           },
         },
         enrollmentStatus,

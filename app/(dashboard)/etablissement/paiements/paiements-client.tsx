@@ -256,6 +256,17 @@ export function PaiementsClient({
     return { count: filteredDebtors.length, remaining, overdueCount };
   }, [filteredDebtors]);
 
+  // Créances = scolarité attendue − encaissée (élèves inscrits), pour rester
+  // cohérent avec « Attendu total » / « Encaissé total » de la carte Prévisions.
+  const receivableTotal = useMemo(() => {
+    if (!financeOverview) return debtorTotals.remaining;
+    if (debtorClassFilter === ALL_CLASSES) {
+      return Math.max(0, financeOverview.totals.expected - financeOverview.totals.collected);
+    }
+    const row = financeOverview.rows.find((r) => r.classId === debtorClassFilter);
+    return row ? Math.max(0, row.expectedAmount - row.collectedAmount) : debtorTotals.remaining;
+  }, [financeOverview, debtorClassFilter, debtorTotals.remaining]);
+
   async function handleExportDebtorsExcel() {
     if (!filteredDebtors.length) {
       setExportMsg('Aucun impayé à exporter.');
@@ -787,7 +798,7 @@ export function PaiementsClient({
             <CardContent className="pt-4">
               <p className="text-xs text-muted-foreground">Créances totales</p>
               <p className="text-2xl font-bold text-amber-700">
-                {formatCurrency(debtorTotals.remaining)}
+                {formatCurrency(receivableTotal)}
               </p>
             </CardContent>
           </Card>
