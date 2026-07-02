@@ -47,25 +47,34 @@ export async function finalizeSectorReport(params: {
 }): Promise<{ report: string; usedLlm: boolean }> {
   const { title, contextText, offlineSections, subtitle } = params;
 
+  const offlineReport = () =>
+    renderOfflineReport({ title, subtitle, sections: offlineSections });
+
   if (!hasActiveLlmApi()) {
-    return {
-      report: renderOfflineReport({ title, subtitle, sections: offlineSections }),
-      usedLlm: false,
-    };
+    return { report: offlineReport(), usedLlm: false };
   }
 
-  const llmText = await queryKonaAI(
-    `Rédigez un rapport professionnel en français pour la direction. Titre : ${title}. Structure : résumé exécutif, faits chiffrés, points d'attention, recommandations. N'inventez aucune donnée absente du contexte.`,
-    contextText,
-    params.organizationId
-      ? { organizationId: params.organizationId, operation: 'report' }
-      : undefined
-  );
+  // Si l'IA échoue (clé invalide/expirée, quota, réseau…), on ne bloque pas la
+  // génération : on retombe sur le rapport « mode local » bâti sur les données
+  // Supabase, qui reste exploitable par la direction.
+  try {
+    const llmText = await queryKonaAI(
+      `Rédigez un rapport professionnel en français pour la direction. Titre : ${title}. Structure : résumé exécutif, faits chiffrés, points d'attention, recommandations. N'inventez aucune donnée absente du contexte.`,
+      contextText,
+      params.organizationId
+        ? { organizationId: params.organizationId, operation: 'report' }
+        : undefined
+    );
 
-  return {
-    report: llmText,
-    usedLlm: true,
-  };
+    if (!llmText || !llmText.trim()) {
+      return { report: offlineReport(), usedLlm: false };
+    }
+
+    return { report: llmText, usedLlm: true };
+  } catch (e) {
+    console.error('[KonaAI] Rapport IA indisponible — repli mode local', e);
+    return { report: offlineReport(), usedLlm: false };
+  }
 }
 
 export function formatCurrencyGnf(amount: number): string {
