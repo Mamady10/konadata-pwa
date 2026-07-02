@@ -243,6 +243,8 @@ export async function redeemAccessCode(code: string) {
   const { data, error } = await supabase.rpc('redeem_access_code', { p_code: code.trim() });
   if (error) return { error: error.message };
 
+  const { clearAuthzCache } = await import('@/lib/auth/clear-authz-cache');
+  await clearAuthzCache();
   revalidatePath('/', 'layout');
   return {
     success: true,

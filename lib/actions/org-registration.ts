@@ -170,6 +170,8 @@ export async function completeOrganizationRegistration(
     console.warn('[org-registration] notify CEO ignoré', e);
   }
 
+  const { clearAuthzCache } = await import('@/lib/auth/clear-authz-cache');
+  await clearAuthzCache();
   revalidatePath('/', 'layout');
   return { success: true, redirectTo: ORG_REGISTRATION_SUCCESS_PATH };
 }

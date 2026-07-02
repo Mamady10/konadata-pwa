@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/lib/actions/auth';
 import { requireOrgId } from '@/lib/actions/org';
 import { CURRENT_CGU_VERSION, isCguAcceptanceCurrent } from '@/lib/legal/cgu';
+import { clearAuthzCache } from '@/lib/auth/clear-authz-cache';
 import { revalidatePath } from 'next/cache';
 
 function canManageLegal(role: string | undefined): boolean {
@@ -33,6 +34,7 @@ export async function acceptOrganizationCgu(): Promise<
     return { error: String((data as { error: string }).error) };
   }
 
+  await clearAuthzCache();
   revalidatePath('/parametres');
   revalidatePath('/parametres/confidentialite');
   return {

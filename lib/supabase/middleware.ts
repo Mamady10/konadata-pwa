@@ -42,7 +42,14 @@ import {
 } from '@/lib/org/survey-only-access';
 import { isBillingExemptPath, BILLING_HOME_PATH } from '@/lib/billing/billing-paths';
 import { isPublicApiPath } from '@/lib/http/public-api-routes';
-import { isProfileAccessBlocked } from '@/lib/auth/profile-access';
+import {
+  AUTHZ_COOKIE,
+  AUTHZ_TTL_MS,
+  getAuthzSecret,
+  signAuthz,
+  verifyAuthz,
+  type AuthzCacheData,
+} from '@/lib/auth/authz-cache';
 
 export async function updateSession(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -69,9 +76,16 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() vérifie le JWT localement (via JWKS mis en cache) quand le projet
+  // utilise des clés de signature asymétriques — évite un aller-retour réseau vers
+  // le serveur Auth à chaque navigation (contrairement à getUser()).
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const claims = claimsData?.claims as
+    | { sub?: string; user_metadata?: Record<string, unknown> }
+    | undefined;
+  const user = claims?.sub
+    ? { id: claims.sub, user_metadata: claims.user_metadata ?? {} }
+    : null;
 
   const { pathname } = request.nextUrl;
 
@@ -121,15 +135,108 @@ export async function updateSession(request: NextRequest) {
   if (user) {
     const accountIntent = (user.user_metadata?.account_intent as string) || '';
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select(
-        'organization_id, role, onboarding_path, is_active, organizations(type, settings, billing_status)'
-      )
-      .eq('id', user.id)
-      .single();
+    // Cache d'autorisation : on évite la requête profil + les RPC facturation/CGU
+    // sur chaque navigation en réutilisant un jeton signé (~60 s).
+    const authzSecret = getAuthzSecret();
+    let authz: AuthzCacheData | null = null;
+    if (authzSecret) {
+      const cached = request.cookies.get(AUTHZ_COOKIE)?.value;
+      if (cached) authz = await verifyAuthz(cached, authzSecret, user.id);
+    }
 
-    if (isProfileAccessBlocked(profile?.is_active) && isProtectedRoute) {
+    if (!authz) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select(
+          'organization_id, role, onboarding_path, is_active, organizations(type, settings, billing_status)'
+        )
+        .eq('id', user.id)
+        .single();
+
+      const orgRelation = profile?.organizations as
+        | { type?: string; settings?: unknown; billing_status?: string }
+        | null;
+      const rRole = (profile?.role as string) ?? null;
+      const rOrgId = (profile?.organization_id as string) ?? null;
+      const rOnboarding = (profile?.onboarding_path as string) ?? null;
+      const rSettings = orgRelation?.settings ?? null;
+      const rBillingStatus = orgRelation?.billing_status ?? null;
+
+      const staffIntent =
+        isDirectorOrStaffIntent(accountIntent) ||
+        isDirectorOnboardingPath(rOnboarding ?? undefined);
+      const learnerPathLocal =
+        !staffIntent && (accountIntent === 'learner' || rOnboarding === 'learner');
+
+      const mayNeedEnrollmentHistory =
+        pathname === '/' ||
+        learnerPathLocal ||
+        isLearnerRole(rRole) ||
+        rRole === 'candidate' ||
+        rRole === 'student' ||
+        (!rOrgId && !staffIntent);
+
+      let hist = false;
+      if (mayNeedEnrollmentHistory) {
+        const { data: historyRpc } = await supabase.rpc('learner_has_enrollment_history');
+        hist =
+          typeof historyRpc === 'boolean'
+            ? historyRpc
+            : await learnerHasEnrollmentHistory(supabase, user.id);
+      }
+
+      let billingOk = true;
+      if (
+        rOrgId &&
+        rRole !== 'platform_admin' &&
+        (rBillingStatus === 'active' || rBillingStatus === 'suspended')
+      ) {
+        const { data } = await supabase.rpc('organization_platform_access_ok', {
+          p_org_id: rOrgId,
+        });
+        billingOk = data !== false;
+      }
+
+      authz = {
+        sub: user.id,
+        role: rRole,
+        orgId: rOrgId,
+        orgType: orgRelation?.type ?? null,
+        isActive: profile?.is_active !== false,
+        onboardingPath: rOnboarding,
+        billingStatus: rBillingStatus,
+        billingOk,
+        cguAccepted: Boolean(
+          (rSettings as Record<string, unknown> | null)?.cgu_accepted_at
+        ),
+        surveyOnly: isSurveyOnlyOrg(rSettings),
+        hasEnrollmentHistory: hist,
+      };
+
+      if (authzSecret) {
+        const signed = await signAuthz(authz, authzSecret);
+        supabaseResponse.cookies.set(AUTHZ_COOKIE, signed, {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+          path: '/',
+          maxAge: Math.floor(AUTHZ_TTL_MS / 1000),
+        });
+      }
+    }
+
+    const role = authz.role;
+    const organizationId = authz.orgId;
+    const orgType = authz.orgType ?? undefined;
+    const hasEnrollmentHistory = authz.hasEnrollmentHistory;
+    const isStaffIntent =
+      isDirectorOrStaffIntent(accountIntent) ||
+      isDirectorOnboardingPath(authz.onboardingPath ?? undefined);
+    const isLearnerPath =
+      !isStaffIntent &&
+      (accountIntent === 'learner' || authz.onboardingPath === 'learner');
+
+    if (!authz.isActive && isProtectedRoute) {
       await supabase.auth.signOut();
       const url = request.nextUrl.clone();
       url.pathname = '/login';
@@ -137,54 +244,20 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    const orgRelation = profile?.organizations as
-      | { type?: string; settings?: unknown; billing_status?: string }
-      | null;
-    const orgType = orgRelation?.type;
-    const orgSettings = orgRelation?.settings ?? null;
-    const orgBillingStatus = orgRelation?.billing_status ?? null;
-
-    const isStaffIntent =
-      isDirectorOrStaffIntent(accountIntent) ||
-      isDirectorOnboardingPath(profile?.onboarding_path as string | undefined);
-
-    const isLearnerPath =
-      !isStaffIntent &&
-      (accountIntent === 'learner' || profile?.onboarding_path === 'learner');
-
     if (isStaffIntent && pathname.startsWith('/inscription-etablissement')) {
       const url = request.nextUrl.clone();
-      url.pathname = profile?.organization_id ? sectorHomeFromOrgType(orgType) : '/rejoindre';
-      if (!profile?.organization_id) url.searchParams.set('profil', 'directeur');
+      url.pathname = organizationId ? sectorHomeFromOrgType(orgType) : '/rejoindre';
+      if (!organizationId) url.searchParams.set('profil', 'directeur');
       return NextResponse.redirect(url);
-    }
-
-    // L'historique d'inscription n'est utile que pour les parcours apprenant
-    // ou la redirection racine. On évite l'appel RPC pour le personnel org.
-    const mayNeedEnrollmentHistory =
-      pathname === '/' ||
-      isLearnerPath ||
-      isLearnerRole(profile?.role) ||
-      profile?.role === 'candidate' ||
-      profile?.role === 'student' ||
-      (!profile?.organization_id && !isStaffIntent);
-
-    let hasEnrollmentHistory = false;
-    if (mayNeedEnrollmentHistory) {
-      const { data: historyRpc } = await supabase.rpc('learner_has_enrollment_history');
-      hasEnrollmentHistory =
-        typeof historyRpc === 'boolean'
-          ? historyRpc
-          : await learnerHasEnrollmentHistory(supabase, user.id);
     }
 
     if (pathname === '/' && request.nextUrl.searchParams.get('accueil') !== '1') {
       const dest = resolvePostAuthDestination({
-        organizationId: profile?.organization_id,
-        role: profile?.role as AppRole,
+        organizationId: organizationId ?? undefined,
+        role: role as AppRole,
         orgType,
         accountIntent,
-        onboardingPath: profile?.onboarding_path as string | undefined,
+        onboardingPath: authz.onboardingPath ?? undefined,
         hasEnrollmentHistory,
       });
       const url = request.nextUrl.clone();
@@ -197,34 +270,34 @@ export async function updateSession(request: NextRequest) {
     }
 
     const isOrgMember =
-      isOrganizationMemberRole(profile?.role as AppRole) ||
-      (isStaffIntent && Boolean(profile?.organization_id));
+      isOrganizationMemberRole(role as AppRole) ||
+      (isStaffIntent && Boolean(organizationId));
 
     const learnerOnboarding =
       !isOrgMember &&
       !isStaffIntent &&
       (isLearnerPath ||
-        isLearnerRole(profile?.role) ||
-        profile?.role === 'candidate' ||
-        profile?.role === 'student');
+        isLearnerRole(role) ||
+        role === 'candidate' ||
+        role === 'student');
 
     const learnerNeedsPicker = learnerNeedsSchoolOnboarding({
-      role: profile?.role,
-      organizationId: profile?.organization_id,
+      role,
+      organizationId,
       accountIntent,
-      onboardingPath: profile?.onboarding_path as string | undefined,
+      onboardingPath: authz.onboardingPath ?? undefined,
       hasEnrollmentHistory,
     });
 
     const needsOnboarding =
-      profile?.role !== 'platform_admin' &&
-      !profile?.organization_id &&
+      role !== 'platform_admin' &&
+      !organizationId &&
       !(learnerOnboarding && hasEnrollmentHistory);
 
     const learnerPortalOnly =
-      !isSchoolStaffRole(profile?.role as AppRole) &&
+      !isSchoolStaffRole(role as AppRole) &&
       learnerOnboarding &&
-      (Boolean(profile?.organization_id) || hasEnrollmentHistory);
+      (Boolean(organizationId) || hasEnrollmentHistory);
 
     if (learnerPortalOnly && pathname.startsWith('/etablissement')) {
       if (pathname.startsWith('/etablissement/candidatures')) {
@@ -261,7 +334,7 @@ export async function updateSession(request: NextRequest) {
       }
 
       const url = request.nextUrl.clone();
-      if (isStaffIntent && !profile?.organization_id) {
+      if (isStaffIntent && !organizationId) {
         url.pathname = '/rejoindre';
         url.searchParams.set('profil', 'directeur');
       } else if (isStaffIntent || isOrgMember) {
@@ -280,7 +353,7 @@ export async function updateSession(request: NextRequest) {
 
     if (
       !needsOnboarding &&
-      profile?.role !== 'platform_admin' &&
+      role !== 'platform_admin' &&
       isProtectedRoute &&
       orgType &&
       isCrossSectorPath(pathname, orgType)
@@ -294,21 +367,21 @@ export async function updateSession(request: NextRequest) {
       !needsOnboarding &&
       orgType === 'school' &&
       pathname.startsWith('/etablissement') &&
-      profile?.role &&
-      !canAccessEtablissementPath(profile.role as AppRole, pathname)
+      role &&
+      !canAccessEtablissementPath(role as AppRole, pathname)
     ) {
       const url = request.nextUrl.clone();
-      url.pathname = getEtablissementFallbackPath(profile.role as AppRole);
+      url.pathname = getEtablissementFallbackPath(role as AppRole);
       return NextResponse.redirect(url);
     }
 
     if (
       !needsOnboarding &&
       orgType === 'ngo' &&
-      profile?.organization_id &&
+      organizationId &&
       pathname.startsWith('/ong')
     ) {
-      if (isSurveyOnlyOrg(orgSettings)) {
+      if (authz.surveyOnly) {
         if (pathname === '/ong' || pathname === '/ong/') {
           const url = request.nextUrl.clone();
           url.pathname = '/ong/sondages';
@@ -326,11 +399,11 @@ export async function updateSession(request: NextRequest) {
       !needsOnboarding &&
       orgType === 'ngo' &&
       pathname.startsWith('/ong') &&
-      profile?.role &&
-      !canAccessOngPath(profile.role as AppRole, pathname)
+      role &&
+      !canAccessOngPath(role as AppRole, pathname)
     ) {
       const url = request.nextUrl.clone();
-      url.pathname = getOngFallbackPath(profile.role as AppRole);
+      url.pathname = getOngFallbackPath(role as AppRole);
       return NextResponse.redirect(url);
     }
 
@@ -338,11 +411,11 @@ export async function updateSession(request: NextRequest) {
       !needsOnboarding &&
       orgType === 'btp' &&
       pathname.startsWith('/btp') &&
-      profile?.role &&
-      !canAccessBtpPath(profile.role as AppRole, pathname)
+      role &&
+      !canAccessBtpPath(role as AppRole, pathname)
     ) {
       const url = request.nextUrl.clone();
-      url.pathname = getBtpFallbackPath(profile.role as AppRole);
+      url.pathname = getBtpFallbackPath(role as AppRole);
       return NextResponse.redirect(url);
     }
 
@@ -350,11 +423,11 @@ export async function updateSession(request: NextRequest) {
       !needsOnboarding &&
       orgType === 'business' &&
       pathname.startsWith('/pme') &&
-      profile?.role &&
-      !canAccessPmePath(profile.role as AppRole, pathname)
+      role &&
+      !canAccessPmePath(role as AppRole, pathname)
     ) {
       const url = request.nextUrl.clone();
-      url.pathname = getPmeFallbackPath(profile.role as AppRole);
+      url.pathname = getPmeFallbackPath(role as AppRole);
       return NextResponse.redirect(url);
     }
 
@@ -362,11 +435,11 @@ export async function updateSession(request: NextRequest) {
       !needsOnboarding &&
       orgType === 'ngo' &&
       pathname.startsWith('/utilisateurs') &&
-      profile?.role &&
-      !isOngDirector(profile.role as AppRole)
+      role &&
+      !isOngDirector(role as AppRole)
     ) {
       const url = request.nextUrl.clone();
-      url.pathname = getOngFallbackPath(profile.role as AppRole);
+      url.pathname = getOngFallbackPath(role as AppRole);
       return NextResponse.redirect(url);
     }
 
@@ -374,11 +447,11 @@ export async function updateSession(request: NextRequest) {
       !needsOnboarding &&
       orgType === 'btp' &&
       pathname.startsWith('/utilisateurs') &&
-      profile?.role &&
-      !isBtpDirector(profile.role as AppRole)
+      role &&
+      !isBtpDirector(role as AppRole)
     ) {
       const url = request.nextUrl.clone();
-      url.pathname = getBtpFallbackPath(profile.role as AppRole);
+      url.pathname = getBtpFallbackPath(role as AppRole);
       return NextResponse.redirect(url);
     }
 
@@ -386,11 +459,11 @@ export async function updateSession(request: NextRequest) {
       !needsOnboarding &&
       orgType === 'business' &&
       pathname.startsWith('/utilisateurs') &&
-      profile?.role &&
-      !isPmeDirector(profile.role as AppRole)
+      role &&
+      !isPmeDirector(role as AppRole)
     ) {
       const url = request.nextUrl.clone();
-      url.pathname = getPmeFallbackPath(profile.role as AppRole);
+      url.pathname = getPmeFallbackPath(role as AppRole);
       return NextResponse.redirect(url);
     }
 
@@ -406,13 +479,12 @@ export async function updateSession(request: NextRequest) {
 
     if (
       !needsOnboarding &&
-      profile?.organization_id &&
-      profile?.role === 'org_admin' &&
+      organizationId &&
+      role === 'org_admin' &&
       isProtectedRoute &&
       !isCguExemptPath
     ) {
-      const cguSettings = (orgSettings as Record<string, unknown> | null) ?? {};
-      if (!cguSettings.cgu_accepted_at) {
+      if (!authz.cguAccepted) {
         const url = request.nextUrl.clone();
         url.pathname = '/parametres/confidentialite';
         url.searchParams.set('cgu', '1');
@@ -422,8 +494,8 @@ export async function updateSession(request: NextRequest) {
 
     if (
       !needsOnboarding &&
-      profile?.organization_id &&
-      profile?.role !== 'platform_admin' &&
+      organizationId &&
+      role !== 'platform_admin' &&
       isProtectedRoute &&
       !isBillingExemptPath(pathname) &&
       !learnerPortalPath &&
@@ -431,8 +503,8 @@ export async function updateSession(request: NextRequest) {
       !pathname.startsWith('/paiement-scolarite')
     ) {
       if (
-        orgBillingStatus === 'pending_payment' ||
-        orgBillingStatus === 'pending_renewal'
+        authz.billingStatus === 'pending_payment' ||
+        authz.billingStatus === 'pending_renewal'
       ) {
         const url = request.nextUrl.clone();
         url.pathname = BILLING_HOME_PATH;
@@ -440,17 +512,15 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(url);
       }
 
-      // Vérification fine (suspension / abonnement expiré) seulement si actif.
-      if (orgBillingStatus === 'active' || orgBillingStatus === 'suspended') {
-        const { data: billingOk } = await supabase.rpc('organization_platform_access_ok', {
-          p_org_id: profile.organization_id,
-        });
-        if (billingOk === false) {
-          const url = request.nextUrl.clone();
-          url.pathname = BILLING_HOME_PATH;
-          url.searchParams.set('blocked', '1');
-          return NextResponse.redirect(url);
-        }
+      // Vérification fine (suspension / abonnement expiré) : résultat mis en cache.
+      if (
+        (authz.billingStatus === 'active' || authz.billingStatus === 'suspended') &&
+        authz.billingOk === false
+      ) {
+        const url = request.nextUrl.clone();
+        url.pathname = BILLING_HOME_PATH;
+        url.searchParams.set('blocked', '1');
+        return NextResponse.redirect(url);
       }
     }
   }
