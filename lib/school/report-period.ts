@@ -19,8 +19,15 @@ export const SCHOOL_REPORT_PERIODS: { id: SchoolReportPeriod; label: string }[] 
   { id: 'year', label: 'Année scolaire' },
 ];
 
-/** Mois de démarrage de l'année scolaire (septembre = 8, base 0). */
-const SCHOOL_YEAR_START_MONTH = 8;
+/**
+ * Mois de démarrage de l'année scolaire (octobre = 9, base 0).
+ * En Guinée, la rentrée a lieu fin septembre / début octobre et le découpage
+ * pédagogique commence en octobre :
+ *   - 1er trimestre : octobre, novembre, décembre
+ *   - 2e trimestre : janvier, février, mars
+ *   - 3e trimestre : avril, mai, juin
+ */
+const SCHOOL_YEAR_START_MONTH = 9;
 
 function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
