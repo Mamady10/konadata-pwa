@@ -496,11 +496,15 @@ export async function getSchoolDashboard(orgId: string) {
     .order('created_at', { ascending: false })
     .limit(5);
 
+  // Uniquement les paiements réellement encaissés (payé / partiel). Les liens de
+  // paiement générés mais non réglés (statut « pending ») ne doivent pas apparaître
+  // comme paiements récents tant que l'argent n'est pas reçu.
   const { data: recentPaymentDetails } = await supabase
     .from('school_payments')
     .select(`id, amount, status, paid_at, payment_method, school_students(${STUDENT_NESTED})`)
     .eq('organization_id', orgId)
-    .order('created_at', { ascending: false })
+    .in('status', ['paid', 'partial'])
+    .order('paid_at', { ascending: false, nullsFirst: false })
     .limit(5);
 
   const { data: pendingStudentsRaw } = await supabase
