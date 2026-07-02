@@ -2,8 +2,6 @@ import { getDocuments } from '@/lib/actions/storage';
 import { parseDocumentAiAdaptation } from '@/lib/ai/template-adaptation-types';
 import { parseCaptureExtraction } from '@/lib/ai/extraction/capture-extraction-parse';
 import { getCaptureStandardsForSector } from '@/lib/documents/capture-standard-templates';
-import { listAiGeneratedReports } from '@/lib/actions/ai-report-archive';
-import type { AiGeneratedReportRow } from '@/lib/actions/ai-report-archive';
 
 import { createClient } from '@/lib/supabase/server';
 
@@ -75,12 +73,6 @@ export default async function RapportsEtablissementPage() {
 
 
 
-  let reportHistory: AiGeneratedReportRow[] = [];
-  if (caps.generateReportCards) {
-    const hist = await listAiGeneratedReports('school');
-    reportHistory = 'error' in hist ? [] : hist;
-  }
-
   const captureTypes = getCaptureStandardsForSector('school').map((t) => ({
     id: t.id,
     label: t.label,
@@ -118,7 +110,6 @@ export default async function RapportsEtablissementPage() {
         id: c.id as string,
         name: c.name as string,
       }))}
-      reportHistory={reportHistory}
       stats={{
 
         totalStudents: students.count ?? 0,

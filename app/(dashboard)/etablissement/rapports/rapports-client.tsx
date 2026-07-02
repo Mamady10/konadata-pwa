@@ -19,17 +19,9 @@ import { CaptureExtractionView } from '@/components/documents/capture-extraction
 import { DirectorAiModelsLink } from '@/components/documents/director-ai-models-link';
 import { uploadSchoolCaptureDocument } from '@/lib/actions/storage';
 import { reRunCaptureExtraction } from '@/lib/actions/capture-extraction';
-import { SectorAiReportPanel } from '@/components/ai/sector-ai-report-panel';
-import { generateSchoolAiReport } from '@/lib/actions/ai-reports';
 import { exportMepsSchoolStats } from '@/lib/actions/school-compliance';
-import {
-  SCHOOL_AI_REPORT_TYPES,
-  type SchoolAiReportType,
-} from '@/lib/ai/sector-report-types';
-import { AiReportHistory } from '@/components/ai/ai-report-history';
 import { SchoolDirectorReport } from '@/components/etablissement/school-director-report';
 import { downloadTextAsPdf } from '@/lib/reports/download-text-as-pdf';
-import type { AiGeneratedReportRow } from '@/lib/actions/ai-report-archive';
 
 const CATEGORY_LABELS: Record<string, string> = {
   school_report: 'Bulletin / Notes',
@@ -69,7 +61,6 @@ interface Props {
   isDirector: boolean;
   canUploadCapture: boolean;
   classes: ClassOption[];
-  reportHistory: AiGeneratedReportRow[];
   stats: {
     totalStudents: number;
     totalPayments: number;
@@ -86,7 +77,6 @@ export function RapportsEtablissementClient({
   isDirector,
   canUploadCapture,
   classes,
-  reportHistory,
   stats,
 }: Props) {
   const router = useRouter();
@@ -208,22 +198,6 @@ export function RapportsEtablissementClient({
             )}
           </CardContent>
         </Card>
-      )}
-
-      {isDirector && (
-        <SectorAiReportPanel
-          sectorLabel="Établissement"
-          scopeLabel="Périmètre"
-          scopeOptions={classes.map((c) => ({ id: c.id, label: c.name }))}
-          reportTypes={SCHOOL_AI_REPORT_TYPES}
-          onGenerate={(scopeId, reportType) =>
-            generateSchoolAiReport(scopeId, reportType as SchoolAiReportType)
-          }
-        />
-      )}
-
-      {isDirector && (
-        <AiReportHistory history={reportHistory} sectorLabel="Établissement" />
       )}
 
       {canUploadCapture && captureDocumentTypes.length > 0 && (
