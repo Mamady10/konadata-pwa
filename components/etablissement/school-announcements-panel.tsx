@@ -8,8 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { createSchoolAnnouncement, deleteSchoolAnnouncement } from '@/lib/actions/school-announcements';
+import {
+  createSchoolAnnouncement,
+  deleteSchoolAnnouncement,
+} from '@/lib/actions/school-announcements';
 import type { SchoolAnnouncementRow } from '@/lib/actions/school-announcements';
+import { MAX_ANNOUNCEMENT_IMAGES } from '@/lib/school/announcement-constants';
 import { ImagePlus, Megaphone, Trash2, X } from 'lucide-react';
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -26,6 +30,12 @@ interface Props {
   canManage: boolean;
 }
 
+interface PendingImage {
+  id: string;
+  file: File;
+  previewUrl: string;
+}
+
 export function SchoolAnnouncementsPanel({ announcements, canManage }: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -33,42 +43,74 @@ export function SchoolAnnouncementsPanel({ announcements, canManage }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [category, setCategory] = useState('announcement');
   const [submitting, setSubmitting] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [images, setImages] = useState<PendingImage[]>([]);
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) {
-      setImagePreview(null);
-      return;
-    }
-    if (file.size > MAX_IMAGE_BYTES) {
-      setError('Image trop lourde (max 8 Mo).');
-      if (fileRef.current) fileRef.current.value = '';
-      setImagePreview(null);
-      return;
-    }
-    setError(null);
-    setImagePreview(URL.createObjectURL(file));
-  }
-
-  function clearImage() {
+    const selected = Array.from(e.target.files ?? []);
     if (fileRef.current) fileRef.current.value = '';
-    setImagePreview(null);
+    if (!selected.length) return;
+
+    const tooLarge = selected.find((f) => f.size > MAX_IMAGE_BYTES);
+    if (tooLarge) {
+      setError(`« ${tooLarge.name} » dépasse 8 Mo.`);
+      return;
+    }
+
+    setImages((prev) => {
+      const remaining = MAX_ANNOUNCEMENT_IMAGES - prev.length;
+      if (remaining <= 0) {
+        setError(`Maximum ${MAX_ANNOUNCEMENT_IMAGES} images.`);
+        return prev;
+      }
+      const toAdd = selected.slice(0, remaining).map((file) => ({
+        id: `${file.name}-${file.size}-${Math.random().toString(36).slice(2, 8)}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+      }));
+      if (selected.length > remaining) {
+        setError(`Maximum ${MAX_ANNOUNCEMENT_IMAGES} images — les suivantes ont été ignorées.`);
+      } else {
+        setError(null);
+      }
+      return [...prev, ...toAdd];
+    });
   }
 
-  async function handleCreate(formData: FormData) {
+  function removeImage(id: string) {
+    setImages((prev) => {
+      const target = prev.find((i) => i.id === id);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((i) => i.id !== id);
+    });
+  }
+
+  function clearImages() {
+    setImages((prev) => {
+      prev.forEach((i) => URL.revokeObjectURL(i.previewUrl));
+      return [];
+    });
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
+  async function handleCreate() {
     setError(null);
-    setSubmitting(true);
+    const form = formRef.current;
+    if (!form) return;
+    const formData = new FormData(form);
     formData.set('category', category);
+    formData.delete('image');
+    images.forEach((img) => formData.append('image', img.file));
+
+    setSubmitting(true);
     const res = await createSchoolAnnouncement(formData);
     setSubmitting(false);
     if (res.error) {
       setError(res.error);
       return;
     }
-    formRef.current?.reset();
+    form.reset();
     setCategory('announcement');
-    clearImage();
+    clearImages();
     router.refresh();
   }
 
@@ -95,7 +137,14 @@ export function SchoolAnnouncementsPanel({ announcements, canManage }: Props) {
           <CardHeader><CardTitle className="text-base">Publier une information</CardTitle></CardHeader>
           <CardContent>
             {error && <p className="text-sm text-destructive mb-3">{error}</p>}
-            <form ref={formRef} action={handleCreate} className="space-y-4">
+            <form
+              ref={formRef}
+              onSubmit={(e) => {
+                e.preventDefault();
+                void handleCreate();
+              }}
+              className="space-y-4"
+            >
               <div className="space-y-2">
                 <Label>Titre *</Label>
                 <Input name="title" required placeholder="Réunion parents, jour férié…" />
@@ -127,36 +176,47 @@ export function SchoolAnnouncementsPanel({ announcements, canManage }: Props) {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Image (facultatif)</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Images (facultatif)</Label>
+                  {images.length > 0 && (
+                    <span className="text-[11px] text-muted-foreground">
+                      {images.length}/{MAX_ANNOUNCEMENT_IMAGES}
+                    </span>
+                  )}
+                </div>
                 <input
                   ref={fileRef}
-                  name="image"
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
+                  multiple
                   onChange={handleImageChange}
                   className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-2 file:text-sm file:font-medium hover:file:bg-muted/80"
                 />
-                {imagePreview ? (
-                  <div className="relative inline-block">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={imagePreview}
-                      alt="Aperçu"
-                      className="max-h-48 rounded-lg border object-contain"
-                    />
-                    <button
-                      type="button"
-                      onClick={clearImage}
-                      className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-white shadow"
-                      aria-label="Retirer l'image"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
+                {images.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    {images.map((img) => (
+                      <div key={img.id} className="relative aspect-square">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={img.previewUrl}
+                          alt="Aperçu"
+                          className="h-full w-full rounded-lg border object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(img.id)}
+                          className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-white shadow"
+                          aria-label="Retirer l'image"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
                     <ImagePlus className="h-3 w-3" />
-                    PNG, JPG ou WEBP — jusqu&apos;à 8 Mo. Idéal pour affiches, photos d&apos;événement ou résultats.
+                    PNG, JPG ou WEBP — jusqu&apos;à {MAX_ANNOUNCEMENT_IMAGES} images (8 Mo chacune).
                   </p>
                 )}
               </div>
@@ -196,15 +256,31 @@ export function SchoolAnnouncementsPanel({ announcements, canManage }: Props) {
                     </div>
                     <h3 className="font-semibold">{a.title}</h3>
                     {a.body && <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap">{a.body}</p>}
-                    {a.imageUrl && (
-                      <a href={a.imageUrl} target="_blank" rel="noopener noreferrer" className="mt-3 block">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={a.imageUrl}
-                          alt={a.title}
-                          className="max-h-72 w-full rounded-lg border object-contain bg-muted/30"
-                        />
-                      </a>
+                    {a.imageUrls.length > 0 && (
+                      <div
+                        className={`mt-3 grid gap-2 ${
+                          a.imageUrls.length === 1 ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3'
+                        }`}
+                      >
+                        {a.imageUrls.map((url, i) => (
+                          <a
+                            key={url}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={url}
+                              alt={`${a.title} — image ${i + 1}`}
+                              className={`w-full rounded-lg border bg-muted/30 object-cover ${
+                                a.imageUrls.length === 1 ? 'max-h-72 object-contain' : 'aspect-square'
+                              }`}
+                            />
+                          </a>
+                        ))}
+                      </div>
                     )}
                   </div>
                   {canManage && (

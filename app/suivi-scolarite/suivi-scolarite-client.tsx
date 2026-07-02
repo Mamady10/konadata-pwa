@@ -324,15 +324,27 @@ export function SuiviScolariteClient({ schools }: Props) {
                     <div key={String(a.id)} className="border-b last:border-0 pb-2 last:pb-0">
                       <p className="font-medium text-sm">{String(a.title)}</p>
                       {a.body ? <p className="text-muted-foreground text-xs mt-1 whitespace-pre-wrap">{String(a.body)}</p> : null}
-                      {a.imageUrl ? (
-                        <a href={String(a.imageUrl)} target="_blank" rel="noopener noreferrer" className="mt-2 block">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={String(a.imageUrl)}
-                            alt={String(a.title)}
-                            className="max-h-56 w-full rounded-md border object-contain bg-muted/30"
-                          />
-                        </a>
+                      {Array.isArray(a.imageUrls) && (a.imageUrls as string[]).length > 0 ? (
+                        <div
+                          className={`mt-2 grid gap-2 ${
+                            (a.imageUrls as string[]).length === 1 ? 'grid-cols-1' : 'grid-cols-2'
+                          }`}
+                        >
+                          {(a.imageUrls as string[]).map((url, i) => (
+                            <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={url}
+                                alt={`${String(a.title)} ${i + 1}`}
+                                className={`w-full rounded-md border bg-muted/30 ${
+                                  (a.imageUrls as string[]).length === 1
+                                    ? 'max-h-56 object-contain'
+                                    : 'aspect-square object-cover'
+                                }`}
+                              />
+                            </a>
+                          ))}
+                        </div>
                       ) : null}
                       {a.event_date ? (
                         <p className="text-[10px] text-primary mt-1">

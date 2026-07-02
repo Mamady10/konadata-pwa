@@ -63,22 +63,24 @@ export async function POST(request: NextRequest) {
     const orgId = challenge.organization_id as string;
     const { data: ann } = await supabase
       .from('school_announcements')
-      .select('id, title, body, category, event_date, published_at, image_path')
+      .select('id, title, body, category, event_date, published_at, image_path, image_paths')
       .eq('organization_id', orgId)
       .eq('visible_to_parents', true)
       .order('published_at', { ascending: false })
       .limit(15);
     if (ann) {
-      const paths = [
-        ...new Set(
-          ann
-            .map((a) => (a as Record<string, unknown>).image_path as string | null)
-            .filter((p): p is string => Boolean(p))
-        ),
+      const pathsOf = (row: Record<string, unknown>): string[] => {
+        const arr = row.image_paths as string[] | null;
+        if (Array.isArray(arr) && arr.length) return arr.filter(Boolean);
+        const single = row.image_path as string | null;
+        return single ? [single] : [];
+      };
+      const allPaths = [
+        ...new Set(ann.flatMap((a) => pathsOf(a as Record<string, unknown>))),
       ];
       const urlByPath: Record<string, string> = {};
       await Promise.all(
-        paths.map(async (path) => {
+        allPaths.map(async (path) => {
           const { data } = await supabase.storage
             .from('documents')
             .createSignedUrl(path, 3600);
@@ -87,8 +89,10 @@ export async function POST(request: NextRequest) {
       );
       announcements = ann.map((a) => {
         const row = a as Record<string, unknown>;
-        const imagePath = row.image_path as string | null;
-        return { ...row, imageUrl: imagePath ? (urlByPath[imagePath] ?? null) : null };
+        const imageUrls = pathsOf(row)
+          .map((p) => urlByPath[p])
+          .filter((u): u is string => Boolean(u));
+        return { ...row, imageUrls };
       });
     }
 

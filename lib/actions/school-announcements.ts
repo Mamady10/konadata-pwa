@@ -5,6 +5,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { requireOrgId } from '@/lib/actions/org';
 import { getSession } from '@/lib/actions/auth';
 import { prepareBrandingImage } from '@/lib/school/branding-image-prep';
+import { MAX_ANNOUNCEMENT_IMAGES } from '@/lib/school/announcement-constants';
 
 export type SchoolAnnouncementCategory = 'announcement' | 'event' | 'holiday' | 'results';
 
@@ -29,17 +30,25 @@ export interface SchoolAnnouncementRow {
   visibleToParents: boolean;
   visibleToStudents: boolean;
   publishedAt: string;
-  imageUrl: string | null;
+  imageUrls: string[];
 }
 
 const ANNOUNCEMENT_SELECT =
-  'id, title, body, category, event_date, visible_to_parents, visible_to_students, published_at, image_path';
+  'id, title, body, category, event_date, visible_to_parents, visible_to_students, published_at, image_path, image_paths';
+
+/** Retourne toutes les clés Storage d'une ligne (tableau image_paths, sinon image_path). */
+function rowImagePaths(row: Record<string, unknown>): string[] {
+  const arr = row.image_paths as string[] | null;
+  if (Array.isArray(arr) && arr.length) return arr.filter(Boolean);
+  const single = row.image_path as string | null;
+  return single ? [single] : [];
+}
 
 function mapRow(
   row: Record<string, unknown>,
   urlByPath: Record<string, string>
 ): SchoolAnnouncementRow {
-  const imagePath = (row.image_path as string) ?? null;
+  const paths = rowImagePaths(row);
   return {
     id: row.id as string,
     title: row.title as string,
@@ -49,7 +58,7 @@ function mapRow(
     visibleToParents: Boolean(row.visible_to_parents),
     visibleToStudents: Boolean(row.visible_to_students),
     publishedAt: row.published_at as string,
-    imageUrl: imagePath ? (urlByPath[imagePath] ?? null) : null,
+    imageUrls: paths.map((p) => urlByPath[p]).filter((u): u is string => Boolean(u)),
   };
 }
 
@@ -125,7 +134,7 @@ export async function getSchoolAnnouncements(orgId: string, limit = 50): Promise
   }
   const rows = data ?? [];
   const urlByPath = await signAnnouncementImagePaths(
-    rows.map((r) => (r as Record<string, unknown>).image_path as string | null)
+    rows.flatMap((r) => rowImagePaths(r as Record<string, unknown>))
   );
   return rows.map((r) => mapRow(r as Record<string, unknown>, urlByPath));
 }
@@ -145,12 +154,24 @@ export async function createSchoolAnnouncement(formData: FormData) {
   const category = ((formData.get('category') as string) || 'announcement') as SchoolAnnouncementCategory;
   const eventDate = (formData.get('event_date') as string)?.trim() || null;
 
-  let imagePath: string | null = null;
-  const imageFile = formData.get('image');
-  if (imageFile instanceof Blob && imageFile.size > 0) {
-    const uploaded = await uploadAnnouncementImage(supabase, orgId, imageFile);
-    if (uploaded.error) return { error: uploaded.error };
-    imagePath = uploaded.path ?? null;
+  const imageFiles = formData
+    .getAll('image')
+    .filter((f): f is File => f instanceof Blob && f.size > 0);
+
+  if (imageFiles.length > MAX_ANNOUNCEMENT_IMAGES) {
+    return { error: `Maximum ${MAX_ANNOUNCEMENT_IMAGES} images par publication.` };
+  }
+
+  const uploadedPaths: string[] = [];
+  for (const file of imageFiles) {
+    const uploaded = await uploadAnnouncementImage(supabase, orgId, file);
+    if (uploaded.error) {
+      if (uploadedPaths.length) {
+        await supabase.storage.from('documents').remove(uploadedPaths);
+      }
+      return { error: uploaded.error };
+    }
+    if (uploaded.path) uploadedPaths.push(uploaded.path);
   }
 
   const { error } = await supabase.from('school_announcements').insert({
@@ -161,13 +182,14 @@ export async function createSchoolAnnouncement(formData: FormData) {
     event_date: eventDate,
     visible_to_parents: formData.get('visible_to_parents') !== 'false',
     visible_to_students: formData.get('visible_to_students') !== 'false',
-    image_path: imagePath,
+    image_path: uploadedPaths[0] ?? null,
+    image_paths: uploadedPaths,
     created_by: session?.user?.id ?? null,
   });
 
   if (error) {
-    if (imagePath) {
-      await supabase.storage.from('documents').remove([imagePath]);
+    if (uploadedPaths.length) {
+      await supabase.storage.from('documents').remove(uploadedPaths);
     }
     return { error: error.message };
   }
@@ -186,7 +208,7 @@ export async function deleteSchoolAnnouncement(id: string) {
 
   const { data: existing } = await supabase
     .from('school_announcements')
-    .select('image_path')
+    .select('image_path, image_paths')
     .eq('id', id)
     .eq('organization_id', orgId)
     .maybeSingle();
@@ -198,9 +220,9 @@ export async function deleteSchoolAnnouncement(id: string) {
     .eq('organization_id', orgId);
   if (error) return { error: error.message };
 
-  const imagePath = (existing?.image_path as string) ?? null;
-  if (imagePath) {
-    await supabase.storage.from('documents').remove([imagePath]);
+  const paths = existing ? rowImagePaths(existing as Record<string, unknown>) : [];
+  if (paths.length) {
+    await supabase.storage.from('documents').remove(paths);
   }
   revalidatePath('/etablissement/vie-scolaire');
   return { success: true };
@@ -218,7 +240,7 @@ export async function getSchoolAnnouncementsForGuardian(orgId: string): Promise<
     .limit(20);
   if (error || !data) return [];
   const urlByPath = await signAnnouncementImagePaths(
-    data.map((r) => (r as Record<string, unknown>).image_path as string | null)
+    data.flatMap((r) => rowImagePaths(r as Record<string, unknown>))
   );
   return data.map((r) => mapRow(r as Record<string, unknown>, urlByPath));
 }
