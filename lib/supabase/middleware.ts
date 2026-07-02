@@ -121,9 +121,11 @@ export async function updateSession(request: NextRequest) {
   if (user) {
     const accountIntent = (user.user_metadata?.account_intent as string) || '';
 
-    let { data: profile } = await supabase
+    const { data: profile } = await supabase
       .from('profiles')
-      .select('organization_id, role, onboarding_path, is_active, organizations(type)')
+      .select(
+        'organization_id, role, onboarding_path, is_active, organizations(type, settings, billing_status)'
+      )
       .eq('id', user.id)
       .single();
 
@@ -135,6 +137,13 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
+    const orgRelation = profile?.organizations as
+      | { type?: string; settings?: unknown; billing_status?: string }
+      | null;
+    const orgType = orgRelation?.type;
+    const orgSettings = orgRelation?.settings ?? null;
+    const orgBillingStatus = orgRelation?.billing_status ?? null;
+
     const isStaffIntent =
       isDirectorOrStaffIntent(accountIntent) ||
       isDirectorOnboardingPath(profile?.onboarding_path as string | undefined);
@@ -143,8 +152,6 @@ export async function updateSession(request: NextRequest) {
       !isStaffIntent &&
       (accountIntent === 'learner' || profile?.onboarding_path === 'learner');
 
-    const orgType = (profile?.organizations as { type?: string } | null)?.type;
-
     if (isStaffIntent && pathname.startsWith('/inscription-etablissement')) {
       const url = request.nextUrl.clone();
       url.pathname = profile?.organization_id ? sectorHomeFromOrgType(orgType) : '/rejoindre';
@@ -152,11 +159,24 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    const { data: historyRpc } = await supabase.rpc('learner_has_enrollment_history');
-    const hasEnrollmentHistory =
-      typeof historyRpc === 'boolean'
-        ? historyRpc
-        : await learnerHasEnrollmentHistory(supabase, user.id);
+    // L'historique d'inscription n'est utile que pour les parcours apprenant
+    // ou la redirection racine. On évite l'appel RPC pour le personnel org.
+    const mayNeedEnrollmentHistory =
+      pathname === '/' ||
+      isLearnerPath ||
+      isLearnerRole(profile?.role) ||
+      profile?.role === 'candidate' ||
+      profile?.role === 'student' ||
+      (!profile?.organization_id && !isStaffIntent);
+
+    let hasEnrollmentHistory = false;
+    if (mayNeedEnrollmentHistory) {
+      const { data: historyRpc } = await supabase.rpc('learner_has_enrollment_history');
+      hasEnrollmentHistory =
+        typeof historyRpc === 'boolean'
+          ? historyRpc
+          : await learnerHasEnrollmentHistory(supabase, user.id);
+    }
 
     if (pathname === '/' && request.nextUrl.searchParams.get('accueil') !== '1') {
       const dest = resolvePostAuthDestination({
@@ -288,13 +308,7 @@ export async function updateSession(request: NextRequest) {
       profile?.organization_id &&
       pathname.startsWith('/ong')
     ) {
-      const { data: surveyOnlyOrg } = await supabase
-        .from('organizations')
-        .select('settings')
-        .eq('id', profile.organization_id)
-        .maybeSingle();
-
-      if (isSurveyOnlyOrg(surveyOnlyOrg?.settings)) {
+      if (isSurveyOnlyOrg(orgSettings)) {
         if (pathname === '/ong' || pathname === '/ong/') {
           const url = request.nextUrl.clone();
           url.pathname = '/ong/sondages';
@@ -397,12 +411,7 @@ export async function updateSession(request: NextRequest) {
       isProtectedRoute &&
       !isCguExemptPath
     ) {
-      const { data: cguOrg } = await supabase
-        .from('organizations')
-        .select('settings')
-        .eq('id', profile.organization_id)
-        .maybeSingle();
-      const cguSettings = (cguOrg?.settings as Record<string, unknown> | null) ?? {};
+      const cguSettings = (orgSettings as Record<string, unknown> | null) ?? {};
       if (!cguSettings.cgu_accepted_at) {
         const url = request.nextUrl.clone();
         url.pathname = '/parametres/confidentialite';
@@ -421,15 +430,9 @@ export async function updateSession(request: NextRequest) {
       !pathname.startsWith('/paiement-organisation') &&
       !pathname.startsWith('/paiement-scolarite')
     ) {
-      const { data: orgRow } = await supabase
-        .from('organizations')
-        .select('billing_status')
-        .eq('id', profile.organization_id)
-        .maybeSingle();
-
       if (
-        orgRow?.billing_status === 'pending_payment' ||
-        orgRow?.billing_status === 'pending_renewal'
+        orgBillingStatus === 'pending_payment' ||
+        orgBillingStatus === 'pending_renewal'
       ) {
         const url = request.nextUrl.clone();
         url.pathname = BILLING_HOME_PATH;
@@ -437,14 +440,17 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(url);
       }
 
-      const { data: billingOk } = await supabase.rpc('organization_platform_access_ok', {
-        p_org_id: profile.organization_id,
-      });
-      if (billingOk === false) {
-        const url = request.nextUrl.clone();
-        url.pathname = BILLING_HOME_PATH;
-        url.searchParams.set('blocked', '1');
-        return NextResponse.redirect(url);
+      // Vérification fine (suspension / abonnement expiré) seulement si actif.
+      if (orgBillingStatus === 'active' || orgBillingStatus === 'suspended') {
+        const { data: billingOk } = await supabase.rpc('organization_platform_access_ok', {
+          p_org_id: profile.organization_id,
+        });
+        if (billingOk === false) {
+          const url = request.nextUrl.clone();
+          url.pathname = BILLING_HOME_PATH;
+          url.searchParams.set('blocked', '1');
+          return NextResponse.redirect(url);
+        }
       }
     }
   }

@@ -26,45 +26,85 @@ export default async function CandidaturesPage() {
   let classes: { id: string; name: string }[] = [];
   let documents: Awaited<ReturnType<typeof getEnrollmentDocuments>> = [];
   let reenrollmentCodes: Awaited<ReturnType<typeof listReenrollmentCodes>> = [];
+  let studentPaymentSettings: StudentPaymentSettings | null = null;
+  let paymentSettingsByOrg: Record<string, StudentPaymentSettings> = {};
   const loadErrors: string[] = [];
 
-  try {
-    enrollments = await getEnrollments(orgId ?? '');
-  } catch (e) {
+  const wantsDocuments = caps.viewEnrollmentDocuments || caps.manageOwnEnrollment;
+  const wantsReenrollmentCodes = caps.manageEnrollments && Boolean(orgId);
+
+  // Ces requêtes sont indépendantes : on les lance en parallèle pour réduire
+  // fortement le temps de chargement de la page (au lieu de 5 allers-retours en série).
+  const [
+    enrollmentsRes,
+    classesRes,
+    documentsRes,
+    reenrollmentCodesRes,
+    paymentSettingsRes,
+  ] = await Promise.allSettled([
+    getEnrollments(orgId ?? ''),
+    orgId ? getClasses(orgId) : Promise.resolve([]),
+    wantsDocuments ? getEnrollmentDocuments(orgId ?? '') : Promise.resolve([]),
+    wantsReenrollmentCodes && orgId
+      ? listReenrollmentCodes(orgId)
+      : Promise.resolve([]),
+    orgId ? getStudentPaymentSettings() : Promise.resolve(null),
+  ]);
+
+  if (enrollmentsRes.status === 'fulfilled') {
+    enrollments = enrollmentsRes.value as Record<string, unknown>[];
+  } else {
     loadErrors.push(
-      e instanceof Error ? e.message : 'Impossible de charger les demandes d’inscription.'
+      enrollmentsRes.reason instanceof Error
+        ? enrollmentsRes.reason.message
+        : 'Impossible de charger les demandes d’inscription.'
     );
   }
 
   if (orgId) {
-    try {
-      const cls = await getClasses(orgId);
-      classes = cls.map((c) => ({ id: c.id as string, name: c.name as string }));
-    } catch (e) {
-      loadErrors.push(e instanceof Error ? e.message : 'Impossible de charger les classes.');
-    }
-  }
-
-  if (caps.viewEnrollmentDocuments || caps.manageOwnEnrollment) {
-    try {
-      documents = await getEnrollmentDocuments(orgId ?? '');
-    } catch (e) {
+    if (classesRes.status === 'fulfilled') {
+      classes = (classesRes.value as { id: string; name: string }[]).map((c) => ({
+        id: c.id as string,
+        name: c.name as string,
+      }));
+    } else {
       loadErrors.push(
-        e instanceof Error ? e.message : 'Impossible de charger les pièces jointes.'
+        classesRes.reason instanceof Error
+          ? classesRes.reason.message
+          : 'Impossible de charger les classes.'
       );
     }
   }
 
-  if (caps.manageEnrollments && orgId) {
-    try {
-      reenrollmentCodes = await listReenrollmentCodes(orgId);
-    } catch (e) {
-      loadErrors.push(e instanceof Error ? e.message : 'Impossible de charger les codes réinscription.');
+  if (wantsDocuments) {
+    if (documentsRes.status === 'fulfilled') {
+      documents = documentsRes.value as typeof documents;
+    } else {
+      loadErrors.push(
+        documentsRes.reason instanceof Error
+          ? documentsRes.reason.message
+          : 'Impossible de charger les pièces jointes.'
+      );
     }
   }
 
-  let studentPaymentSettings: StudentPaymentSettings | null = null;
-  let paymentSettingsByOrg: Record<string, StudentPaymentSettings> = {};
+  if (wantsReenrollmentCodes) {
+    if (reenrollmentCodesRes.status === 'fulfilled') {
+      reenrollmentCodes = reenrollmentCodesRes.value as typeof reenrollmentCodes;
+    } else {
+      loadErrors.push(
+        reenrollmentCodesRes.reason instanceof Error
+          ? reenrollmentCodesRes.reason.message
+          : 'Impossible de charger les codes réinscription.'
+      );
+    }
+  }
+
+  if (orgId && paymentSettingsRes.status === 'fulfilled' && paymentSettingsRes.value) {
+    const { settings } = paymentSettingsRes.value as { settings: StudentPaymentSettings };
+    studentPaymentSettings = settings;
+    paymentSettingsByOrg[orgId] = settings;
+  }
 
   const enrollmentOrgIds = [
     ...new Set(
@@ -73,12 +113,6 @@ export default async function CandidaturesPage() {
         .filter((id): id is string => Boolean(id))
     ),
   ];
-
-  if (orgId) {
-    const { settings } = await getStudentPaymentSettings();
-    studentPaymentSettings = settings;
-    paymentSettingsByOrg[orgId] = settings;
-  }
 
   let orgTuitionDefaults: Record<string, number> = {};
   if (enrollmentOrgIds.length > 0) {
