@@ -11,7 +11,8 @@ import {
   sanitizeBillingStatusForDirector,
 } from '@/lib/billing/director-billing-view';
 import type { AppRole } from '@/types/database';
-import { sendPaymentOfferEmail } from '@/lib/email/send-payment-offer';
+import { sendPaymentOfferEmail, buildPaymentOfferText } from '@/lib/email/send-payment-offer';
+import { sendNotification } from '@/lib/notifications/send-notification';
 import { getResendConfig } from '@/lib/email/resend-client';
 import { buildPaymentOfferUrl, getAppBaseUrlFromEnv } from '@/lib/http/app-base-url';
 import { formatCurrency } from '@/lib/utils';
@@ -205,7 +206,7 @@ async function resolveOrganizationDirectorEmail(
 ) {
   const { data: director } = await supabase
     .from('profiles')
-    .select('email, full_name')
+    .select('email, full_name, phone')
     .eq('organization_id', orgId)
     .eq('role', 'org_admin')
     .eq('is_active', true)
@@ -217,6 +218,7 @@ async function resolveOrganizationDirectorEmail(
   return {
     email,
     fullName: director?.full_name ?? null,
+    phone: (director?.phone as string | null)?.trim() || null,
   };
 }
 
@@ -226,7 +228,7 @@ async function loadPaymentOfferEmailContext(
 ) {
   const { data: org } = await supabase
     .from('organizations')
-    .select('name, email')
+    .select('name, email, phone')
     .eq('id', orgId)
     .single();
 
@@ -246,12 +248,40 @@ async function loadPaymentOfferEmailContext(
     orgName: (org?.name as string) ?? 'Organisation',
     directorEmail: director.email,
     directorName: director.fullName,
+    directorPhone: director.phone || ((org?.phone as string | null)?.trim() || null),
     paymentToken: (offer?.payment_token as string) ?? null,
     amountGnf: Number(offer?.activation_amount_gnf ?? 0),
     ceoNotes: (offer?.ceo_notes as string) ?? null,
     accessMode: (offer?.access_mode as string) ?? null,
     offerStatus: (offer?.status as string) ?? null,
   };
+}
+
+/** Envoi WhatsApp du lien de paiement (canal prioritaire). Best-effort. */
+async function sendPaymentOfferWhatsApp(ctx: {
+  orgName: string;
+  directorName: string | null;
+  directorPhone: string | null;
+  amountGnf: number;
+  paymentToken: string | null;
+  accessMode: string | null;
+}): Promise<{ ok: boolean; error?: string }> {
+  if (!ctx.directorPhone || !ctx.paymentToken) {
+    return { ok: false, error: 'Téléphone directeur ou lien manquant' };
+  }
+  const text = buildPaymentOfferText({
+    directorName: ctx.directorName,
+    orgName: ctx.orgName,
+    amountGnf: ctx.amountGnf,
+    paymentToken: ctx.paymentToken,
+    accessMode: ctx.accessMode,
+  });
+  const res = await sendNotification({
+    recipient: { phone: ctx.directorPhone },
+    content: { text },
+    channels: ['whatsapp'],
+  });
+  return { ok: res.ok, error: res.attempts[res.attempts.length - 1]?.error };
 }
 
 export async function platformSendPaymentOfferEmail(orgId: string) {
@@ -266,28 +296,47 @@ export async function platformSendPaymentOfferEmail(orgId: string) {
   if (!ctx.paymentToken) {
     return { error: 'Aucun lien de paiement — validez d’abord le tarif.' };
   }
-  if (!ctx.directorEmail) {
-    return { error: 'Email du directeur introuvable (profil org_admin ou email organisation).' };
+
+  // WhatsApp prioritaire (canal le plus fiable) + email si disponible.
+  const whatsappResult = await sendPaymentOfferWhatsApp(ctx);
+
+  let emailResult: { ok: boolean; error?: string; skipped?: boolean } | null = null;
+  if (ctx.directorEmail) {
+    emailResult = await sendPaymentOfferEmail({
+      to: ctx.directorEmail,
+      directorName: ctx.directorName,
+      orgName: ctx.orgName,
+      amountGnf: ctx.amountGnf,
+      paymentToken: ctx.paymentToken,
+      ceoNotes: ctx.ceoNotes,
+      accessMode: ctx.accessMode,
+    });
   }
 
-  const emailResult = await sendPaymentOfferEmail({
-    to: ctx.directorEmail,
-    directorName: ctx.directorName,
-    orgName: ctx.orgName,
-    amountGnf: ctx.amountGnf,
-    paymentToken: ctx.paymentToken,
-    ceoNotes: ctx.ceoNotes,
-    accessMode: ctx.accessMode,
-  });
-
-  if (!emailResult.ok) {
+  if (!whatsappResult.ok && !emailResult?.ok) {
+    if (!ctx.directorEmail && !ctx.directorPhone) {
+      return {
+        error:
+          'Ni téléphone ni email du directeur (profil org_admin ou coordonnées organisation).',
+      };
+    }
     return {
-      error: emailResult.error ?? 'Envoi email échoué',
-      emailSkipped: emailResult.skipped,
+      error: emailResult?.error ?? whatsappResult.error ?? 'Envoi échoué',
+      emailSkipped: emailResult?.skipped,
     };
   }
 
-  return { success: true, emailSent: true, sentTo: ctx.directorEmail };
+  const channels: string[] = [];
+  if (whatsappResult.ok) channels.push('WhatsApp');
+  if (emailResult?.ok) channels.push('email');
+
+  return {
+    success: true,
+    emailSent: Boolean(emailResult?.ok),
+    whatsappSent: whatsappResult.ok,
+    sentTo: [ctx.directorPhone, ctx.directorEmail].filter(Boolean).join(' / '),
+    channels,
+  };
 }
 
 export async function platformSetBillingOffer(
@@ -322,35 +371,48 @@ export async function platformSetBillingOffer(
   if (error) return { error: error.message };
 
   let emailSent = false;
+  let whatsappSent = false;
   let emailWarning: string | undefined;
 
-  if (getResendConfig().apiKey) {
-    const ctx = await loadPaymentOfferEmailContext(supabase, orgId);
-    if (ctx.paymentToken && ctx.directorEmail && ctx.offerStatus === 'awaiting_payment') {
+  const ctx = await loadPaymentOfferEmailContext(supabase, orgId);
+  const offerReady = ctx.paymentToken && ctx.offerStatus === 'awaiting_payment';
+
+  if (offerReady) {
+    // WhatsApp d'abord (canal prioritaire, indépendant de Resend).
+    const whatsappResult = await sendPaymentOfferWhatsApp({
+      ...ctx,
+      accessMode,
+    });
+    whatsappSent = whatsappResult.ok;
+
+    if (getResendConfig().apiKey && ctx.directorEmail) {
       const emailResult = await sendPaymentOfferEmail({
         to: ctx.directorEmail,
         directorName: ctx.directorName,
         orgName: ctx.orgName,
         amountGnf: ctx.amountGnf,
-        paymentToken: ctx.paymentToken,
+        paymentToken: ctx.paymentToken!,
         ceoNotes: notes ?? ctx.ceoNotes,
         accessMode: accessMode,
       });
       emailSent = emailResult.ok;
-      if (!emailResult.ok) {
-        emailWarning = emailResult.error ?? 'Email non envoyé';
-      }
-    } else if (!ctx.directorEmail) {
-      emailWarning = 'Tarif enregistré — email directeur introuvable (copiez le lien manuellement).';
+      if (!emailResult.ok) emailWarning = emailResult.error ?? 'Email non envoyé';
     }
-  } else {
-    emailWarning =
-      'RESEND_API_KEY non configurée — utilisez « Copier lien + montant » ou configurez Resend (Vercel).';
+
+    if (!whatsappSent && !emailSent) {
+      if (!ctx.directorPhone && !ctx.directorEmail) {
+        emailWarning =
+          'Tarif enregistré — ni téléphone ni email du directeur (copiez le lien manuellement).';
+      } else if (!getResendConfig().apiKey && !ctx.directorPhone) {
+        emailWarning =
+          'RESEND_API_KEY non configurée et pas de téléphone directeur — utilisez « Copier lien + montant ».';
+      }
+    }
   }
 
   revalidatePath('/organisations');
   revalidatePath('/parametres/facturation');
-  return { success: true, emailSent, emailWarning };
+  return { success: true, emailSent, whatsappSent, emailWarning };
 }
 
 export async function platformSuspendOrganization(orgId: string, reason: string) {

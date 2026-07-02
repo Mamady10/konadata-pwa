@@ -13,7 +13,12 @@ import {
   type NgoSurveyQuestion,
 } from '@/lib/ngo/survey-questions';
 import type { NgoSurveyCollectionMode } from '@/lib/ngo/survey-settings';
-import { sendSurveyParticipationLinkEmail } from '@/lib/email/send-survey-participation-link';
+import {
+  sendSurveyParticipationLinkEmail,
+  buildSurveyParticipationText,
+} from '@/lib/email/send-survey-participation-link';
+import { sendNotification } from '@/lib/notifications/send-notification';
+import { normalizeGuineaPhone } from '@/lib/survey/phone';
 import { tryNotifyCeoSurveyQuoteRequest } from '@/lib/actions/ngo-survey-billing';
 
 export type NgoSurveyRow = {
@@ -539,42 +544,83 @@ export async function sendNgoSurveyParticipationLink(
     };
   }
 
-  const emails = recipientRaw
-    .split(/[,;]\s*/)
-    .map((e) => e.trim().toLowerCase())
+  // Destinataires : emails ET/OU numéros de téléphone (WhatsApp/SMS).
+  const tokens = recipientRaw
+    .split(/[,;\s]+/)
+    .map((e) => e.trim())
     .filter(Boolean);
 
-  if (!emails.length) return { error: 'Indiquez au moins une adresse email' };
+  if (!tokens.length) {
+    return { error: 'Indiquez au moins un email ou un numéro de téléphone' };
+  }
 
-  const invalid = emails.find((e) => !EMAIL_RE.test(e));
-  if (invalid) return { error: `Adresse invalide : ${invalid}` };
+  const emails: string[] = [];
+  const phones: string[] = [];
+  for (const token of tokens) {
+    if (EMAIL_RE.test(token)) {
+      emails.push(token.toLowerCase());
+      continue;
+    }
+    const phone = normalizeGuineaPhone(token);
+    if (phone) {
+      phones.push(phone);
+      continue;
+    }
+    return { error: `Destinataire invalide : ${token} (email ou numéro guinéen)` };
+  }
 
   const { data: org } = await supabase
     .from('organizations')
     .select('name')
     .eq('id', orgId)
     .maybeSingle();
+  const orgName = (org?.name as string) ?? 'ONG';
 
   const questions = parseSurveyQuestions(survey.questions);
   const firstQuestion = questions[0];
 
-  const emailResult = await sendSurveyParticipationLinkEmail({
-    to: emails.length === 1 ? emails[0] : emails,
-    orgName: (org?.name as string) ?? 'ONG',
-    surveyTitle: survey.title as string,
-    surveyDescription: (survey.description as string) ?? null,
-    questionText: firstQuestion?.text ?? null,
-    options: firstQuestion?.options,
-    publicToken: survey.public_token as string,
-    directorName: session?.profile?.full_name ?? null,
-    customMessage: customMessage?.trim() || null,
-  });
+  let sent = 0;
+  const errors: string[] = [];
 
-  if (!emailResult.ok) {
-    return { error: emailResult.error ?? 'Échec de l\'envoi email' };
+  if (emails.length) {
+    const emailResult = await sendSurveyParticipationLinkEmail({
+      to: emails.length === 1 ? emails[0] : emails,
+      orgName,
+      surveyTitle: survey.title as string,
+      surveyDescription: (survey.description as string) ?? null,
+      questionText: firstQuestion?.text ?? null,
+      options: firstQuestion?.options,
+      publicToken: survey.public_token as string,
+      directorName: session?.profile?.full_name ?? null,
+      customMessage: customMessage?.trim() || null,
+    });
+    if (emailResult.ok) sent += emails.length;
+    else errors.push(emailResult.error ?? 'Échec envoi email');
   }
 
-  return { success: true, sent: emails.length };
+  if (phones.length) {
+    const text = buildSurveyParticipationText({
+      orgName,
+      surveyTitle: survey.title as string,
+      publicToken: survey.public_token as string,
+      customMessage: customMessage?.trim() || null,
+    });
+    for (const phone of phones) {
+      const res = await sendNotification({
+        recipient: { phone },
+        content: { text },
+        channels: ['whatsapp', 'sms'],
+      });
+      if (res.ok) sent += 1;
+      else errors.push(res.attempts[res.attempts.length - 1]?.error ?? `Échec envoi ${phone}`);
+    }
+  }
+
+  if (sent === 0) {
+    return { error: errors[0] ?? 'Échec de l’envoi' };
+  }
+
+  return { success: true, sent, partialErrors: errors.length ? errors : undefined };
 }
 
 /** @deprecated use listNgoSurveysForUser */

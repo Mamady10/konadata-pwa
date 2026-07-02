@@ -153,7 +153,7 @@ export function SondageDetailClient({
 
   async function sendParticipationEmail(recipients: string) {
     if (!recipients.trim()) {
-      setEmailStatus('Indiquez au moins une adresse email.');
+      setEmailStatus('Indiquez au moins un numéro ou une adresse email.');
       return;
     }
     setEmailSending(true);
@@ -167,7 +167,7 @@ export function SondageDetailClient({
     setEmailStatus(
       res.sent && res.sent > 1
         ? `Lien envoyé à ${res.sent} destinataires.`
-        : 'Lien de participation envoyé par email.'
+        : 'Lien de participation envoyé.'
     );
     setEmailRecipients('');
   }
@@ -381,19 +381,19 @@ export function SondageDetailClient({
                 <div className="rounded-lg border p-4 space-y-3">
                   <p className="text-sm font-medium flex items-center gap-2">
                     <Mail className="h-4 w-4" />
-                    Envoyer le lien par email
+                    Envoyer le lien (WhatsApp, SMS ou email)
                   </p>
                   <div className="space-y-2">
                     <Label htmlFor="survey-email-to">Destinataire(s)</Label>
                     <Input
                       id="survey-email-to"
                       type="text"
-                      placeholder="email@exemple.com, autre@exemple.com"
+                      placeholder="+224 6XX XX XX XX, email@exemple.com"
                       value={emailRecipients}
                       onChange={(e) => setEmailRecipients(e.target.value)}
                     />
                     <p className="text-[10px] text-muted-foreground">
-                      Plusieurs adresses séparées par une virgule.
+                      Numéros (WhatsApp/SMS) et/ou emails séparés par une virgule ou un espace.
                     </p>
                   </div>
                   <div className="space-y-2">

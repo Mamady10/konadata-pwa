@@ -13,6 +13,30 @@ export interface PaymentOfferEmailParams {
   accessMode?: string | null;
 }
 
+/** Message court (WhatsApp/SMS) avec le lien de paiement sécurisé. */
+export function buildPaymentOfferText(params: {
+  directorName?: string | null;
+  orgName: string;
+  amountGnf: number;
+  paymentToken: string;
+  accessMode?: string | null;
+}): string {
+  const paymentUrl = buildPaymentOfferUrl(params.paymentToken, getAppBaseUrlFromEnv());
+  const who = params.directorName?.trim() ? params.directorName.trim() : 'Bonjour';
+  const isTrial = params.accessMode === 'trial_30d';
+  const amountLine =
+    params.amountGnf > 0
+      ? `Montant : ${formatCurrency(params.amountGnf)}.`
+      : isTrial
+        ? 'Essai 30 jours disponible.'
+        : 'Offre validée.';
+  return (
+    `${who} — KonaData\n` +
+    `L'abonnement de ${params.orgName} est prêt. ${amountLine}\n` +
+    `Payer / activer : ${paymentUrl}`
+  );
+}
+
 export async function sendPaymentOfferEmail(
   params: PaymentOfferEmailParams
 ): Promise<ResendSendResult> {

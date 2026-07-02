@@ -14,6 +14,22 @@ export interface SurveyParticipationEmailParams {
   customMessage?: string | null;
 }
 
+/** Message court (WhatsApp/SMS) invitant à participer au sondage. */
+export function buildSurveyParticipationText(params: {
+  orgName: string;
+  surveyTitle: string;
+  publicToken: string;
+  customMessage?: string | null;
+}): string {
+  const participationUrl = buildParticipationUrl(params.publicToken, getAppBaseUrlFromEnv());
+  const custom = params.customMessage?.trim() ? `${params.customMessage.trim()}\n` : '';
+  return (
+    `${params.orgName} vous invite à participer au sondage « ${params.surveyTitle} » sur KonaData.\n` +
+    custom +
+    `Répondez ici : ${participationUrl}`
+  );
+}
+
 export async function sendSurveyParticipationLinkEmail(
   params: SurveyParticipationEmailParams
 ): Promise<ResendSendResult> {

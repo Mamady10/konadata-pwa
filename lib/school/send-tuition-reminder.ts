@@ -1,4 +1,4 @@
-import { sendWhatsAppOtpMessage } from '@/lib/integrations/whatsapp';
+import { sendWhatsAppNotification } from '@/lib/integrations/whatsapp';
 import { formatCurrency } from '@/lib/utils';
 
 export interface TuitionReminderPayload {
@@ -47,7 +47,7 @@ export async function sendTuitionReminderWhatsApp(
   payload: TuitionReminderPayload
 ): Promise<{ ok: boolean; error?: string; skipped?: boolean }> {
   const body = buildTuitionReminderWhatsAppMessage(payload);
-  const res = await sendWhatsAppOtpMessage(payload.phoneE164, body);
+  const res = await sendWhatsAppNotification(payload.phoneE164, body);
   if (!res.ok && res.skipped) {
     console.log(`[tuition-reminder WhatsApp DEV] ${payload.phoneE164}: ${body}`);
     return { ok: true, skipped: true };

@@ -1,5 +1,5 @@
-import { sendTransactionalSms } from '@/lib/auth/send-auth-otp';
 import { normalizeGuineaPhone } from '@/lib/survey/phone';
+import { sendNotification } from '@/lib/notifications/send-notification';
 
 function appBaseUrl(): string {
   return (
@@ -7,6 +7,21 @@ function appBaseUrl(): string {
     process.env.VERCEL_URL?.trim()?.replace(/^/, 'https://') ||
     'http://localhost:3000'
   );
+}
+
+/** WhatsApp prioritaire (canal le plus fiable), repli SMS. */
+async function notifyGuardian(
+  phoneE164: string,
+  text: string
+): Promise<{ sent: boolean; skipped?: string }> {
+  const res = await sendNotification({
+    recipient: { phone: phoneE164 },
+    content: { text },
+    channels: ['whatsapp', 'sms'],
+  });
+  if (res.ok) return { sent: true };
+  const lastError = res.attempts[res.attempts.length - 1]?.error;
+  return { sent: false, skipped: lastError ?? 'Envoi impossible' };
 }
 
 export async function notifyEnrollmentConfirmed(params: {
@@ -17,7 +32,7 @@ export async function notifyEnrollmentConfirmed(params: {
   className: string | null;
 }): Promise<{ sent: boolean; skipped?: string }> {
   if (!params.guardianSmsConsent) {
-    return { sent: false, skipped: 'Consentement SMS non accordé' };
+    return { sent: false, skipped: 'Consentement notifications non accordé' };
   }
   if (!params.guardianPhone?.trim()) {
     return { sent: false, skipped: 'Téléphone tuteur manquant' };
@@ -31,8 +46,7 @@ export async function notifyEnrollmentConfirmed(params: {
   const classPart = params.className ? ` Classe : ${params.className}.` : '';
   const body = `KonaData — ${params.orgName} : inscription confirmée pour ${params.studentName}.${classPart} Suivi : ${appBaseUrl()}/suivi-scolarite`;
 
-  const res = await sendTransactionalSms(phoneE164, body);
-  return { sent: res.ok, skipped: res.error };
+  return notifyGuardian(phoneE164, body);
 }
 
 export async function notifyBulletinPublished(params: {
@@ -44,7 +58,7 @@ export async function notifyBulletinPublished(params: {
   isFinal: boolean;
 }): Promise<{ sent: boolean; skipped?: string }> {
   if (!params.guardianSmsConsent) {
-    return { sent: false, skipped: 'Consentement SMS non accordé' };
+    return { sent: false, skipped: 'Consentement notifications non accordé' };
   }
   if (!params.guardianPhone?.trim()) {
     return { sent: false, skipped: 'Téléphone tuteur manquant' };
@@ -59,8 +73,7 @@ export async function notifyBulletinPublished(params: {
   const portalUrl = `${appBaseUrl()}/suivi-scolarite`;
   const body = `KonaData — ${params.orgName} : bulletin ${params.semester} (${kind}) pour ${params.studentName}. Téléchargez sur ${portalUrl}`;
 
-  const res = await sendTransactionalSms(phoneE164, body);
-  return { sent: res.ok, skipped: res.error };
+  return notifyGuardian(phoneE164, body);
 }
 
 export async function notifyImportWelcome(params: {
@@ -72,7 +85,7 @@ export async function notifyImportWelcome(params: {
   className: string | null;
 }): Promise<{ sent: boolean; skipped?: string }> {
   if (!params.guardianSmsConsent) {
-    return { sent: false, skipped: 'Consentement SMS non accordé' };
+    return { sent: false, skipped: 'Consentement notifications non accordé' };
   }
   if (!params.guardianPhone?.trim()) {
     return { sent: false, skipped: 'Téléphone tuteur manquant' };
@@ -87,6 +100,5 @@ export async function notifyImportWelcome(params: {
   const classPart = params.className ? ` Classe : ${params.className}.` : '';
   const body = `KonaData — ${params.orgName} : ${params.studentName} est inscrit(e).${classPart}${codePart} Suivi : ${appBaseUrl()}/suivi-scolarite`;
 
-  const res = await sendTransactionalSms(phoneE164, body);
-  return { sent: res.ok, skipped: res.error };
+  return notifyGuardian(phoneE164, body);
 }
