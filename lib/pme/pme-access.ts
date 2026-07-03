@@ -7,6 +7,7 @@ export type PmePage =
   | 'depenses'
   | 'stocks'
   | 'clients'
+  | 'dettes'
   | 'fournisseurs'
   | 'documents'
   | 'rapports';
@@ -18,6 +19,7 @@ const PATH_BY_PAGE: Record<PmePage, string> = {
   depenses: '/pme/depenses',
   stocks: '/pme/stocks',
   clients: '/pme/clients',
+  dettes: '/pme/dettes',
   fournisseurs: '/pme/fournisseurs',
   documents: '/pme/documents',
   rapports: '/pme/rapports',
@@ -34,6 +36,7 @@ const PME_STAFF_HREFS = new Set([
   PATH_BY_PAGE.dashboard,
   PATH_BY_PAGE.ventes,
   PATH_BY_PAGE.clients,
+  PATH_BY_PAGE.dettes,
   PATH_BY_PAGE.stocks,
   PATH_BY_PAGE.documents,
   PATH_BY_PAGE.rapports,

@@ -274,3 +274,144 @@ export async function createPmeSupplier(formData: FormData) {
   revalidatePath('/pme/fournisseurs');
   return { success: true };
 }
+
+// ─── Crédits / Dettes clients ────────────────────────────────
+
+export interface PmeDebtRow {
+  id: string;
+  debtor_name: string;
+  description: string | null;
+  original_amount: number;
+  amount_paid: number;
+  remaining: number;
+  status: 'open' | 'partial' | 'paid';
+  due_date: string | null;
+}
+
+export async function getPmeDebts(orgId: string): Promise<PmeDebtRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('pme_debts')
+    .select(
+      'id, debtor_name, description, original_amount, amount_paid, status, due_date, created_at, pme_customers(name)'
+    )
+    .eq('organization_id', orgId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+
+  const statusRank: Record<string, number> = { open: 0, partial: 1, paid: 2 };
+  return (data ?? [])
+    .map((d) => {
+      const original = Number(d.original_amount ?? 0);
+      const paid = Number(d.amount_paid ?? 0);
+      const customer = d.pme_customers as { name?: string } | null;
+      return {
+        id: d.id as string,
+        debtor_name: (d.debtor_name as string) || customer?.name || 'Client',
+        description: (d.description as string) ?? null,
+        original_amount: original,
+        amount_paid: paid,
+        remaining: Math.max(0, original - paid),
+        status: (d.status as PmeDebtRow['status']) ?? 'open',
+        due_date: (d.due_date as string) ?? null,
+      };
+    })
+    .sort(
+      (a, b) => (statusRank[a.status] ?? 3) - (statusRank[b.status] ?? 3) || b.remaining - a.remaining
+    );
+}
+
+export async function createPmeDebt(formData: FormData) {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+
+  const originalAmount = Number(formData.get('original_amount') || 0);
+  if (originalAmount <= 0) return { error: 'Montant total dû invalide.' };
+
+  const customerId = (formData.get('customer_id') as string)?.trim() || null;
+  let debtorName = (formData.get('debtor_name') as string)?.trim() || '';
+
+  if (!debtorName && customerId) {
+    const { data: cust } = await supabase
+      .from('pme_customers')
+      .select('name')
+      .eq('id', customerId)
+      .eq('organization_id', orgId)
+      .maybeSingle();
+    debtorName = (cust?.name as string) || '';
+  }
+  if (!debtorName) return { error: 'Indiquez un client ou un nom de débiteur.' };
+
+  const incurredAt =
+    (formData.get('incurred_at') as string)?.trim() || new Date().toISOString().slice(0, 10);
+  const initialPayment = Math.max(0, Number(formData.get('initial_payment') || 0));
+
+  const { data: debt, error } = await supabase
+    .from('pme_debts')
+    .insert({
+      organization_id: orgId,
+      customer_id: customerId,
+      debtor_name: debtorName,
+      description: (formData.get('description') as string)?.trim() || null,
+      original_amount: originalAmount,
+      due_date: (formData.get('due_date') as string)?.trim() || null,
+      incurred_at: incurredAt,
+    })
+    .select('id')
+    .single();
+
+  if (error) return { error: error.message };
+
+  if (initialPayment > 0 && debt?.id) {
+    const capped = Math.min(initialPayment, originalAmount);
+    const { error: payErr } = await supabase.from('pme_debt_payments').insert({
+      organization_id: orgId,
+      debt_id: debt.id as string,
+      amount: capped,
+      paid_at: incurredAt,
+      note: 'Acompte initial',
+    });
+    if (payErr) return { error: payErr.message };
+  }
+
+  revalidatePath('/pme/dettes');
+  revalidatePath('/pme');
+  return { success: true };
+}
+
+export async function addPmeDebtPayment(formData: FormData) {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+
+  const debtId = (formData.get('debt_id') as string)?.trim();
+  if (!debtId) return { error: 'Dette introuvable.' };
+  const amount = Number(formData.get('amount') || 0);
+  if (amount <= 0) return { error: 'Montant reçu invalide.' };
+
+  const { data: debt } = await supabase
+    .from('pme_debts')
+    .select('original_amount, amount_paid')
+    .eq('id', debtId)
+    .eq('organization_id', orgId)
+    .maybeSingle();
+  if (!debt) return { error: 'Dette introuvable.' };
+
+  const remaining = Math.max(0, Number(debt.original_amount ?? 0) - Number(debt.amount_paid ?? 0));
+  if (amount > remaining) {
+    return { error: `Le montant dépasse le reste dû (${remaining}).` };
+  }
+
+  const { error } = await supabase.from('pme_debt_payments').insert({
+    organization_id: orgId,
+    debt_id: debtId,
+    amount,
+    paid_at: (formData.get('paid_at') as string)?.trim() || new Date().toISOString().slice(0, 10),
+    note: (formData.get('note') as string)?.trim() || null,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath('/pme/dettes');
+  revalidatePath('/pme');
+  return { success: true };
+}

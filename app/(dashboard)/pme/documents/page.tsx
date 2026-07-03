@@ -11,13 +11,19 @@ export default async function Page() {
   }
   const orgId = session.profile.organization_id;
 
-  const supabase = await createClient();
-  const { data: customTypes } = await supabase
-    .from('organization_document_types')
-    .select('code, label, hint')
-    .eq('organization_id', orgId)
-    .eq('sector', 'pme')
-    .eq('is_active', true);
+  let customTypes: Array<{ code: string; label: string; hint: string | null }> = [];
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from('organization_document_types')
+      .select('code, label, hint')
+      .eq('organization_id', orgId)
+      .eq('sector', 'pme')
+      .eq('is_active', true);
+    customTypes = (data ?? []) as typeof customTypes;
+  } catch {
+    /* table absente en production */
+  }
 
   const captureTypes = getCaptureStandardsForSector('pme').map((t) => ({
     id: t.id,
