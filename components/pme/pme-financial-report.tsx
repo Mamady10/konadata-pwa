@@ -50,7 +50,7 @@ function DayBars({
               }}
             />
             <span className="text-[9px] text-muted-foreground truncate max-w-full text-center">
-              {it.label.slice(0, 3)}
+              {it.label}
             </span>
           </div>
         );
@@ -198,45 +198,48 @@ export function PmeFinancialReport() {
             {/* ENTREES */}
             <SectionTable
               title="Entrées d'argent (ventes)"
+              columnHeader={data.columnHeader}
               accent="bg-blue-50 dark:bg-blue-950/30"
-              days={data.days.map((d) => d.label)}
-              rows={[{ label: 'Montant', values: data.days.map((d) => d.entrees), strong: true }]}
+              columns={data.buckets.map((d) => d.short)}
+              rows={[{ label: 'Montant', values: data.buckets.map((d) => d.entrees), strong: true }]}
               total={data.entreesTotal}
             />
-            <ChartBlock title="Entrées par jour">
-              <DayBars items={data.days.map((d) => ({ label: d.label, value: d.entrees }))} color={ENTREE_COLOR} />
+            <ChartBlock title={`Entrées par ${data.unitLabel}`}>
+              <DayBars items={data.buckets.map((d) => ({ label: d.short, value: d.entrees }))} color={ENTREE_COLOR} />
             </ChartBlock>
 
             {/* DEPENSES */}
             <SectionTable
               title="Dépenses par catégorie"
+              columnHeader={data.columnHeader}
               accent="bg-red-50 dark:bg-red-950/30"
-              days={data.days.map((d) => d.label)}
+              columns={data.buckets.map((d) => d.short)}
               rows={[
                 ...data.expenseCategories.map((c) => ({
                   label: c.category,
-                  values: c.byDay,
+                  values: c.byBucket,
                   strong: false,
                 })),
-                { label: 'Total dépenses', values: data.days.map((d) => d.depenses), strong: true },
+                { label: 'Total dépenses', values: data.buckets.map((d) => d.depenses), strong: true },
               ]}
               total={data.depensesTotal}
               emptyMessage={data.expenseCategories.length === 0 ? 'Aucune dépense sur la période.' : undefined}
             />
-            <ChartBlock title="Dépenses par jour">
-              <DayBars items={data.days.map((d) => ({ label: d.label, value: d.depenses }))} color={DEPENSE_COLOR} />
+            <ChartBlock title={`Dépenses par ${data.unitLabel}`}>
+              <DayBars items={data.buckets.map((d) => ({ label: d.short, value: d.depenses }))} color={DEPENSE_COLOR} />
             </ChartBlock>
 
             {/* RESTE */}
             <SectionTable
               title="Reste (entrées − dépenses)"
+              columnHeader={data.columnHeader}
               accent="bg-emerald-50 dark:bg-emerald-950/30"
-              days={data.days.map((d) => d.label)}
-              rows={[{ label: 'Reste', values: data.days.map((d) => d.reste), strong: true, colorize: true }]}
+              columns={data.buckets.map((d) => d.short)}
+              rows={[{ label: 'Reste', values: data.buckets.map((d) => d.reste), strong: true, colorize: true }]}
               total={data.resteTotal}
             />
-            <ChartBlock title="Reste par jour">
-              <DayBars items={data.days.map((d) => ({ label: d.label, value: d.reste }))} color={RESTE_COLOR} />
+            <ChartBlock title={`Reste par ${data.unitLabel}`}>
+              <DayBars items={data.buckets.map((d) => ({ label: d.short, value: d.reste }))} color={RESTE_COLOR} />
             </ChartBlock>
 
             <p className="text-[11px] text-muted-foreground">
@@ -285,15 +288,17 @@ function ChartBlock({ title, children }: { title: string; children: React.ReactN
 
 function SectionTable({
   title,
+  columnHeader,
   accent,
-  days,
+  columns,
   rows,
   total,
   emptyMessage,
 }: {
   title: string;
+  columnHeader: string;
   accent: string;
-  days: string[];
+  columns: string[];
   rows: { label: string; values: number[]; strong?: boolean; colorize?: boolean }[];
   total: number;
   emptyMessage?: string;
@@ -308,10 +313,10 @@ function SectionTable({
           <table className="w-full text-xs sm:text-sm border-collapse">
             <thead>
               <tr className={`text-left ${accent}`}>
-                <th className="py-2 px-2 font-medium border">Catégorie</th>
-                {days.map((d) => (
-                  <th key={d} className="py-2 px-2 font-medium border text-right whitespace-nowrap">
-                    {d.slice(0, 3)}
+                <th className="py-2 px-2 font-medium border">{columnHeader}</th>
+                {columns.map((d, i) => (
+                  <th key={`${d}-${i}`} className="py-2 px-2 font-medium border text-right whitespace-nowrap">
+                    {d}
                   </th>
                 ))}
                 <th className="py-2 px-2 font-medium border text-right">Total</th>
@@ -342,7 +347,7 @@ function SectionTable({
             </tbody>
             <tfoot>
               <tr className={`${accent} font-bold`}>
-                <td className="py-2 px-2 border" colSpan={days.length + 1}>
+                <td className="py-2 px-2 border" colSpan={columns.length + 1}>
                   Total période
                 </td>
                 <td className="py-2 px-2 border text-right tabular-nums">{fc(total)}</td>

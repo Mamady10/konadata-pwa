@@ -1,4 +1,5 @@
 export type PmeReportPeriod = 'week' | 'month' | 'quarter' | 'year' | 'custom';
+export type PmeGranularity = 'day' | 'week' | 'month';
 
 export interface PmeReportCustomRange {
   start: string;
@@ -13,9 +14,9 @@ export const PME_REPORT_PERIODS: { id: PmeReportPeriod; label: string }[] = [
   { id: 'custom', label: 'Personnalisée' },
 ];
 
-export interface PmeDayRow {
-  key: number;
-  label: string;
+export interface PmeBucketRow {
+  label: string; // libellé complet (ex : "Lundi", "S1 (03/07)", "janv.")
+  short: string; // libellé court pour graphes/colonnes (ex : "Lun", "S1", "jan")
   entrees: number;
   depenses: number;
   reste: number;
@@ -23,7 +24,7 @@ export interface PmeDayRow {
 
 export interface PmeExpenseCategoryRow {
   category: string;
-  byDay: number[]; // 7 valeurs, ordre Lundi→Dimanche
+  byBucket: number[]; // aligné sur l'ordre des buckets
   total: number;
 }
 
@@ -32,7 +33,10 @@ export interface PmeFinancialReportData {
   periodLabel: string;
   rangeLabel: string;
   generatedAt: string;
-  days: PmeDayRow[]; // 7 (Lun→Dim)
+  granularity: PmeGranularity;
+  unitLabel: string; // "jour" | "semaine" | "mois"
+  columnHeader: string; // "Jour" | "Semaine" | "Mois"
+  buckets: PmeBucketRow[];
   expenseCategories: PmeExpenseCategoryRow[];
   entreesTotal: number;
   depensesTotal: number;

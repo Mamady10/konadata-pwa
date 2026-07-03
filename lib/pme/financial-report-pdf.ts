@@ -51,7 +51,8 @@ export async function downloadPmeFinancialReportPdf(
     y += 5;
   };
 
-  const dayLabels = data.days.map((d) => d.label.slice(0, 3));
+  const colLabels = data.buckets.map((b) => b.short);
+  const nCols = colLabels.length || 1;
 
   // ---- En-tête ----
   setFill([10, 25, 47]);
@@ -63,7 +64,11 @@ export async function downloadPmeFinancialReportPdf(
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   const generated = new Date(data.generatedAt).toLocaleDateString('fr-FR', { dateStyle: 'long' });
-  doc.text(`${data.periodLabel}  ·  ${data.rangeLabel}  ·  Généré le ${generated}`, M, 18);
+  doc.text(
+    `${data.periodLabel}  ·  ${data.rangeLabel}  ·  découpage par ${data.unitLabel}  ·  Généré le ${generated}`,
+    M,
+    18
+  );
   y = 32;
 
   // ---- Bilan (3 cartes) ----
@@ -94,17 +99,17 @@ export async function downloadPmeFinancialReportPdf(
   });
   y += cardH + 10;
 
-  // ---- Tableau global (jours en colonnes) ----
-  sectionTitle('Détail par jour');
+  // ---- Tableau global (buckets en colonnes) ----
+  sectionTitle(`Détail par ${data.unitLabel}`);
   drawTable();
 
   // ---- Graphes ----
-  sectionTitle('Entrées par jour');
-  drawBars(data.days.map((d) => d.entrees), blue);
-  sectionTitle('Dépenses par jour');
-  drawBars(data.days.map((d) => d.depenses), red);
-  sectionTitle('Reste par jour');
-  drawBars(data.days.map((d) => d.reste), green, amber);
+  sectionTitle(`Entrées par ${data.unitLabel}`);
+  drawBars(data.buckets.map((d) => d.entrees), blue);
+  sectionTitle(`Dépenses par ${data.unitLabel}`);
+  drawBars(data.buckets.map((d) => d.depenses), red);
+  sectionTitle(`Reste par ${data.unitLabel}`);
+  drawBars(data.buckets.map((d) => d.reste), green, amber);
 
   // ---- Pied de page ----
   const pages = doc.getNumberOfPages();
@@ -126,15 +131,15 @@ export async function downloadPmeFinancialReportPdf(
   function drawTable() {
     const labelW = 46;
     const totalW = 28;
-    const dayW = (W - labelW - totalW) / 7;
+    const colW = (W - labelW - totalW) / nCols;
     const rowH = 7;
 
     type Row = { label: string; values: number[]; strong?: boolean };
     const rows: Row[] = [
-      { label: 'Entrées (ventes)', values: data.days.map((d) => d.entrees), strong: true },
-      ...data.expenseCategories.map((c) => ({ label: c.category, values: c.byDay })),
-      { label: 'Total dépenses', values: data.days.map((d) => d.depenses), strong: true },
-      { label: 'Reste', values: data.days.map((d) => d.reste), strong: true },
+      { label: 'Entrées (ventes)', values: data.buckets.map((d) => d.entrees), strong: true },
+      ...data.expenseCategories.map((c) => ({ label: c.category, values: c.byBucket })),
+      { label: 'Total dépenses', values: data.buckets.map((d) => d.depenses), strong: true },
+      { label: 'Reste', values: data.buckets.map((d) => d.reste), strong: true },
     ];
 
     const header = () => {
@@ -144,9 +149,9 @@ export async function downloadPmeFinancialReportPdf(
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
       setText(muted);
-      doc.text('Catégorie', M + 1.5, y + 4.7);
-      dayLabels.forEach((d, i) => {
-        doc.text(d, M + labelW + dayW * i + dayW - 1.5, y + 4.7, { align: 'right' });
+      doc.text(data.columnHeader, M + 1.5, y + 4.7);
+      colLabels.forEach((d, i) => {
+        doc.text(d, M + labelW + colW * i + colW - 1.5, y + 4.7, { align: 'right' });
       });
       doc.text('Total', M + W - 1.5, y + 4.7, { align: 'right' });
       y += rowH;
@@ -172,7 +177,7 @@ export async function downloadPmeFinancialReportPdf(
       r.values.forEach((v, i) => {
         const isReste = r.label === 'Reste';
         setText(isReste ? (v < 0 ? red : v > 0 ? green : muted) : ink);
-        doc.text(v !== 0 ? fc(v) : '—', M + labelW + dayW * i + dayW - 1.5, y + 4.7, {
+        doc.text(v !== 0 ? fc(v) : '—', M + labelW + colW * i + colW - 1.5, y + 4.7, {
           align: 'right',
         });
       });
@@ -191,7 +196,7 @@ export async function downloadPmeFinancialReportPdf(
     const chartH = 30;
     ensure(chartH + 12);
     const maxV = Math.max(1, ...values.map((v) => Math.abs(v)));
-    const n = values.length;
+    const n = values.length || 1;
     const slot = W / n;
     const barW = Math.min(20, slot * 0.55);
     const baseline = y + chartH;
@@ -213,7 +218,7 @@ export async function downloadPmeFinancialReportPdf(
       });
       doc.setFont('helvetica', 'normal');
       setText(muted);
-      doc.text(dayLabels[i], cx, baseline + 4, { align: 'center' });
+      doc.text(colLabels[i] ?? '', cx, baseline + 4, { align: 'center' });
     });
     y = baseline + 12;
   }
