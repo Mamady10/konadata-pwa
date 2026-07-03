@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { requireOrgId } from '@/lib/actions/org';
 import type { AppRole } from '@/types/database';
 
-export type AssignmentResourceType = 'school_class' | 'ngo_project' | 'btp_site';
+export type AssignmentResourceType = 'school_class' | 'ngo_project' | 'btp_site' | 'pme_boutique';
 
 export interface ClassAssignmentRow {
   id: string;
@@ -79,6 +79,26 @@ export interface BtpStaffAssignmentRow {
 export interface BtpAssignmentsPayload {
   sites: BtpSiteAssignmentRow[];
   staff: BtpStaffAssignmentRow[];
+}
+
+export interface PmeBoutiqueAssignmentRow {
+  id: string;
+  name: string;
+  address: string | null;
+  is_active: boolean;
+}
+
+export interface PmeStaffAssignmentRow {
+  id: string;
+  full_name: string;
+  email: string;
+  role: AppRole;
+  boutiqueIds: string[];
+}
+
+export interface PmeAssignmentsPayload {
+  boutiques: PmeBoutiqueAssignmentRow[];
+  staff: PmeStaffAssignmentRow[];
 }
 
 async function requireAssignmentManager() {
@@ -577,6 +597,121 @@ export async function saveBtpStaffSiteAssignments(profileId: string, siteIds: st
   return { success: true };
 }
 
+export async function getPmeAssignments(): Promise<PmeAssignmentsPayload> {
+  const orgId = await requireAssignmentManager();
+  const supabase = await createClient();
+
+  const [{ data: boutiques, error: bqErr }, { data: staff, error: staffErr }, { data: assignments, error: assignErr }] =
+    await Promise.all([
+      supabase
+        .from('pme_boutiques')
+        .select('id, name, address, is_active')
+        .eq('organization_id', orgId)
+        .order('name'),
+      supabase
+        .from('profiles')
+        .select('id, full_name, email, role')
+        .eq('organization_id', orgId)
+        .eq('is_active', true)
+        .eq('role', 'pme_staff')
+        .order('full_name'),
+      supabase
+        .from('collaborator_assignments')
+        .select('profile_id, resource_id')
+        .eq('organization_id', orgId)
+        .eq('resource_type', 'pme_boutique'),
+    ]);
+
+  if (bqErr) throw new Error(bqErr.message);
+  if (staffErr) throw new Error(staffErr.message);
+  if (assignErr) throw new Error(assignErr.message);
+
+  const byProfile = new Map<string, string[]>();
+  for (const row of assignments ?? []) {
+    const list = byProfile.get(row.profile_id) ?? [];
+    list.push(row.resource_id as string);
+    byProfile.set(row.profile_id, list);
+  }
+
+  return {
+    boutiques: (boutiques ?? []) as PmeBoutiqueAssignmentRow[],
+    staff: (staff ?? []).map((s) => ({
+      id: s.id as string,
+      full_name: s.full_name as string,
+      email: s.email as string,
+      role: s.role as AppRole,
+      boutiqueIds: byProfile.get(s.id as string) ?? [],
+    })),
+  };
+}
+
+export async function savePmeStaffBoutiqueAssignments(profileId: string, boutiqueIds: string[]) {
+  const orgId = await requireAssignmentManager();
+  const supabase = await createClient();
+
+  const { data: profile, error: profileErr } = await supabase
+    .from('profiles')
+    .select('id, role, organization_id')
+    .eq('id', profileId)
+    .eq('organization_id', orgId)
+    .single();
+
+  if (profileErr || !profile) {
+    return { error: 'Gérant introuvable dans votre entreprise.' };
+  }
+
+  if (profile.role !== 'pme_staff') {
+    return { error: 'Les assignations de boutiques concernent le staff PME.' };
+  }
+
+  const uniqueIds = [...new Set(boutiqueIds.filter(Boolean))];
+
+  if (uniqueIds.length > 0) {
+    const { data: validBoutiques, error: validErr } = await supabase
+      .from('pme_boutiques')
+      .select('id')
+      .eq('organization_id', orgId)
+      .in('id', uniqueIds);
+
+    if (validErr) return { error: validErr.message };
+    if ((validBoutiques ?? []).length !== uniqueIds.length) {
+      return { error: 'Une ou plusieurs boutiques sont invalides.' };
+    }
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const { error: deleteErr } = await supabase
+    .from('collaborator_assignments')
+    .delete()
+    .eq('organization_id', orgId)
+    .eq('profile_id', profileId)
+    .eq('resource_type', 'pme_boutique');
+
+  if (deleteErr) return { error: deleteErr.message };
+
+  if (uniqueIds.length > 0) {
+    const rows = uniqueIds.map((boutiqueId) => ({
+      organization_id: orgId,
+      profile_id: profileId,
+      resource_type: 'pme_boutique' as const,
+      resource_id: boutiqueId,
+      can_import: false,
+      can_upload: true,
+      can_edit: true,
+      assigned_by: user?.id ?? null,
+    }));
+
+    const { error: insertErr } = await supabase.from('collaborator_assignments').insert(rows);
+    if (insertErr) return { error: insertErr.message };
+  }
+
+  revalidatePath('/pme/assignations');
+  revalidatePath('/pme/boutiques');
+  revalidatePath('/pme/rapports');
+  return { success: true };
+}
+
 export async function canManageAssignments(): Promise<boolean> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('can_manage_assignments');
@@ -658,6 +793,25 @@ export async function getMyAssignedBtpSiteIds(): Promise<string[] | null> {
     .select('resource_id')
     .eq('profile_id', user.id)
     .eq('resource_type', 'btp_site');
+
+  if (error) return [];
+  return (data ?? []).map((r) => r.resource_id as string);
+}
+
+/** null = accès à toutes les boutiques (directeur). [] = aucune assignation. */
+export async function getMyAssignedBoutiqueIds(): Promise<string[] | null> {
+  const canManage = await canManageAssignments();
+  if (canManage) return null;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('collaborator_assignments')
+    .select('resource_id')
+    .eq('profile_id', user.id)
+    .eq('resource_type', 'pme_boutique');
 
   if (error) return [];
   return (data ?? []).map((r) => r.resource_id as string);

@@ -5,6 +5,9 @@ import { revalidatePath } from 'next/cache';
 import { requireOrgId } from '@/lib/actions/org';
 import { getPmeDashboardKpis } from '@/lib/actions/data';
 import { paymentStatusLabel } from '@/lib/sector/status-labels';
+import { getMyAssignedBoutiqueIds } from '@/lib/actions/assignments';
+import { getSession } from '@/lib/actions/auth';
+import { isPmeDirector } from '@/lib/pme/pme-access';
 
 export interface PmeBoutiqueRow {
   id: string;
@@ -23,7 +26,17 @@ export async function getPmeBoutiques(orgId: string): Promise<PmeBoutiqueRow[]> 
     .eq('organization_id', orgId)
     .order('name');
   if (error) throw error;
-  return (data ?? []) as PmeBoutiqueRow[];
+  const rows = (data ?? []) as PmeBoutiqueRow[];
+
+  // Un directeur (dont comptable) voit toutes les boutiques.
+  // Un gérant (pme_staff) ne voit que les boutiques qui lui sont assignées.
+  const session = await getSession().catch(() => null);
+  if (isPmeDirector(session?.profile?.role)) return rows;
+
+  const assigned = await getMyAssignedBoutiqueIds().catch(() => null);
+  if (assigned === null) return rows;
+  const allowed = new Set(assigned);
+  return rows.filter((b) => allowed.has(b.id));
 }
 
 export async function createPmeBoutique(formData: FormData) {
@@ -39,6 +52,51 @@ export async function createPmeBoutique(formData: FormData) {
     phone: (formData.get('phone') as string)?.trim() || null,
     manager: (formData.get('manager') as string)?.trim() || null,
   });
+  if (error) return { error: error.message };
+  revalidatePath('/pme/boutiques');
+  revalidatePath('/pme/rapports');
+  return { success: true };
+}
+
+export async function updatePmeBoutique(formData: FormData) {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+  const id = (formData.get('id') as string)?.trim();
+  const name = (formData.get('name') as string)?.trim();
+  if (!id) return { error: 'Boutique introuvable.' };
+  if (!name) return { error: 'Nom de la boutique requis.' };
+
+  const isActiveRaw = formData.get('is_active');
+  const patch: Record<string, unknown> = {
+    name,
+    address: (formData.get('address') as string)?.trim() || null,
+    phone: (formData.get('phone') as string)?.trim() || null,
+    manager: (formData.get('manager') as string)?.trim() || null,
+  };
+  if (isActiveRaw !== null) {
+    patch.is_active = isActiveRaw === 'true' || isActiveRaw === 'on' || isActiveRaw === '1';
+  }
+
+  const { error } = await supabase
+    .from('pme_boutiques')
+    .update(patch)
+    .eq('id', id)
+    .eq('organization_id', orgId);
+  if (error) return { error: error.message };
+  revalidatePath('/pme/boutiques');
+  revalidatePath('/pme/rapports');
+  return { success: true };
+}
+
+export async function setPmeBoutiqueActive(id: string, isActive: boolean) {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+  if (!id) return { error: 'Boutique introuvable.' };
+  const { error } = await supabase
+    .from('pme_boutiques')
+    .update({ is_active: isActive })
+    .eq('id', id)
+    .eq('organization_id', orgId);
   if (error) return { error: error.message };
   revalidatePath('/pme/boutiques');
   revalidatePath('/pme/rapports');

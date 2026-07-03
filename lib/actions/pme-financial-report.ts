@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/lib/actions/auth';
+import { getPmeBoutiques } from '@/lib/actions/pme';
+import { isPmeDirector } from '@/lib/pme/pme-access';
 import type {
   PmeReportPeriod,
   PmeReportCustomRange,
@@ -9,6 +11,8 @@ import type {
   PmeBucketRow,
   PmeExpenseCategoryRow,
   PmeFinancialReportData,
+  PmeBoutiqueCompareRow,
+  PmeBoutiqueComparison,
 } from '@/lib/pme/financial-report-types';
 
 const WEEKDAY_NAMES = [
@@ -340,6 +344,123 @@ export async function getPmeFinancialAnalysis(
       depensesTotal,
       resteTotal: entreesTotal - depensesTotal,
       salesCount,
+    },
+  };
+}
+
+/** Récapitulatif comparatif : chiffres par boutique côte à côte, sur la période choisie. */
+export async function getPmeBoutiqueComparison(
+  period: PmeReportPeriod = 'month',
+  custom?: PmeReportCustomRange
+): Promise<{ data: PmeBoutiqueComparison } | { error: string }> {
+  const session = await getSession();
+  const orgId = session?.profile?.organization_id;
+  if (!orgId) return { error: 'Organisation introuvable.' };
+
+  const isDirector = isPmeDirector(session?.profile?.role);
+  const { start, end, label } = resolvePeriod(period, custom);
+  const startIso = fmtDate(start);
+  const endIso = fmtDate(end);
+
+  const boutiques = await getPmeBoutiques(orgId).catch(() => []);
+  if (boutiques.length === 0) {
+    return {
+      data: {
+        periodLabel: label,
+        rangeLabel: `${start.toLocaleDateString('fr-FR')} – ${end.toLocaleDateString('fr-FR')}`,
+        rows: [],
+        totals: { entrees: 0, depenses: 0, reste: 0, salesCount: 0 },
+      },
+    };
+  }
+
+  const allowed = new Set(boutiques.map((b) => b.id));
+  const supabase = await createClient();
+
+  const [salesRes, expensesRes] = await Promise.all([
+    supabase
+      .from('pme_sales')
+      .select('total, boutique_id')
+      .eq('organization_id', orgId)
+      .gte('sold_at', start.toISOString())
+      .lte('sold_at', end.toISOString()),
+    supabase
+      .from('pme_expenses')
+      .select('amount, boutique_id')
+      .eq('organization_id', orgId)
+      .gte('expense_date', startIso)
+      .lte('expense_date', endIso),
+  ]);
+
+  type Agg = { entrees: number; depenses: number; salesCount: number };
+  const byBoutique = new Map<string, Agg>();
+  const ensure = (id: string): Agg => {
+    let a = byBoutique.get(id);
+    if (!a) {
+      a = { entrees: 0, depenses: 0, salesCount: 0 };
+      byBoutique.set(id, a);
+    }
+    return a;
+  };
+
+  const NONE = '__none__';
+  for (const s of salesRes.data ?? []) {
+    const bid = (s.boutique_id as string | null) ?? NONE;
+    if (bid !== NONE && !allowed.has(bid)) continue;
+    if (bid === NONE && !isDirector) continue;
+    const a = ensure(bid);
+    a.entrees += Number(s.total) || 0;
+    a.salesCount += 1;
+  }
+  for (const e of expensesRes.data ?? []) {
+    const bid = (e.boutique_id as string | null) ?? NONE;
+    if (bid !== NONE && !allowed.has(bid)) continue;
+    if (bid === NONE && !isDirector) continue;
+    const a = ensure(bid);
+    a.depenses += Number(e.amount) || 0;
+  }
+
+  const rows: PmeBoutiqueCompareRow[] = boutiques.map((b) => {
+    const a = byBoutique.get(b.id) ?? { entrees: 0, depenses: 0, salesCount: 0 };
+    return {
+      boutiqueId: b.id,
+      name: b.name,
+      entrees: a.entrees,
+      depenses: a.depenses,
+      reste: a.entrees - a.depenses,
+      salesCount: a.salesCount,
+    };
+  });
+
+  const none = byBoutique.get(NONE);
+  if (isDirector && none && (none.entrees !== 0 || none.depenses !== 0 || none.salesCount !== 0)) {
+    rows.push({
+      boutiqueId: null,
+      name: 'Sans boutique',
+      entrees: none.entrees,
+      depenses: none.depenses,
+      reste: none.entrees - none.depenses,
+      salesCount: none.salesCount,
+    });
+  }
+
+  const totals = rows.reduce(
+    (acc, r) => {
+      acc.entrees += r.entrees;
+      acc.depenses += r.depenses;
+      acc.reste += r.reste;
+      acc.salesCount += r.salesCount;
+      return acc;
+    },
+    { entrees: 0, depenses: 0, reste: 0, salesCount: 0 }
+  );
+
+  return {
+    data: {
+      periodLabel: label,
+      rangeLabel: `${start.toLocaleDateString('fr-FR')} – ${end.toLocaleDateString('fr-FR')}`,
+      rows,
+      totals,
     },
   };
 }

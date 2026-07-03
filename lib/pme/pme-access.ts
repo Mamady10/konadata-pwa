@@ -10,6 +10,7 @@ export type PmePage =
   | 'dettes'
   | 'fournisseurs'
   | 'boutiques'
+  | 'assignations'
   | 'documents'
   | 'rapports';
 
@@ -23,6 +24,7 @@ const PATH_BY_PAGE: Record<PmePage, string> = {
   dettes: '/pme/dettes',
   fournisseurs: '/pme/fournisseurs',
   boutiques: '/pme/boutiques',
+  assignations: '/pme/assignations',
   documents: '/pme/documents',
   rapports: '/pme/rapports',
 };

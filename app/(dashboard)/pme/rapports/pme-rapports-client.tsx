@@ -3,6 +3,7 @@
 import { ReportItemsList, type ReportListItem } from '@/components/reports/report-items-list';
 import { FileText } from 'lucide-react';
 import { PmeFinancialReport } from '@/components/pme/pme-financial-report';
+import { PmeBoutiqueComparisonPanel } from '@/components/pme/pme-boutique-comparison';
 
 interface Props {
   items: ReportListItem[];
@@ -20,6 +21,8 @@ export function PmeRapportsClient({ items, boutiques }: Props) {
       </div>
 
       <PmeFinancialReport boutiques={boutiques} />
+
+      {boutiques.length > 0 && <PmeBoutiqueComparisonPanel />}
 
       <ReportItemsList
         title="Indicateurs synthèse"

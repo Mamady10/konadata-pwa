@@ -28,6 +28,22 @@ export interface PmeExpenseCategoryRow {
   total: number;
 }
 
+export interface PmeBoutiqueCompareRow {
+  boutiqueId: string | null;
+  name: string;
+  entrees: number;
+  depenses: number;
+  reste: number;
+  salesCount: number;
+}
+
+export interface PmeBoutiqueComparison {
+  periodLabel: string;
+  rangeLabel: string;
+  rows: PmeBoutiqueCompareRow[];
+  totals: { entrees: number; depenses: number; reste: number; salesCount: number };
+}
+
 export interface PmeFinancialReportData {
   orgName: string;
   boutiqueName: string | null;

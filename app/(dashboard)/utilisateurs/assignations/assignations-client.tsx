@@ -6,10 +6,10 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, FolderKanban, GraduationCap, HardHat, Save, Users } from 'lucide-react';
+import { ArrowLeft, FolderKanban, GraduationCap, HardHat, Save, Store, Users } from 'lucide-react';
 import type { OrganizationType } from '@/types/database';
 import { ROLE_LABELS } from '@/types/database';
-import type { BtpAssignmentsPayload, NgoAssignmentsPayload, SchoolAssignmentsPayload } from '@/lib/actions/assignments';
+import type { BtpAssignmentsPayload, NgoAssignmentsPayload, PmeAssignmentsPayload, SchoolAssignmentsPayload } from '@/lib/actions/assignments';
 import {
   parseEducationLevelBand,
   subjectMatchesClassBand,
@@ -21,6 +21,7 @@ import {
 import {
   saveBtpStaffSiteAssignments,
   saveNgoStaffProjectAssignments,
+  savePmeStaffBoutiqueAssignments,
   saveTeacherTeachingAssignments,
 } from '@/lib/actions/assignments';
 
@@ -30,10 +31,11 @@ interface Props {
   schoolData: SchoolAssignmentsPayload | null;
   ngoData: NgoAssignmentsPayload | null;
   btpData: BtpAssignmentsPayload | null;
+  pmeData?: PmeAssignmentsPayload | null;
   canManage: boolean;
 }
 
-export function AssignationsClient({ orgName, orgType, schoolData, ngoData, btpData, canManage }: Props) {
+export function AssignationsClient({ orgName, orgType, schoolData, ngoData, btpData, pmeData, canManage }: Props) {
   const moduleType =
     orgType === 'btp' || (orgType as string) === 'construction' ? 'btp' : orgType;
 
@@ -57,6 +59,13 @@ export function AssignationsClient({ orgName, orgType, schoolData, ngoData, btpD
     const initial: Record<string, string[]> = {};
     btpData?.staff.forEach((s) => {
       initial[s.id] = [...s.siteIds];
+    });
+    return initial;
+  });
+  const [pmeDraft, setPmeDraft] = useState<Record<string, string[]>>(() => {
+    const initial: Record<string, string[]> = {};
+    pmeData?.staff.forEach((s) => {
+      initial[s.id] = [...s.boutiqueIds];
     });
     return initial;
   });
@@ -106,6 +115,15 @@ export function AssignationsClient({ orgName, orgType, schoolData, ngoData, btpD
     });
   }
 
+  function togglePmeBoutique(staffId: string, boutiqueId: string, checked: boolean) {
+    setPmeDraft((prev) => {
+      const current = new Set(prev[staffId] ?? []);
+      if (checked) current.add(boutiqueId);
+      else current.delete(boutiqueId);
+      return { ...prev, [staffId]: [...current] };
+    });
+  }
+
   async function handleSaveSchool(teacherId: string) {
     setSavingId(teacherId);
     setMessage(null);
@@ -145,6 +163,119 @@ export function AssignationsClient({ orgName, orgType, schoolData, ngoData, btpD
       router.refresh();
     }
     setSavingId(null);
+  }
+
+  async function handleSavePme(staffId: string) {
+    setSavingId(staffId);
+    setMessage(null);
+    const result = await savePmeStaffBoutiqueAssignments(staffId, pmeDraft[staffId] ?? []);
+    if ('error' in result) setMessage({ type: 'err', text: result.error ?? 'Erreur' });
+    else {
+      setMessage({ type: 'ok', text: 'Assignations enregistrées.' });
+      router.refresh();
+    }
+    setSavingId(null);
+  }
+
+  if ((moduleType as string) === 'business') {
+    const { boutiques, staff } = pmeData ?? { boutiques: [], staff: [] };
+
+    return (
+      <div className="space-y-6">
+        <Header orgName={orgName} />
+
+        {message && (
+          <p className={`text-sm rounded-lg p-3 ${message.type === 'ok' ? 'bg-emerald-500/10 text-emerald-800' : 'bg-destructive/10 text-destructive'}`}>
+            {message.text}
+          </p>
+        )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Store className="h-5 w-5 text-primary" />
+              Gérants ↔ Boutiques (PME)
+            </CardTitle>
+            <CardDescription>
+              Choisissez les boutiques que chaque gérant peut gérer et voir (ventes, achats, dépenses, rapports).
+              Les directeurs voient toutes les boutiques et le rapport général.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {boutiques.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Aucune boutique. Créez des boutiques dans{' '}
+                <Link href="/pme/boutiques" className="text-primary underline">Boutiques</Link>.
+              </p>
+            )}
+
+            {staff.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Aucun gérant invité. Générez un code « Staff PME » dans{' '}
+                <Link href="/utilisateurs" className="text-primary underline">Utilisateurs</Link>.
+              </p>
+            )}
+
+            {staff.map((member) => (
+              <div key={member.id} className="rounded-lg border p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="font-medium">{member.full_name}</p>
+                    <p className="text-xs text-muted-foreground">{member.email}</p>
+                  </div>
+                  <Badge variant="outline">{ROLE_LABELS[member.role] ?? member.role}</Badge>
+                </div>
+
+                {boutiques.length > 0 && (
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {boutiques.map((boutique) => {
+                      const checked = (pmeDraft[member.id] ?? []).includes(boutique.id);
+                      return (
+                        <label
+                          key={boutique.id}
+                          className="flex items-start gap-2 rounded-md border p-3 cursor-pointer hover:bg-muted/40"
+                        >
+                          <input
+                            type="checkbox"
+                            className="mt-1 h-4 w-4 rounded border-gray-300"
+                            checked={checked}
+                            onChange={(e) => togglePmeBoutique(member.id, boutique.id, e.target.checked)}
+                            disabled={!canManage || savingId === member.id}
+                          />
+                          <span className="text-sm">
+                            <span className="font-medium">
+                              {boutique.name}
+                              {!boutique.is_active && (
+                                <span className="text-muted-foreground font-normal"> (inactive)</span>
+                              )}
+                            </span>
+                            {boutique.address && (
+                              <span className="block text-xs text-muted-foreground">{boutique.address}</span>
+                            )}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {canManage && (
+                  <Button
+                    size="sm"
+                    onClick={() => handleSavePme(member.id)}
+                    disabled={savingId === member.id}
+                    className="bg-[#2563EB] hover:bg-[#2563EB]/90"
+                  >
+                    <Save className="h-4 w-4" />
+                    {savingId === member.id ? 'Enregistrement…' : 'Enregistrer pour ce gérant'}
+                  </Button>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   if (moduleType === 'btp') {
