@@ -247,6 +247,33 @@ export async function getPmeDashboard(orgId: string) {
   };
 }
 
+/**
+ * Détermine la boutique à rattacher à une opération créée.
+ * - Directeur : la boutique choisie (ou null) est acceptée telle quelle.
+ * - Gérant (pme_staff) : doit rester dans ses boutiques assignées. Si aucune
+ *   n'est choisie et qu'il n'en a qu'une, elle est utilisée automatiquement.
+ */
+async function resolveBoutiqueIdForWrite(
+  raw: FormDataEntryValue | null
+): Promise<{ id: string | null } | { error: string }> {
+  const chosen = (raw as string)?.trim() || null;
+  const session = await getSession().catch(() => null);
+  if (isPmeDirector(session?.profile?.role)) return { id: chosen };
+
+  const assigned = (await getMyAssignedBoutiqueIds().catch(() => [])) ?? [];
+  if (chosen) {
+    if (!assigned.includes(chosen)) {
+      return { error: 'Cette boutique ne vous est pas assignée.' };
+    }
+    return { id: chosen };
+  }
+  if (assigned.length === 1) return { id: assigned[0] };
+  if (assigned.length === 0) {
+    return { error: "Aucune boutique ne vous est assignée. Contactez la direction." };
+  }
+  return { error: 'Veuillez choisir une boutique.' };
+}
+
 function nextPmeReference(prefix: string): string {
   const d = new Date();
   const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
@@ -261,10 +288,13 @@ export async function createPmeSale(formData: FormData) {
   const total = Number(formData.get('total') || 0);
   if (total <= 0) return { error: 'Montant invalide.' };
 
+  const boutique = await resolveBoutiqueIdForWrite(formData.get('boutique_id'));
+  if ('error' in boutique) return { error: boutique.error };
+
   const { error } = await supabase.from('pme_sales').insert({
     organization_id: orgId,
     customer_id: (formData.get('customer_id') as string) || null,
-    boutique_id: (formData.get('boutique_id') as string) || null,
+    boutique_id: boutique.id,
     reference,
     total,
     subtotal: total,
@@ -284,10 +314,13 @@ export async function createPmePurchase(formData: FormData) {
   const total = Number(formData.get('total') || 0);
   if (total <= 0) return { error: 'Montant invalide.' };
 
+  const boutique = await resolveBoutiqueIdForWrite(formData.get('boutique_id'));
+  if ('error' in boutique) return { error: boutique.error };
+
   const { error } = await supabase.from('pme_purchases').insert({
     organization_id: orgId,
     supplier_id: (formData.get('supplier_id') as string) || null,
-    boutique_id: (formData.get('boutique_id') as string) || null,
+    boutique_id: boutique.id,
     reference,
     total,
     payment_status: (formData.get('payment_status') as string) || 'pending',
@@ -306,10 +339,13 @@ export async function createPmeExpense(formData: FormData) {
   const category = (formData.get('category') as string)?.trim() || 'general';
   if (amount <= 0) return { error: 'Montant invalide.' };
 
+  const boutique = await resolveBoutiqueIdForWrite(formData.get('boutique_id'));
+  if ('error' in boutique) return { error: boutique.error };
+
   const { error } = await supabase.from('pme_expenses').insert({
     organization_id: orgId,
     category,
-    boutique_id: (formData.get('boutique_id') as string) || null,
+    boutique_id: boutique.id,
     description: (formData.get('description') as string)?.trim() || null,
     amount,
     expense_date: (formData.get('expense_date') as string)?.trim() || new Date().toISOString().slice(0, 10),
@@ -326,10 +362,13 @@ export async function createPmeProduct(formData: FormData) {
   const name = (formData.get('name') as string)?.trim();
   if (!name) return { error: 'Nom requis.' };
 
+  const boutique = await resolveBoutiqueIdForWrite(formData.get('boutique_id'));
+  if ('error' in boutique) return { error: boutique.error };
+
   const { error } = await supabase.from('pme_products').insert({
     organization_id: orgId,
     name,
-    boutique_id: (formData.get('boutique_id') as string) || null,
+    boutique_id: boutique.id,
     sku: (formData.get('sku') as string)?.trim() || null,
     unit: (formData.get('unit') as string)?.trim() || 'unité',
     unit_price: Number(formData.get('unit_price') || 0),
