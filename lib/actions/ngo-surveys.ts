@@ -609,7 +609,7 @@ export async function sendNgoSurveyParticipationLink(
       const res = await sendNotification({
         recipient: { phone },
         content: { text },
-        channels: ['whatsapp', 'sms'],
+        channels: ['whatsapp'],
       });
       if (res.ok) sent += 1;
       else errors.push(res.attempts[res.attempts.length - 1]?.error ?? `Échec envoi ${phone}`);

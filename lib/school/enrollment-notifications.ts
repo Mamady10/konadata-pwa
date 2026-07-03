@@ -9,7 +9,7 @@ function appBaseUrl(): string {
   );
 }
 
-/** WhatsApp prioritaire (canal le plus fiable), repli SMS. */
+/** Messagerie 100 % WhatsApp (canal le plus fiable et le moins cher en Guinée). */
 async function notifyGuardian(
   phoneE164: string,
   text: string
@@ -17,7 +17,7 @@ async function notifyGuardian(
   const res = await sendNotification({
     recipient: { phone: phoneE164 },
     content: { text },
-    channels: ['whatsapp', 'sms'],
+    channels: ['whatsapp'],
   });
   if (res.ok) return { sent: true };
   const lastError = res.attempts[res.attempts.length - 1]?.error;

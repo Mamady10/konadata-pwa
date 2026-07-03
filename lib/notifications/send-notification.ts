@@ -46,7 +46,11 @@ export interface SendNotificationResult {
   attempts: NotificationAttempt[];
 }
 
-const DEFAULT_ORDER: NotificationChannel[] = ['whatsapp', 'sms', 'email'];
+// Politique messagerie : 100 % WhatsApp (canal le plus fiable et le moins cher
+// en Guinée), avec repli email gratuit lorsqu'une adresse est disponible. Le SMS
+// payant n'est plus utilisé pour les notifications ; il reste réservé aux OTP
+// d'authentification (voir lib/auth/send-auth-otp.ts).
+const DEFAULT_ORDER: NotificationChannel[] = ['whatsapp', 'email'];
 
 function escapeHtml(s: string): string {
   return s
@@ -64,8 +68,10 @@ function textToHtml(text: string): string {
 
 /**
  * Envoi unifié d'une notification. Par défaut, tente WhatsApp en priorité (canal
- * le plus fiable en Guinée), puis repli SMS, puis email — et s'arrête au premier
- * canal réussi. Passer `broadcast: true` pour diffuser sur tous les canaux.
+ * le plus fiable et le moins cher en Guinée), puis repli email — et s'arrête au
+ * premier canal réussi. Le SMS payant n'est plus dans l'ordre par défaut ; il faut
+ * l'ajouter explicitement via `channels` si un cas particulier le justifie.
+ * Passer `broadcast: true` pour diffuser sur tous les canaux.
  */
 export async function sendNotification(
   options: SendNotificationOptions
