@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { LucideIcon, Download, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { downloadTextAsPdf, formatReportItemAsText } from '@/lib/reports/download-text-as-pdf';
+import { downloadReportItemsPdf } from '@/lib/reports/download-report-items-pdf';
 
 export interface ReportListItem {
   id: string;
@@ -37,21 +37,18 @@ export function ReportItemsList({
   showBulkPdf = true,
 }: Props) {
   async function exportOne(item: ReportListItem) {
-    await downloadTextAsPdf({
+    await downloadReportItemsPdf({
       title: item.title,
-      content: formatReportItemAsText(item),
-      metaLine: `${title} — KonaData`,
+      description,
+      items: [item],
     });
   }
 
   async function exportAll() {
-    const body = items
-      .map((item, i) => `--- ${i + 1}. ${item.title} ---\n${formatReportItemAsText(item)}`)
-      .join('\n\n');
-    await downloadTextAsPdf({
+    await downloadReportItemsPdf({
       title: `${title} — synthèse`,
-      content: body || 'Aucune donnée.',
-      metaLine: description,
+      description,
+      items,
     });
   }
 
