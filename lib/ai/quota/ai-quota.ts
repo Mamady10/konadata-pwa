@@ -25,6 +25,7 @@ export async function getOrganizationAiQuotaStatus(
   });
 
   if (error) return { error: error.message };
+  if (data == null) return { error: 'Quota IA indisponible' };
   if (data && typeof data === 'object' && 'error' in (data as object)) {
     return { error: String((data as { error: string }).error) };
   }

@@ -5,6 +5,18 @@ import { createClient } from '@/lib/supabase/server';
  * getClaims() vérifie le JWT localement (clés asymétriques) au lieu d'un appel
  * réseau au serveur Auth — plus rapide sur chaque rendu de page. */
 export const getCachedSession = cache(async () => {
+  try {
+    return await resolveSession();
+  } catch (err) {
+    // getClaims() / JWKS ou la requête profil peuvent lever une exception
+    // (réseau, clés, RLS). On ne veut jamais faire tomber tout le dashboard
+    // en 500 pour autant : on considère la session comme absente.
+    console.error('[auth] getCachedSession a échoué:', err);
+    return null;
+  }
+});
+
+async function resolveSession() {
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();
   const claims = claimsData?.claims as
@@ -33,4 +45,4 @@ export const getCachedSession = cache(async () => {
     .single();
 
   return { user, profile };
-});
+}
