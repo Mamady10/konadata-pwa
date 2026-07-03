@@ -19,7 +19,7 @@ import { learnerHasEnrollmentHistory } from '@/lib/auth/learner-enrollments';
 import { ensureLearnerProfile } from '@/lib/auth/learner-signup';
 import type { AppRole } from '@/types/database';
 import { AuthBackHome } from '@/components/auth/auth-back-home';
-import { KonaDataLogo } from '@/components/brand/konadata-logo';
+import { KonaDataWordmark } from '@/components/brand/konadata-logo';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
 import {
   ACCOUNT_PHONE_FIELD_HINT,
@@ -223,7 +223,7 @@ export default function LoginForm({ accountSwitched = false, accessBlocked = fal
         <div className="absolute inset-0 bg-gradient-to-br from-[#2563EB]/20 to-transparent" />
         <div className="relative z-10 max-w-md">
           <div className="mb-8">
-            <KonaDataLogo href={`${LANDING_LINKS.home}?accueil=1`} variant="wordmark" height={48} priority />
+            <KonaDataWordmark href={`${LANDING_LINKS.home}?accueil=1`} tone="onDark" size={48} priority />
           </div>
           <h1 className="text-4xl font-bold text-white mb-4 leading-tight">
             Gérez vos données avec intelligence
@@ -247,7 +247,7 @@ export default function LoginForm({ accountSwitched = false, accessBlocked = fal
             <AuthBackHome />
           </div>
           <div className="lg:hidden flex items-center justify-center mb-8">
-            <KonaDataLogo href={`${LANDING_LINKS.home}?accueil=1`} variant="wordmark" height={36} />
+            <KonaDataWordmark href={`${LANDING_LINKS.home}?accueil=1`} tone="onLight" size={34} />
           </div>
 
           <Card className="border-0 shadow-card-hover">
