@@ -19,7 +19,7 @@ import { completeOrganizationRegistration } from '@/lib/actions/org-registration
 import { ORG_REGISTRATION_SUCCESS_PATH } from '@/lib/org/org-registration-shared';
 import { createClient } from '@/lib/supabase/client';
 import { redeemAccessCodeClient } from '@/lib/auth/redeem-access-code-client';
-import { ORG_TYPE_LABELS, type OrganizationType } from '@/types/database';
+import { ORG_TYPE_LABELS, formatStartingPriceGnf, type OrganizationType } from '@/types/database';
 import {
   clearPendingAccessCode,
   getPendingAccessCode,
@@ -307,6 +307,12 @@ export default function RegisterForm() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs font-medium text-primary">
+                      {formatStartingPriceGnf(orgType)}
+                      <span className="text-muted-foreground font-normal">
+                        {' '}— tarif indicatif, montant final validé par KonaData.
+                      </span>
+                    </p>
                   </div>
                   <OrgRegistrationFields
                     orgType={orgType}

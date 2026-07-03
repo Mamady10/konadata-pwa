@@ -349,9 +349,14 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
                       </CardHeader>
                       <CardContent className="px-5 pb-5 pt-0">
                         <p className="text-sm text-muted-foreground leading-relaxed">{s.description}</p>
+                        <span
+                          className={`mt-3 inline-flex items-center rounded-full bg-white/70 px-2.5 py-1 text-xs font-semibold ${s.accent} ring-1 ring-inset ring-current/20`}
+                        >
+                          {s.priceFrom}
+                        </span>
                         <Link
                           href={s.href}
-                          className={`inline-flex items-center gap-1 mt-3 text-sm font-semibold ${s.accent} hover:opacity-80 transition-opacity`}
+                          className={`flex items-center gap-1 mt-3 text-sm font-semibold ${s.accent} hover:opacity-80 transition-opacity`}
                         >
                           Découvrir <ArrowRight className="h-3.5 w-3.5" />
                         </Link>

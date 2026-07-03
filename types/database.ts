@@ -205,6 +205,25 @@ export const ORG_TYPE_LABELS: Record<OrganizationType, string> = {
   btp: 'BTP / Industries',
   business: 'PME / Commerce',
 };
+
+/**
+ * Tarif d'abonnement indicatif « à partir de » par secteur (en GNF, /mois).
+ * Estimation d'entrée de gamme : le montant réel est validé par KonaData
+ * selon la taille et les besoins de l'organisation.
+ */
+export const ORG_TYPE_STARTING_PRICE_GNF: Record<OrganizationType, number> = {
+  business: 200_000,
+  btp: 200_000,
+  ngo: 500_000,
+  school: 1_500_000,
+};
+
+/** Formate un tarif « à partir de X GNF / mois ». */
+export function formatStartingPriceGnf(orgType: OrganizationType): string {
+  const amount = ORG_TYPE_STARTING_PRICE_GNF[orgType];
+  const grouped = amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return `À partir de ${grouped} GNF / mois`;
+}
 export const KONASCORE_LEVEL_LABELS: Record<KonaScoreLevel, string> = {
   excellent: 'Excellent',
   good: 'Bon',

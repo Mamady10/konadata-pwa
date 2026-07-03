@@ -52,6 +52,7 @@ export const LANDING_SECTORS = [
     title: 'Établissements',
     description:
       'Inscriptions, notes, bulletins et finances par classe. Modèles IA pour vos documents officiels.',
+    priceFrom: 'À partir de 1 500 000 GNF / mois',
     iconBg: 'bg-gradient-to-br from-blue-500 to-indigo-600',
     iconColor: 'text-white',
     iconRing: 'ring-2 ring-blue-400/50 ring-offset-2 ring-offset-white',
@@ -67,6 +68,7 @@ export const LANDING_SECTORS = [
     title: 'ONG',
     description:
       'Projets, bénéficiaires, cartographie et rapports bailleurs — ou lancez un sondage seul sans abonnement complet.',
+    priceFrom: 'À partir de 500 000 GNF / mois',
     iconBg: 'bg-gradient-to-br from-emerald-500 to-teal-600',
     iconColor: 'text-white',
     iconRing: 'ring-2 ring-emerald-400/50 ring-offset-2 ring-offset-white',
@@ -82,6 +84,7 @@ export const LANDING_SECTORS = [
     title: 'BTP & Industrie',
     description:
       'Chantiers, carburant, bons de livraison, stocks et rapports IA par site.',
+    priceFrom: 'À partir de 200 000 GNF / mois',
     iconBg: 'bg-gradient-to-br from-orange-500 to-amber-600',
     iconColor: 'text-white',
     iconRing: 'ring-2 ring-orange-400/50 ring-offset-2 ring-offset-white',
@@ -97,6 +100,7 @@ export const LANDING_SECTORS = [
     title: 'PME & Commerce',
     description:
       'Ventes, stocks et fournisseurs — module en déploiement pour votre gestion quotidienne.',
+    priceFrom: 'À partir de 200 000 GNF / mois',
     iconBg: 'bg-gradient-to-br from-violet-500 to-purple-600',
     iconColor: 'text-white',
     iconRing: 'ring-2 ring-violet-400/50 ring-offset-2 ring-offset-white',
