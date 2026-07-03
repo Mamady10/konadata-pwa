@@ -1,7 +1,6 @@
 import { requirePmePage } from '@/lib/pme/require-pme-page';
 import { createPmeSupplier, getPmeSuppliers } from '@/lib/actions/pme';
 import { PmeCrudPage } from '@/components/pme/pme-crud-page';
-import { Truck } from 'lucide-react';
 
 export default async function Page() {
   const session = await requirePmePage('fournisseurs');
@@ -29,7 +28,7 @@ export default async function Page() {
     <PmeCrudPage
       title="Fournisseurs"
       description={`${items.length} fournisseur(s)`}
-      icon={Truck}
+      icon="truck"
       items={items}
       emptyMessage="Aucun fournisseur."
       onCreate={createPmeSupplier}

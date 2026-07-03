@@ -1,7 +1,6 @@
 import { requirePmePage } from '@/lib/pme/require-pme-page';
 import { createPmeProduct, getPmeProducts } from '@/lib/actions/pme';
 import { PmeCrudPage } from '@/components/pme/pme-crud-page';
-import { Boxes } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 export default async function Page() {
@@ -32,7 +31,7 @@ export default async function Page() {
     <PmeCrudPage
       title="Stocks"
       description={`${items.length} article(s)`}
-      icon={Boxes}
+      icon="boxes"
       items={items}
       emptyMessage="Aucun article en stock."
       onCreate={createPmeProduct}

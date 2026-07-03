@@ -1,7 +1,6 @@
 import { requirePmePage } from '@/lib/pme/require-pme-page';
 import { createPmeCustomer, getPmeCustomers } from '@/lib/actions/pme';
 import { PmeCrudPage } from '@/components/pme/pme-crud-page';
-import { Users } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 export default async function Page() {
@@ -30,7 +29,7 @@ export default async function Page() {
     <PmeCrudPage
       title="Clients"
       description={`${items.length} client(s)`}
-      icon={Users}
+      icon="users"
       items={items}
       emptyMessage="Aucun client."
       onCreate={createPmeCustomer}

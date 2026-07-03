@@ -2,7 +2,6 @@ import { requirePmePage } from '@/lib/pme/require-pme-page';
 import { createPmeSale, getPmeSales, getPmeCustomers } from '@/lib/actions/pme';
 import { paymentStatusLabel } from '@/lib/sector/status-labels';
 import { PmeCrudPage } from '@/components/pme/pme-crud-page';
-import { ShoppingCart } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 type CustomerRow = { name?: string; id?: string } | null;
@@ -38,7 +37,7 @@ export default async function Page() {
     <PmeCrudPage
       title="Ventes"
       description={`${items.length} vente(s) enregistrée(s)`}
-      icon={ShoppingCart}
+      icon="shopping-cart"
       items={items}
       emptyMessage="Aucune vente. Cliquez sur Ajouter pour enregistrer une vente."
       onCreate={createPmeSale}

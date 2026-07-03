@@ -2,7 +2,6 @@ import { requirePmePage } from '@/lib/pme/require-pme-page';
 import { createPmePurchase, getPmePurchases, getPmeSuppliers } from '@/lib/actions/pme';
 import { paymentStatusLabel } from '@/lib/sector/status-labels';
 import { PmeCrudPage } from '@/components/pme/pme-crud-page';
-import { Package } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 type SupplierRow = { name?: string } | null;
@@ -38,7 +37,7 @@ export default async function Page() {
     <PmeCrudPage
       title="Achats"
       description={`${items.length} achat(s)`}
-      icon={Package}
+      icon="package"
       items={items}
       emptyMessage="Aucun achat enregistré."
       onCreate={createPmePurchase}

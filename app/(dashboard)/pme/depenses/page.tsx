@@ -1,7 +1,6 @@
 import { requirePmePage } from '@/lib/pme/require-pme-page';
 import { createPmeExpense, getPmeExpenses } from '@/lib/actions/pme';
 import { PmeCrudPage } from '@/components/pme/pme-crud-page';
-import { Wallet } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 export default async function Page() {
@@ -33,7 +32,7 @@ export default async function Page() {
     <PmeCrudPage
       title="Dépenses"
       description={`${items.length} dépense(s)`}
-      icon={Wallet}
+      icon="wallet"
       items={items}
       emptyMessage="Aucune dépense."
       onCreate={createPmeExpense}

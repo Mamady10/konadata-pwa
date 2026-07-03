@@ -7,8 +7,43 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { LucideIcon, Plus, Search } from 'lucide-react';
+import {
+  LucideIcon,
+  Plus,
+  Search,
+  Users,
+  ShoppingCart,
+  Boxes,
+  Package,
+  Wallet,
+  Truck,
+  FileText,
+} from 'lucide-react';
 import { motion } from 'framer-motion';
+
+/**
+ * On ne peut pas passer un composant (icône lucide) en prop depuis un composant
+ * serveur vers un composant client (non sérialisable dans le flux RSC). On passe
+ * donc un identifiant texte et on résout l'icône ici, côté client.
+ */
+export type PmeCrudIcon =
+  | 'users'
+  | 'shopping-cart'
+  | 'boxes'
+  | 'package'
+  | 'wallet'
+  | 'truck'
+  | 'file-text';
+
+const ICONS: Record<PmeCrudIcon, LucideIcon> = {
+  users: Users,
+  'shopping-cart': ShoppingCart,
+  boxes: Boxes,
+  package: Package,
+  wallet: Wallet,
+  truck: Truck,
+  'file-text': FileText,
+};
 
 export interface PmeFormField {
   name: string;
@@ -22,7 +57,7 @@ export interface PmeFormField {
 interface Props {
   title: string;
   description: string;
-  icon: LucideIcon;
+  icon: PmeCrudIcon;
   items: Array<{ id: string; title: string; subtitle: string; status: string; date?: string }>;
   emptyMessage?: string;
   fields: PmeFormField[];
@@ -33,13 +68,14 @@ interface Props {
 export function PmeCrudPage({
   title,
   description,
-  icon: Icon,
+  icon,
   items: initialItems,
   emptyMessage,
   fields,
   onCreate,
   addLabel = 'Ajouter',
 }: Props) {
+  const Icon = ICONS[icon] ?? FileText;
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
