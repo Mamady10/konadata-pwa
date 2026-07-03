@@ -1,5 +1,5 @@
 import { slugifyReportFilename } from '@/lib/reports/download-text-as-pdf';
-import type { PmeFinancialReportData } from '@/lib/actions/pme-financial-report';
+import type { PmeFinancialReportData } from '@/lib/pme/financial-report-types';
 
 type RGB = [number, number, number];
 

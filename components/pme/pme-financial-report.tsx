@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart3, Download, Sparkles, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
+import { getPmeFinancialAnalysis } from '@/lib/actions/pme-financial-report';
 import {
-  getPmeFinancialAnalysis,
   PME_REPORT_PERIODS,
   type PmeFinancialReportData,
   type PmeReportPeriod,
-} from '@/lib/actions/pme-financial-report';
+} from '@/lib/pme/financial-report-types';
 import { downloadPmeFinancialReportPdf } from '@/lib/pme/financial-report-pdf';
 
 function fc(n: number): string {

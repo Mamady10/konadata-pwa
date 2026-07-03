@@ -2,21 +2,13 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/lib/actions/auth';
-
-export type PmeReportPeriod = 'week' | 'month' | 'quarter' | 'year' | 'custom';
-
-export interface PmeReportCustomRange {
-  start: string;
-  end: string;
-}
-
-export const PME_REPORT_PERIODS: { id: PmeReportPeriod; label: string }[] = [
-  { id: 'week', label: 'Semaine' },
-  { id: 'month', label: 'Mois' },
-  { id: 'quarter', label: 'Trimestre' },
-  { id: 'year', label: 'Année' },
-  { id: 'custom', label: 'Personnalisée' },
-];
+import type {
+  PmeReportPeriod,
+  PmeReportCustomRange,
+  PmeDayRow,
+  PmeExpenseCategoryRow,
+  PmeFinancialReportData,
+} from '@/lib/pme/financial-report-types';
 
 /** Jours dans l'ordre Lundi → Dimanche. getDay() : 0 = dimanche. */
 const WEEKDAYS: { key: number; label: string }[] = [
@@ -28,33 +20,6 @@ const WEEKDAYS: { key: number; label: string }[] = [
   { key: 6, label: 'Samedi' },
   { key: 0, label: 'Dimanche' },
 ];
-
-export interface PmeDayRow {
-  key: number;
-  label: string;
-  entrees: number;
-  depenses: number;
-  reste: number;
-}
-
-export interface PmeExpenseCategoryRow {
-  category: string;
-  byDay: number[]; // 7 valeurs, ordre Lundi→Dimanche
-  total: number;
-}
-
-export interface PmeFinancialReportData {
-  orgName: string;
-  periodLabel: string;
-  rangeLabel: string;
-  generatedAt: string;
-  days: PmeDayRow[]; // 7 (Lun→Dim)
-  expenseCategories: PmeExpenseCategoryRow[];
-  entreesTotal: number;
-  depensesTotal: number;
-  resteTotal: number;
-  salesCount: number;
-}
 
 function fmtDate(d: Date): string {
   return d.toISOString().slice(0, 10);
