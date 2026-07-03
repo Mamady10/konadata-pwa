@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { requireOrgId } from '@/lib/actions/org';
 import { getSession } from '@/lib/actions/auth';
-import { prepareBrandingImage } from '@/lib/school/branding-image-prep';
 import { MAX_ANNOUNCEMENT_IMAGES } from '@/lib/school/announcement-constants';
 
 export type SchoolAnnouncementCategory = 'announcement' | 'event' | 'holiday' | 'results';
@@ -86,33 +85,51 @@ export async function signAnnouncementImagePaths(
   return out;
 }
 
+/** Extensions autorisées → type MIME (upload sans altération de l'image). */
+const ANNOUNCEMENT_IMAGE_TYPES: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+};
+
+/**
+ * Téléverse l'image d'annonce TELLE QUELLE : aucune conversion, aucun
+ * redimensionnement, aucune recompression — la qualité et le format d'origine
+ * sont conservés (même pour une seule photo).
+ */
 async function uploadAnnouncementImage(
   supabase: Awaited<ReturnType<typeof createClient>>,
   orgId: string,
   file: Blob & { name?: string }
 ): Promise<{ path?: string; error?: string }> {
   const rawName = (file as { name?: string }).name ?? 'image.jpg';
-  if (!/\.(png|jpe?g|webp)$/i.test(rawName) && !file.type.startsWith('image/')) {
+  const nameExt = rawName.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase() ?? '';
+  const typeFromName = ANNOUNCEMENT_IMAGE_TYPES[nameExt];
+  const typeFromFile = file.type?.startsWith('image/') ? file.type : undefined;
+
+  if (!typeFromName && !typeFromFile) {
     return { error: 'Format image non pris en charge (PNG, JPG ou WEBP).' };
   }
 
   const inputBuffer = Buffer.from(await file.arrayBuffer());
   if (!inputBuffer.byteLength) return { error: 'Image vide.' };
 
-  const prepared = await prepareBrandingImage(inputBuffer, {
-    maxDimension: 1600,
-    preferJpeg: true,
-    fileName: rawName,
-  });
+  // Conserve le type d'origine ; l'extension de la clé Storage suit le format réel.
+  const contentType = typeFromName ?? typeFromFile ?? 'application/octet-stream';
+  const extByType = Object.entries(ANNOUNCEMENT_IMAGE_TYPES).find(
+    ([, mime]) => mime === contentType
+  )?.[0];
+  const finalExt = ANNOUNCEMENT_IMAGE_TYPES[nameExt] ? nameExt : extByType ?? 'jpg';
 
   const path = `${orgId}/announcements/${Date.now()}_${Math.random()
     .toString(36)
-    .slice(2, 10)}.jpg`;
+    .slice(2, 10)}.${finalExt}`;
 
   const { error } = await supabase.storage
     .from('documents')
-    .upload(path, prepared.buffer, {
-      contentType: 'image/jpeg',
+    .upload(path, inputBuffer, {
+      contentType,
       upsert: false,
     });
 

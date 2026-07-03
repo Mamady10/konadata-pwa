@@ -21,8 +21,12 @@ const nextConfig = {
     'sharp',
   ],
 
-  serverActions: {
-    bodySizeLimit: '6mb',
+  experimental: {
+    // Emplacement correct en Next 15 (sinon la clé est ignorée). Limite élargie
+    // pour téléverser des images d'annonces en pleine qualité sans recompression.
+    serverActions: {
+      bodySizeLimit: '20mb',
+    },
   },
 
   webpack: (config, { isServer, webpack }) => {
