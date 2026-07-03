@@ -59,15 +59,20 @@ function DayBars({
   );
 }
 
-export function PmeFinancialReport() {
+export function PmeFinancialReport({
+  boutiques = [],
+}: {
+  boutiques?: { id: string; name: string }[];
+}) {
   const [period, setPeriod] = useState<PmeReportPeriod>('week');
+  const [boutiqueId, setBoutiqueId] = useState('');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<PmeFinancialReportData | null>(null);
 
-  async function generate(p: PmeReportPeriod) {
+  async function generate(p: PmeReportPeriod, boutique = boutiqueId) {
     if (p === 'custom' && (!customStart || !customEnd)) {
       setPeriod(p);
       setError('Sélectionnez une date de début et une date de fin.');
@@ -78,7 +83,8 @@ export function PmeFinancialReport() {
     setError(null);
     const res = await getPmeFinancialAnalysis(
       p,
-      p === 'custom' ? { start: customStart, end: customEnd } : undefined
+      p === 'custom' ? { start: customStart, end: customEnd } : undefined,
+      boutique || undefined
     );
     setLoading(false);
     if ('error' in res) {
@@ -101,6 +107,32 @@ export function PmeFinancialReport() {
           Entrées, dépenses et reste par jour, à partir de vos ventes, achats et dépenses.
           Choisissez la période puis exportez en PDF.
         </p>
+
+        {boutiques.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-sm font-medium" htmlFor="pme-boutique">
+              Boutique
+            </label>
+            <select
+              id="pme-boutique"
+              value={boutiqueId}
+              disabled={loading}
+              onChange={(e) => {
+                const v = e.target.value;
+                setBoutiqueId(v);
+                if (data || period !== 'custom') void generate(period, v);
+              }}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Toutes les boutiques (rapport général)</option>
+              {boutiques.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           {PME_REPORT_PERIODS.map((p) => (
@@ -178,6 +210,9 @@ export function PmeFinancialReport() {
               <h2 className="text-base font-bold uppercase tracking-wide">
                 Analyses financières — {data.orgName}
               </h2>
+              <p className="text-xs text-white/80 mt-0.5">
+                {data.boutiqueName ? `Boutique : ${data.boutiqueName}` : 'Toutes les boutiques (rapport général)'}
+              </p>
               <p className="text-xs text-white/70 mt-0.5">
                 {data.periodLabel} · {data.rangeLabel} · {data.salesCount} vente(s)
               </p>

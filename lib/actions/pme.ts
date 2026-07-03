@@ -6,6 +6,45 @@ import { requireOrgId } from '@/lib/actions/org';
 import { getPmeDashboardKpis } from '@/lib/actions/data';
 import { paymentStatusLabel } from '@/lib/sector/status-labels';
 
+export interface PmeBoutiqueRow {
+  id: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  manager: string | null;
+  is_active: boolean;
+}
+
+export async function getPmeBoutiques(orgId: string): Promise<PmeBoutiqueRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('pme_boutiques')
+    .select('id, name, address, phone, manager, is_active')
+    .eq('organization_id', orgId)
+    .order('name');
+  if (error) throw error;
+  return (data ?? []) as PmeBoutiqueRow[];
+}
+
+export async function createPmeBoutique(formData: FormData) {
+  const orgId = await requireOrgId();
+  const supabase = await createClient();
+  const name = (formData.get('name') as string)?.trim();
+  if (!name) return { error: 'Nom de la boutique requis.' };
+
+  const { error } = await supabase.from('pme_boutiques').insert({
+    organization_id: orgId,
+    name,
+    address: (formData.get('address') as string)?.trim() || null,
+    phone: (formData.get('phone') as string)?.trim() || null,
+    manager: (formData.get('manager') as string)?.trim() || null,
+  });
+  if (error) return { error: error.message };
+  revalidatePath('/pme/boutiques');
+  revalidatePath('/pme/rapports');
+  return { success: true };
+}
+
 export async function getPmeCustomers(orgId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -167,6 +206,7 @@ export async function createPmeSale(formData: FormData) {
   const { error } = await supabase.from('pme_sales').insert({
     organization_id: orgId,
     customer_id: (formData.get('customer_id') as string) || null,
+    boutique_id: (formData.get('boutique_id') as string) || null,
     reference,
     total,
     subtotal: total,
@@ -189,6 +229,7 @@ export async function createPmePurchase(formData: FormData) {
   const { error } = await supabase.from('pme_purchases').insert({
     organization_id: orgId,
     supplier_id: (formData.get('supplier_id') as string) || null,
+    boutique_id: (formData.get('boutique_id') as string) || null,
     reference,
     total,
     payment_status: (formData.get('payment_status') as string) || 'pending',
@@ -210,6 +251,7 @@ export async function createPmeExpense(formData: FormData) {
   const { error } = await supabase.from('pme_expenses').insert({
     organization_id: orgId,
     category,
+    boutique_id: (formData.get('boutique_id') as string) || null,
     description: (formData.get('description') as string)?.trim() || null,
     amount,
     expense_date: (formData.get('expense_date') as string)?.trim() || new Date().toISOString().slice(0, 10),
@@ -229,6 +271,7 @@ export async function createPmeProduct(formData: FormData) {
   const { error } = await supabase.from('pme_products').insert({
     organization_id: orgId,
     name,
+    boutique_id: (formData.get('boutique_id') as string) || null,
     sku: (formData.get('sku') as string)?.trim() || null,
     unit: (formData.get('unit') as string)?.trim() || 'unité',
     unit_price: Number(formData.get('unit_price') || 0),

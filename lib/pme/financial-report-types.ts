@@ -30,6 +30,7 @@ export interface PmeExpenseCategoryRow {
 
 export interface PmeFinancialReportData {
   orgName: string;
+  boutiqueName: string | null;
   periodLabel: string;
   rangeLabel: string;
   generatedAt: string;

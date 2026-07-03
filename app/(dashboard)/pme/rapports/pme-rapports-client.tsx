@@ -6,9 +6,10 @@ import { PmeFinancialReport } from '@/components/pme/pme-financial-report';
 
 interface Props {
   items: ReportListItem[];
+  boutiques: { id: string; name: string }[];
 }
 
-export function PmeRapportsClient({ items }: Props) {
+export function PmeRapportsClient({ items, boutiques }: Props) {
   return (
     <div className="space-y-6">
       <div>
@@ -18,7 +19,7 @@ export function PmeRapportsClient({ items }: Props) {
         </p>
       </div>
 
-      <PmeFinancialReport />
+      <PmeFinancialReport boutiques={boutiques} />
 
       <ReportItemsList
         title="Indicateurs synthèse"

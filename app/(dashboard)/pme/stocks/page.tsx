@@ -1,5 +1,5 @@
 import { requirePmePage } from '@/lib/pme/require-pme-page';
-import { createPmeProduct, getPmeProducts } from '@/lib/actions/pme';
+import { createPmeProduct, getPmeProducts, getPmeBoutiques } from '@/lib/actions/pme';
 import { PmeCrudPage } from '@/components/pme/pme-crud-page';
 import { formatCurrency } from '@/lib/utils';
 
@@ -9,10 +9,18 @@ export default async function Page() {
     return <p className="text-muted-foreground">Organisation non configurée.</p>;
   }
 
+  const orgId = session.profile.organization_id;
   const items: { id: string; title: string; subtitle: string; status: string; date?: string }[] = [];
+  let boutiques: Array<{ value: string; label: string }> = [];
 
   try {
-    const products = await getPmeProducts(session.profile.organization_id);
+    boutiques = (await getPmeBoutiques(orgId)).map((b) => ({ value: b.id, label: b.name }));
+  } catch {
+    /* table non migrée */
+  }
+
+  try {
+    const products = await getPmeProducts(orgId);
     for (const p of products) {
       const stock = Number(p.stock_quantity);
       const min = Number(p.min_stock);
@@ -38,6 +46,9 @@ export default async function Page() {
       addLabel="Nouvel article"
       fields={[
         { name: 'name', label: 'Nom', required: true },
+        ...(boutiques.length > 0
+          ? [{ name: 'boutique_id', label: 'Boutique', type: 'select' as const, options: boutiques }]
+          : []),
         { name: 'sku', label: 'SKU / code' },
         { name: 'unit', label: 'Unité', defaultValue: 'unité' },
         { name: 'unit_price', label: 'Prix unitaire', type: 'number' },

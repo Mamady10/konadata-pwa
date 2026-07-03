@@ -203,7 +203,8 @@ function bucketIndex(buckets: Bucket[], d: Date): number {
 
 export async function getPmeFinancialAnalysis(
   period: PmeReportPeriod = 'week',
-  custom?: PmeReportCustomRange
+  custom?: PmeReportCustomRange,
+  boutiqueId?: string
 ): Promise<{ data: PmeFinancialReportData } | { error: string }> {
   const session = await getSession();
   const orgId = session?.profile?.organization_id;
@@ -228,25 +229,43 @@ export async function getPmeFinancialAnalysis(
 
   const supabase = await createClient();
 
+  let salesQ = supabase
+    .from('pme_sales')
+    .select('total, sold_at')
+    .eq('organization_id', orgId)
+    .gte('sold_at', start.toISOString())
+    .lte('sold_at', end.toISOString());
+  let purchasesQ = supabase
+    .from('pme_purchases')
+    .select('total, purchased_at')
+    .eq('organization_id', orgId)
+    .gte('purchased_at', start.toISOString())
+    .lte('purchased_at', end.toISOString());
+  let expensesQ = supabase
+    .from('pme_expenses')
+    .select('amount, category, expense_date')
+    .eq('organization_id', orgId)
+    .gte('expense_date', startIso)
+    .lte('expense_date', endIso);
+
+  let boutiqueName: string | null = null;
+  if (boutiqueId) {
+    salesQ = salesQ.eq('boutique_id', boutiqueId);
+    purchasesQ = purchasesQ.eq('boutique_id', boutiqueId);
+    expensesQ = expensesQ.eq('boutique_id', boutiqueId);
+    const { data: b } = await supabase
+      .from('pme_boutiques')
+      .select('name')
+      .eq('id', boutiqueId)
+      .eq('organization_id', orgId)
+      .maybeSingle();
+    boutiqueName = (b as { name?: string } | null)?.name ?? null;
+  }
+
   const [salesRes, purchasesRes, expensesRes] = await Promise.all([
-    supabase
-      .from('pme_sales')
-      .select('total, sold_at')
-      .eq('organization_id', orgId)
-      .gte('sold_at', start.toISOString())
-      .lte('sold_at', end.toISOString()),
-    supabase
-      .from('pme_purchases')
-      .select('total, purchased_at')
-      .eq('organization_id', orgId)
-      .gte('purchased_at', start.toISOString())
-      .lte('purchased_at', end.toISOString()),
-    supabase
-      .from('pme_expenses')
-      .select('amount, category, expense_date')
-      .eq('organization_id', orgId)
-      .gte('expense_date', startIso)
-      .lte('expense_date', endIso),
+    salesQ,
+    purchasesQ,
+    expensesQ,
   ]);
 
   const rows: PmeBucketRow[] = buckets.map((b) => ({
@@ -308,6 +327,7 @@ export async function getPmeFinancialAnalysis(
   return {
     data: {
       orgName,
+      boutiqueName,
       periodLabel: label,
       rangeLabel: `${start.toLocaleDateString('fr-FR')} – ${end.toLocaleDateString('fr-FR')}`,
       generatedAt: new Date().toISOString(),

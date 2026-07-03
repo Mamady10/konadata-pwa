@@ -56,20 +56,27 @@ export async function downloadPmeFinancialReportPdf(
 
   // ---- En-tête ----
   setFill([10, 25, 47]);
-  doc.rect(0, 0, pageW, 24, 'F');
+  doc.rect(0, 0, pageW, 30, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
   setText([255, 255, 255]);
-  doc.text(`ANALYSES FINANCIÈRES — ${data.orgName.toUpperCase()}`, M, 11);
+  doc.text(`ANALYSES FINANCIÈRES — ${data.orgName.toUpperCase()}`, M, 10);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
+  doc.text(
+    data.boutiqueName
+      ? `Boutique : ${data.boutiqueName}`
+      : 'Toutes les boutiques (rapport général)',
+    M,
+    17
+  );
   const generated = new Date(data.generatedAt).toLocaleDateString('fr-FR', { dateStyle: 'long' });
   doc.text(
     `${data.periodLabel}  ·  ${data.rangeLabel}  ·  découpage par ${data.unitLabel}  ·  Généré le ${generated}`,
     M,
-    18
+    24
   );
-  y = 32;
+  y = 38;
 
   // ---- Bilan (3 cartes) ----
   const cards: { label: string; value: string; color: RGB }[] = [

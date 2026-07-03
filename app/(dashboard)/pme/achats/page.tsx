@@ -1,5 +1,5 @@
 import { requirePmePage } from '@/lib/pme/require-pme-page';
-import { createPmePurchase, getPmePurchases, getPmeSuppliers } from '@/lib/actions/pme';
+import { createPmePurchase, getPmePurchases, getPmeSuppliers, getPmeBoutiques } from '@/lib/actions/pme';
 import { paymentStatusLabel } from '@/lib/sector/status-labels';
 import { PmeCrudPage } from '@/components/pme/pme-crud-page';
 import { formatCurrency } from '@/lib/utils';
@@ -15,10 +15,16 @@ export default async function Page() {
   const orgId = session.profile.organization_id;
   const items: { id: string; title: string; subtitle: string; status: string; date?: string }[] = [];
   let suppliers: Array<{ value: string; label: string }> = [];
+  let boutiques: Array<{ value: string; label: string }> = [];
 
   try {
-    const [purchases, sup] = await Promise.all([getPmePurchases(orgId), getPmeSuppliers(orgId)]);
+    const [purchases, sup, bqs] = await Promise.all([
+      getPmePurchases(orgId),
+      getPmeSuppliers(orgId),
+      getPmeBoutiques(orgId).catch(() => []),
+    ]);
     suppliers = sup.map((s) => ({ value: s.id, label: s.name }));
+    boutiques = bqs.map((b) => ({ value: b.id, label: b.name }));
     for (const p of purchases) {
       const supplier = p.pme_suppliers as SupplierRow;
       items.push({
@@ -45,6 +51,9 @@ export default async function Page() {
         { name: 'reference', label: 'Référence' },
         { name: 'total', label: 'Montant (GNF)', type: 'number', required: true },
         { name: 'supplier_id', label: 'Fournisseur', type: 'select', options: suppliers },
+        ...(boutiques.length > 0
+          ? [{ name: 'boutique_id', label: 'Boutique', type: 'select' as const, options: boutiques }]
+          : []),
         {
           name: 'payment_status',
           label: 'Paiement',

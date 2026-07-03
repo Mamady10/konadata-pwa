@@ -1,5 +1,6 @@
 import { requirePmePage } from '@/lib/pme/require-pme-page';
 import { getPmeDashboardKpis } from '@/lib/actions/data';
+import { getPmeBoutiques } from '@/lib/actions/pme';
 import { PmeRapportsClient } from './pme-rapports-client';
 import { formatCurrency } from '@/lib/utils';
 
@@ -10,6 +11,16 @@ export default async function Page() {
   }
 
   const items: { id: string; title: string; subtitle: string; status: string; date?: string }[] = [];
+
+  let boutiques: { id: string; name: string }[] = [];
+  try {
+    boutiques = (await getPmeBoutiques(session.profile.organization_id)).map((b) => ({
+      id: b.id,
+      name: b.name,
+    }));
+  } catch {
+    /* table non migrée */
+  }
 
   try {
     const kpis = await getPmeDashboardKpis(session.profile.organization_id);
@@ -49,5 +60,5 @@ export default async function Page() {
     // empty
   }
 
-  return <PmeRapportsClient items={items} />;
+  return <PmeRapportsClient items={items} boutiques={boutiques} />;
 }

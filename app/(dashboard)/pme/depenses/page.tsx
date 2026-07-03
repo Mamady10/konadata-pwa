@@ -1,5 +1,5 @@
 import { requirePmePage } from '@/lib/pme/require-pme-page';
-import { createPmeExpense, getPmeExpenses } from '@/lib/actions/pme';
+import { createPmeExpense, getPmeExpenses, getPmeBoutiques } from '@/lib/actions/pme';
 import { PmeCrudPage } from '@/components/pme/pme-crud-page';
 import { formatCurrency } from '@/lib/utils';
 
@@ -9,10 +9,18 @@ export default async function Page() {
     return <p className="text-muted-foreground">Organisation non configurée.</p>;
   }
 
+  const orgId = session.profile.organization_id;
   const items: { id: string; title: string; subtitle: string; status: string; date?: string }[] = [];
+  let boutiques: Array<{ value: string; label: string }> = [];
 
   try {
-    const expenses = await getPmeExpenses(session.profile.organization_id);
+    boutiques = (await getPmeBoutiques(orgId)).map((b) => ({ value: b.id, label: b.name }));
+  } catch {
+    /* table non migrée */
+  }
+
+  try {
+    const expenses = await getPmeExpenses(orgId);
     for (const e of expenses) {
       items.push({
         id: e.id,
@@ -41,6 +49,9 @@ export default async function Page() {
         { name: 'description', label: 'Description' },
         { name: 'amount', label: 'Montant (GNF)', type: 'number', required: true },
         { name: 'expense_date', label: 'Date', type: 'date' },
+        ...(boutiques.length > 0
+          ? [{ name: 'boutique_id', label: 'Boutique', type: 'select' as const, options: boutiques }]
+          : []),
       ]}
     />
   );

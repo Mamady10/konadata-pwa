@@ -1,5 +1,5 @@
 import { requirePmePage } from '@/lib/pme/require-pme-page';
-import { createPmeSale, getPmeSales, getPmeCustomers } from '@/lib/actions/pme';
+import { createPmeSale, getPmeSales, getPmeCustomers, getPmeBoutiques } from '@/lib/actions/pme';
 import { paymentStatusLabel } from '@/lib/sector/status-labels';
 import { PmeCrudPage } from '@/components/pme/pme-crud-page';
 import { formatCurrency } from '@/lib/utils';
@@ -15,10 +15,16 @@ export default async function Page() {
   const orgId = session.profile.organization_id;
   const items: { id: string; title: string; subtitle: string; status: string; date?: string }[] = [];
   let customers: Array<{ value: string; label: string }> = [];
+  let boutiques: Array<{ value: string; label: string }> = [];
 
   try {
-    const [sales, cust] = await Promise.all([getPmeSales(orgId), getPmeCustomers(orgId)]);
+    const [sales, cust, bqs] = await Promise.all([
+      getPmeSales(orgId),
+      getPmeCustomers(orgId),
+      getPmeBoutiques(orgId).catch(() => []),
+    ]);
     customers = cust.map((c) => ({ value: c.id, label: c.name }));
+    boutiques = bqs.map((b) => ({ value: b.id, label: b.name }));
     for (const s of sales) {
       const customer = s.pme_customers as CustomerRow;
       items.push({
@@ -51,6 +57,9 @@ export default async function Page() {
           type: 'select',
           options: customers,
         },
+        ...(boutiques.length > 0
+          ? [{ name: 'boutique_id', label: 'Boutique', type: 'select' as const, options: boutiques }]
+          : []),
         {
           name: 'payment_status',
           label: 'Paiement',

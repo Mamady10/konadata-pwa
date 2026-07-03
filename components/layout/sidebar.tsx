@@ -140,6 +140,7 @@ const sectorNav: Record<Exclude<Sector, "global">, NavItem[]> = {
   ],
   pme: [
     { label: "Dashboard", href: "/pme", icon: LayoutDashboard },
+    { label: "Boutiques", href: "/pme/boutiques", icon: Store },
     { label: "Ventes", href: "/pme/ventes", icon: ShoppingCart },
     { label: "Achats", href: "/pme/achats", icon: Receipt },
     { label: "Dépenses", href: "/pme/depenses", icon: Wallet },
