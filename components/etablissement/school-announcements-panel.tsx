@@ -9,14 +9,18 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
+  createAnnouncementUploadTargets,
   createSchoolAnnouncement,
   deleteSchoolAnnouncement,
 } from '@/lib/actions/school-announcements';
 import type { SchoolAnnouncementRow } from '@/lib/actions/school-announcements';
 import { MAX_ANNOUNCEMENT_IMAGES } from '@/lib/school/announcement-constants';
+import { createClient } from '@/lib/supabase/client';
 import { ImagePlus, Megaphone, Trash2, X } from 'lucide-react';
 
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+// Limite par image. L'upload se fait directement vers Storage (URL signée),
+// donc on n'est plus bridé par la limite des Server Actions.
+const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 
 const CATEGORY_LABELS: Record<string, string> = {
   announcement: 'Annonce',
@@ -52,7 +56,7 @@ export function SchoolAnnouncementsPanel({ announcements, canManage }: Props) {
 
     const tooLarge = selected.find((f) => f.size > MAX_IMAGE_BYTES);
     if (tooLarge) {
-      setError(`« ${tooLarge.name} » dépasse 8 Mo.`);
+      setError(`« ${tooLarge.name} » dépasse 25 Mo.`);
       return;
     }
 
@@ -96,22 +100,55 @@ export function SchoolAnnouncementsPanel({ announcements, canManage }: Props) {
     setError(null);
     const form = formRef.current;
     if (!form) return;
-    const formData = new FormData(form);
-    formData.set('category', category);
-    formData.delete('image');
-    images.forEach((img) => formData.append('image', img.file));
 
     setSubmitting(true);
-    const res = await createSchoolAnnouncement(formData);
-    setSubmitting(false);
-    if (res.error) {
-      setError(res.error);
-      return;
+    try {
+      // 1) Upload direct des images vers Storage (pleine qualité, sans passer
+      //    par la Server Action) puis récupération de leurs chemins.
+      const imagePaths: string[] = [];
+      if (images.length) {
+        const prep = await createAnnouncementUploadTargets(
+          images.map((img) => ({ name: img.file.name, type: img.file.type }))
+        );
+        if (prep.error || !prep.targets) {
+          setError(prep.error ?? "Préparation de l'envoi impossible.");
+          return;
+        }
+        const supabase = createClient();
+        for (let i = 0; i < prep.targets.length; i++) {
+          const target = prep.targets[i];
+          const file = images[i].file;
+          const { error: upErr } = await supabase.storage
+            .from('documents')
+            .uploadToSignedUrl(target.path, target.token, file, {
+              contentType: file.type || undefined,
+            });
+          if (upErr) {
+            setError(`Échec de l'envoi de « ${file.name} » : ${upErr.message}`);
+            return;
+          }
+          imagePaths.push(target.path);
+        }
+      }
+
+      // 2) Publication : on n'envoie que les chemins Storage.
+      const formData = new FormData(form);
+      formData.set('category', category);
+      formData.delete('image');
+      formData.set('image_paths', JSON.stringify(imagePaths));
+
+      const res = await createSchoolAnnouncement(formData);
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      form.reset();
+      setCategory('announcement');
+      clearImages();
+      router.refresh();
+    } finally {
+      setSubmitting(false);
     }
-    form.reset();
-    setCategory('announcement');
-    clearImages();
-    router.refresh();
   }
 
   async function handleDelete(id: string) {
