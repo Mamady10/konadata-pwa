@@ -1,7 +1,7 @@
 -- ============================================================
 -- KonaData v2 — Module PME : Crédits / Dettes clients
--- Suivi des sommes dues par les clients, des paiements reçus
--- et du restant à payer (recalculé automatiquement).
+-- À COLLER TEL QUEL dans Supabase → SQL Editor → Run.
+-- Idempotent (IF NOT EXISTS / CREATE OR REPLACE) : ré-exécutable sans risque.
 -- ============================================================
 
 -- ─── Table des dettes (crédits accordés aux clients) ──────────
