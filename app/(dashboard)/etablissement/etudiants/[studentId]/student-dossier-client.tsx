@@ -6,21 +6,41 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable, StatusBadge } from '@/components/dashboard/data-table';
 import { TuitionInstallmentsCard } from '@/components/school/tuition-installments-card';
+import { EnrollmentDocumentLink } from '@/components/school/enrollment-document-link';
 import { formatCurrency } from '@/lib/utils';
 import type { TuitionBalance, TuitionInstallment } from '@/lib/school/student-payments';
-import { ArrowLeft, Download } from 'lucide-react';
+import { ArrowLeft, Download, FileStack, MessageCircle, Phone, UserRound } from 'lucide-react';
 import { getReportCardPdfBase64 } from '@/lib/actions/report-cards';
+import { normalizeGuineaPhone } from '@/lib/survey/phone';
 
 interface DossierProps {
   student: {
     id: string;
     name: string;
     email: string;
+    phone: string | null;
     matricule: string | null;
     status: string;
     className: string | null;
     classId: string | null;
   };
+  guardian: {
+    enrollmentId: string;
+    name: string | null;
+    phone: string | null;
+    relation: string | null;
+    smsConsent: boolean;
+    academicYear: string;
+  } | null;
+  documents: Array<{
+    id: string;
+    enrollmentId: string | null;
+    fileName: string;
+    filePath: string | null;
+    docType: string;
+    docTypeLabel: string;
+    date: string;
+  }>;
   enrollments: Array<{
     id: string;
     status: string;
@@ -29,6 +49,7 @@ interface DossierProps {
     className: string;
     guardianName: string | null;
     guardianPhone: string | null;
+    guardianRelation: string | null;
   }>;
   payments: Array<{
     id: string;
@@ -62,6 +83,8 @@ const statusLabels: Record<string, string> = {
 export function StudentDossierClient({ dossier }: { dossier: DossierProps }) {
   const {
     student,
+    guardian,
+    documents,
     enrollments,
     payments,
     bulletins,
@@ -69,6 +92,11 @@ export function StudentDossierClient({ dossier }: { dossier: DossierProps }) {
     tuitionInstallments,
     canRecordPayments,
   } = dossier;
+
+  const guardianE164 = guardian?.phone ? normalizeGuineaPhone(guardian.phone) : null;
+  const guardianWa = guardianE164
+    ? `https://wa.me/${guardianE164.replace(/\D/g, '')}`
+    : null;
 
   async function downloadBulletin(cardId: string) {
     const res = await getReportCardPdfBase64(cardId);
@@ -104,10 +132,11 @@ export function StudentDossierClient({ dossier }: { dossier: DossierProps }) {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Dossier</CardTitle>
+            <CardTitle className="text-sm">Dossier élève</CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-1">
             <p>{student.email || '—'}</p>
+            {student.phone && <p>{student.phone}</p>}
             {!student.classId && student.status === 'enrolled' && (
               <Badge variant="warning">Sans classe</Badge>
             )}
@@ -119,7 +148,75 @@ export function StudentDossierClient({ dossier }: { dossier: DossierProps }) {
           </CardContent>
         </Card>
 
-        <Card className="md:col-span-2">
+        <Card className="md:col-span-2 border-primary/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <UserRound className="h-4 w-4 text-primary" />
+              Tuteur / responsable
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm space-y-3">
+            {guardian ? (
+              <>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="font-semibold text-base">{guardian.name || 'Non renseigné'}</p>
+                    {guardian.relation && (
+                      <p className="text-muted-foreground">Lien : {guardian.relation}</p>
+                    )}
+                    <p className="font-mono">{guardian.phone || '—'}</p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Badge variant="outline" className="text-xs">
+                        Année {guardian.academicYear}
+                      </Badge>
+                      {guardian.smsConsent ? (
+                        <Badge className="text-xs bg-emerald-500/10 text-emerald-700 border-emerald-200">
+                          Notifications WhatsApp/SMS acceptées
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs">
+                          Pas de consentement notifications
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  {guardian.phone && (
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" asChild>
+                        <a href={`tel:${guardian.phone}`}>
+                          <Phone className="h-3.5 w-3.5 mr-1" />
+                          Appeler
+                        </a>
+                      </Button>
+                      {guardianWa && (
+                        <Button size="sm" variant="outline" asChild>
+                          <a href={guardianWa} target="_blank" rel="noopener noreferrer">
+                            <MessageCircle className="h-3.5 w-3.5 mr-1" />
+                            WhatsApp
+                          </a>
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  <Link
+                    href="/etablissement/candidatures"
+                    className="text-primary underline"
+                  >
+                    Ouvrir la candidature complète
+                  </Link>
+                </p>
+              </>
+            ) : (
+              <p className="text-muted-foreground">
+                Aucun tuteur renseigné sur les inscriptions de cet élève.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Scolarité</CardTitle>
           </CardHeader>
@@ -161,6 +258,31 @@ export function StudentDossierClient({ dossier }: { dossier: DossierProps }) {
         </Card>
       </div>
 
+      {documents.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <FileStack className="h-4 w-4 text-primary" />
+              Documents du dossier ({documents.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="divide-y text-sm">
+              {documents.map((doc) => (
+                <li key={doc.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+                  <div className="min-w-0">
+                    <EnrollmentDocumentLink fileName={doc.fileName} filePath={doc.filePath} />
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {doc.docTypeLabel} · {doc.date}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
       {enrollments.length > 0 && (
         <DataTable
           title="Historique inscription"
@@ -170,6 +292,7 @@ export function StudentDossierClient({ dossier }: { dossier: DossierProps }) {
             classe: e.className,
             tuteur: e.guardianName || '—',
             telephone: e.guardianPhone || '—',
+            lien: e.guardianRelation || '—',
             date: e.date,
             statut: statusLabels[e.status] || e.status,
           }))}
@@ -178,6 +301,7 @@ export function StudentDossierClient({ dossier }: { dossier: DossierProps }) {
             { key: 'classe', label: 'Classe' },
             { key: 'tuteur', label: 'Tuteur' },
             { key: 'telephone', label: 'Téléphone' },
+            { key: 'lien', label: 'Lien' },
             { key: 'date', label: 'Date' },
             { key: 'statut', label: 'Statut', render: (i) => <StatusBadge status={i.statut as string} /> },
           ]}

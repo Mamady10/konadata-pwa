@@ -17,6 +17,44 @@ const STUDENT_SELECT = `
   core_persons(full_name, email, phone)
 `;
 
+function pickPrimaryGuardian(
+  enrollments: Array<Record<string, unknown>>
+): {
+  enrollmentId: string;
+  name: string | null;
+  phone: string | null;
+  relation: string | null;
+  smsConsent: boolean;
+  academicYear: string;
+} | null {
+  const ordered = [...enrollments].sort((a, b) => {
+    const rank = (s: string) =>
+      s === 'enrolled' ? 0 : s === 'admitted' ? 1 : s === 'pending' ? 2 : 9;
+    const diff = rank(String(a.status)) - rank(String(b.status));
+    if (diff !== 0) return diff;
+    return String(b.created_at).localeCompare(String(a.created_at));
+  });
+
+  for (const e of ordered) {
+    const name = (e.guardian_name as string)?.trim() || null;
+    const phone =
+      (e.guardian_phone as string)?.trim() ||
+      (e.applicant_phone as string)?.trim() ||
+      null;
+    if (name || phone) {
+      return {
+        enrollmentId: e.id as string,
+        name,
+        phone,
+        relation: (e.guardian_relation as string)?.trim() || null,
+        smsConsent: Boolean(e.guardian_sms_consent),
+        academicYear: e.academic_year as string,
+      };
+    }
+  }
+  return null;
+}
+
 export async function getStudentDossier(studentId: string) {
   const caps = await getSessionEtablissementCapabilities();
   if (!caps.manageStudents && !caps.viewStudentsReadOnly && !caps.isDirector) {
@@ -36,11 +74,12 @@ export async function getStudentDossier(studentId: string) {
   if (error) return { error: error.message };
   if (!student) return { error: 'Élève introuvable' };
 
-  const [{ data: enrollments }, { data: payments }, { data: bulletins }] = await Promise.all([
+  const [{ data: enrollments }, { data: payments }, { data: bulletins }, { data: docRows }] =
+    await Promise.all([
     supabase
       .from('school_enrollments')
       .select(
-        'id, status, academic_year, created_at, applicant_name, guardian_name, guardian_phone, school_classes(name)'
+        'id, status, academic_year, created_at, applicant_name, applicant_phone, guardian_name, guardian_phone, guardian_relation, guardian_sms_consent, school_classes(name)'
       )
       .eq('student_id', studentId)
       .eq('organization_id', orgId)
@@ -59,6 +98,15 @@ export async function getStudentDossier(studentId: string) {
       .eq('organization_id', orgId)
       .order('generated_at', { ascending: false })
       .limit(10),
+    supabase
+      .from('school_student_documents')
+      .select(
+        `id, enrollment_id, doc_type, created_at,
+        documents (id, file_name, file_path)`
+      )
+      .eq('student_id', studentId)
+      .eq('organization_id', orgId)
+      .order('created_at', { ascending: false }),
   ]);
 
   const activeEnrollment = (enrollments ?? []).find((e) =>
@@ -82,17 +130,47 @@ export async function getStudentDossier(studentId: string) {
     paymentSettingsRaw
   ).tuition_installments;
 
+  const { getEnrollmentDocumentLabel } = await import('@/lib/school/enrollment-document-types');
+  const enrollmentRows = enrollments ?? [];
+  const guardian = pickPrimaryGuardian(enrollmentRows as Array<Record<string, unknown>>);
+
+  const documents = (docRows ?? []).map((row) => {
+    const docRaw = row.documents as
+      | { file_name?: string; file_path?: string }
+      | { file_name?: string; file_path?: string }[]
+      | null;
+    const docMeta = Array.isArray(docRaw) ? docRaw[0] ?? null : docRaw;
+    return {
+      id: row.id as string,
+      enrollmentId: (row.enrollment_id as string) || null,
+      fileName: docMeta?.file_name || 'Document',
+      filePath: docMeta?.file_path ?? null,
+      docType: (row.doc_type as string) || 'other',
+      docTypeLabel: getEnrollmentDocumentLabel(row.doc_type as string),
+      date: new Date(row.created_at as string).toLocaleDateString('fr-FR'),
+    };
+  });
+
+  const person = (student as Record<string, unknown>).core_persons as
+    | { phone?: string }
+    | { phone?: string }[]
+    | null;
+  const studentPhone = Array.isArray(person) ? person[0]?.phone : person?.phone;
+
   return {
     student: {
       id: student.id as string,
       name: personName(student as Record<string, unknown>),
       email: personEmail(student as Record<string, unknown>),
+      phone: (studentPhone as string)?.trim() || null,
       matricule: (student.matricule as string) || null,
       status: student.enrollment_status as string,
       className: ((student.school_classes as { name?: string })?.name) || null,
       classId: (student.class_id as string) || null,
     },
-    enrollments: (enrollments ?? []).map((e) => ({
+    guardian,
+    documents,
+    enrollments: enrollmentRows.map((e) => ({
       id: e.id as string,
       status: e.status as string,
       academicYear: e.academic_year as string,
@@ -100,6 +178,7 @@ export async function getStudentDossier(studentId: string) {
       className: ((e.school_classes as { name?: string })?.name) || '—',
       guardianName: (e.guardian_name as string) || null,
       guardianPhone: (e.guardian_phone as string) || null,
+      guardianRelation: (e.guardian_relation as string) || null,
     })),
     payments: (payments ?? []).map((p) => ({
       id: p.id as string,
