@@ -11,6 +11,7 @@ export function sanitizeBillingStatusForDirector(
   return {
     ...status,
     upfront_annual_due_gnf: undefined,
+    upfront_due_gnf: undefined,
     platform_monthly_base_gnf: undefined,
     platform_annual_base_gnf: undefined,
     platform_per_student_gnf: undefined,

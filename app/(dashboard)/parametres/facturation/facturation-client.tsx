@@ -26,10 +26,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 
-const MONTHS = [
-  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
-];
+const RENEWAL_MONTH_OPTIONS = [1, 3, 6, 12] as const;
 
 function statusBadge(status: string, accessAllowed: boolean) {
   if (!accessAllowed) {
@@ -71,8 +68,10 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
     String(status.default_tuition_fee_gnf ?? 1_500_000)
   );
   const [paymentRef, setPaymentRef] = useState('');
+  const [customMonths, setCustomMonths] = useState('');
 
   const isSchool =
+    status.model === 'monthly_school_subscription' ||
     status.model === 'annual_school_subscription' ||
     status.model === 'per_enrolled_student' ||
     status.billing_period === 'annual';
@@ -81,6 +80,11 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
   const offerAccessMode = status.offer?.access_mode;
   const isTrialOffer = offerAccessMode === 'trial_30d';
   const hasPaymentLink = Boolean(status.offer?.payment_token);
+  const activationMonths = status.offer?.activation_months ?? 1;
+  const monthlyPrice =
+    status.monthly_price_gnf ??
+    status.subscription?.monthly_price_gnf ??
+    0;
   const canPayNow =
     hasPaymentLink &&
     canOrganizationDirectorPay(offerStatus) &&
@@ -91,6 +95,10 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
     (status.billing_status === 'pending_payment' ||
       status.billing_status === 'pending_renewal') &&
     isOfferAwaitingCeoValidation(offerStatus);
+  const canRenewWhileActive =
+    status.access_allowed &&
+    status.billing_status === 'active' &&
+    (isSchool ? monthlyPrice > 0 : Boolean(status.subscription));
 
   async function handleSchoolSettings(e: React.FormEvent) {
     e.preventDefault();
@@ -112,6 +120,15 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
     }
   }
 
+  function handleCustomRenewal() {
+    const months = Number(customMonths);
+    if (!Number.isInteger(months) || months < 1 || months > 36) {
+      setMsg('Indiquez un nombre de mois entre 1 et 36.');
+      return;
+    }
+    void handleRenewSubscription(months);
+  }
+
   const schoolBillingLabel = (): string => {
     if (status.billing_status === 'pending_payment') {
       return awaitingCeoPricing
@@ -124,6 +141,63 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
     if (status.access_allowed) return 'Actif';
     return 'Suspendu';
   };
+
+  const renewalBlock = (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        <Label htmlFor="sub_ref">Référence paiement</Label>
+        <Input
+          id="sub_ref"
+          value={paymentRef}
+          onChange={(e) => setPaymentRef(e.target.value)}
+          placeholder="Optionnel"
+        />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {RENEWAL_MONTH_OPTIONS.map((months) => (
+          <Button
+            key={months}
+            className={months === 1 ? 'bg-[#2563EB]' : undefined}
+            variant={months === 1 ? 'default' : 'outline'}
+            disabled={loading}
+            onClick={() => handleRenewSubscription(months)}
+          >
+            {months} mois
+            {monthlyPrice > 0 && (
+              <span className="ml-1 opacity-80">
+                ({formatCurrency(monthlyPrice * months)})
+              </span>
+            )}
+          </Button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="space-y-2">
+          <Label htmlFor="custom_months">Autre durée (mois)</Label>
+          <Input
+            id="custom_months"
+            type="number"
+            min={1}
+            max={36}
+            value={customMonths}
+            onChange={(e) => setCustomMonths(e.target.value)}
+            placeholder="ex. 2"
+            className="w-28"
+          />
+        </div>
+        <Button variant="outline" disabled={loading} onClick={handleCustomRenewal}>
+          Payer
+        </Button>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Vous pouvez régler plusieurs mois à l&apos;avance. Après la date de fin, l&apos;accès au
+        module est bloqué jusqu&apos;au renouvellement.
+      </p>
+    </div>
+  );
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -191,6 +265,12 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
               <span className="font-bold text-foreground text-lg">
                 {formatCurrency(status.offer?.activation_amount_gnf ?? 0)}
               </span>
+              {activationMonths > 1 && (
+                <span className="block text-xs mt-1">
+                  Soit {activationMonths} mois d&apos;abonnement
+                  {monthlyPrice > 0 && ` (${formatCurrency(monthlyPrice)} / mois)`}
+                </span>
+              )}
             </p>
             {status.offer?.ceo_notes && (
               <p className="text-sm border-l-2 border-primary pl-3">{status.offer.ceo_notes}</p>
@@ -213,17 +293,17 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
           <CardContent className="pt-6 space-y-4">
             <p className="font-medium">En attente de validation KonaData</p>
             <p className="text-sm text-muted-foreground">
-              KonaData analyse votre dossier et fixe le tarif annuel. Le paiement reste impossible
+              KonaData analyse votre dossier et fixe le tarif mensuel. Le paiement reste impossible
               tant que le CEO n’a pas validé le montant sur son espace Organisations.
             </p>
             {isTrialOffer && (
               <p className="text-sm text-amber-800">
                 Mode proposé : <strong>essai 30 jours</strong> — accès temporaire au module, puis
-                abonnement annuel KonaData.
+                abonnement mensuel KonaData.
               </p>
             )}
             {isTrialOffer && (
-              <p className="text-sm">Tarif essai : accès 30 jours (montant annuel fixé après l’essai).</p>
+              <p className="text-sm">Tarif essai : accès 30 jours (montant mensuel fixé après l’essai).</p>
             )}
             <Button size="lg" className="w-full sm:w-auto" disabled>
               {isSchool ? 'Payer et activer l’établissement' : 'Payer et activer l’organisation'}
@@ -239,11 +319,7 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-base">Statut</CardTitle>
-            <CardDescription>
-              {isSchool
-                ? 'Abonnement plateforme annuel KonaData'
-                : 'Abonnement mensuel au module métier'}
-            </CardDescription>
+            <CardDescription>Abonnement mensuel au module KonaData</CardDescription>
           </div>
           {statusBadge(
             isSchool ? schoolBillingLabel() : (status.subscription?.status ?? 'expired'),
@@ -262,10 +338,17 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
                   </Badge>
                 )}
               </p>
-              {status.subscription_valid_until && (
+              {(status.subscription_valid_until || status.subscription?.current_period_end) && (
                 <p className="text-xs text-muted-foreground">
                   Valide jusqu&apos;au{' '}
-                  {new Date(status.subscription_valid_until).toLocaleDateString('fr-FR')}
+                  {new Date(
+                    status.subscription_valid_until ?? status.subscription!.current_period_end
+                  ).toLocaleDateString('fr-FR')}
+                </p>
+              )}
+              {monthlyPrice > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Tarif mensuel : {formatCurrency(monthlyPrice)}
                 </p>
               )}
             </div>
@@ -277,23 +360,20 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
 
       {isSchool ? (
         <>
-          <Card className="border-primary/20">
-            <CardHeader>
-              <CardTitle className="text-base">Facturation KonaData (plateforme)</CardTitle>
-              <CardDescription>
-                Paiement annuel <strong>avant</strong> l’activation, puis à chaque renouvellement en début de
-                nouvelle période (pas en fin d’année). Le montant est fixé par KonaData selon votre dossier.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-sm space-y-1 pb-0">
-              {status.subscription_valid_until && (
-                <p>
-                  Valide jusqu&apos;au{' '}
-                  {new Date(status.subscription_valid_until).toLocaleDateString('fr-FR')}
-                </p>
-              )}
-            </CardContent>
-          </Card>
+          {canRenewWhileActive && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4" />
+                  Abonnement plateforme
+                </CardTitle>
+                <CardDescription>
+                  {formatCurrency(monthlyPrice)} / mois — payez un ou plusieurs mois à l&apos;avance
+                </CardDescription>
+              </CardHeader>
+              <CardContent>{renewalBlock}</CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
@@ -343,13 +423,10 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
             </CardContent>
           </Card>
 
-
           {invoice?.status === 'paid' && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">
-                  Dernière période payée ({invoice.period_year})
-                </CardTitle>
+                <CardTitle className="text-base">Dernier paiement plateforme</CardTitle>
                 <CardDescription>
                   Payé le{' '}
                   {invoice.paid_at
@@ -369,7 +446,9 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
                 <Building2 className="h-4 w-4" />
                 {status.subscription.plan_name}
               </CardTitle>
-              <CardDescription>Abonnement mensuel — {formatCurrency(status.subscription.monthly_price_gnf)} / mois</CardDescription>
+              <CardDescription>
+                Abonnement mensuel — {formatCurrency(status.subscription.monthly_price_gnf)} / mois
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <dl className="grid grid-cols-2 gap-2 text-sm">
@@ -388,32 +467,7 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
                   </>
                 )}
               </dl>
-
-              <div className="space-y-2">
-                <Label htmlFor="sub_ref">Référence paiement</Label>
-                <Input
-                  id="sub_ref"
-                  value={paymentRef}
-                  onChange={(e) => setPaymentRef(e.target.value)}
-                  placeholder="Optionnel"
-                />
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  className="bg-[#2563EB]"
-                  disabled={loading}
-                  onClick={() => handleRenewSubscription(1)}
-                >
-                  Renouveler 1 mois
-                </Button>
-                <Button variant="outline" disabled={loading} onClick={() => handleRenewSubscription(12)}>
-                  Renouveler 12 mois
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Après la date de fin, l&apos;accès au module (BTP, ONG ou PME) est bloqué jusqu&apos;au renouvellement.
-              </p>
+              {canRenewWhileActive && renewalBlock}
             </CardContent>
           </Card>
         )

@@ -1,5 +1,6 @@
 export type PlatformBillingModel =
   | 'monthly_subscription'
+  | 'monthly_school_subscription'
   | 'annual_school_subscription'
   | 'per_enrolled_student';
 
@@ -42,6 +43,8 @@ export interface OrganizationBillingStatus {
   ceo_suspend_reason?: string | null;
   payment_timing?: 'upfront_before_access';
   upfront_annual_due_gnf?: number;
+  upfront_due_gnf?: number;
+  monthly_price_gnf?: number;
   subscription_valid_from?: string | null;
   default_tuition_fee_gnf?: number;
   billing_period?: 'monthly' | 'annual';
@@ -54,6 +57,7 @@ export interface OrganizationBillingStatus {
   offer?: {
     status?: string;
     activation_amount_gnf?: number;
+    activation_months?: number;
     monthly_base_gnf?: number;
     annual_base_gnf?: number;
     per_enrolled_student_gnf?: number;

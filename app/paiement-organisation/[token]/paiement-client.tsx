@@ -34,9 +34,11 @@ export function PaiementOrganisationClient({
 
   const orgType = offer.organization_type as OrganizationType;
   const isSchool = orgType === 'school';
-  const isAnnual = offer.billing_period === 'annual' || isSchool;
+  const billingPeriod = offer.billing_period as string | undefined;
+  const activationMonths = Number(offer.activation_months ?? 1);
   const offerStatus = offer.offer_status as string;
   const activation = Number(offer.activation_amount_gnf ?? 0);
+  const monthlyBase = Number(offer.monthly_base_gnf ?? 0);
   const showPricingBreakdown = isPlatformAdmin;
   const canPay =
     offerStatus !== 'paid' &&
@@ -108,12 +110,15 @@ export function PaiementOrganisationClient({
           <div className="rounded-lg border p-4 space-y-2">
             <p className="text-sm font-medium text-primary">
               {isSchool
-                ? 'Abonnement annuel à régler avant l’ouverture de l’accès (début de période)'
+                ? 'Abonnement mensuel à régler avant l’ouverture de l’accès'
                 : 'Paiement obligatoire avant activation'}
             </p>
             {offerStatus === 'awaiting_payment' && activation > 0 && (
               <div className="flex justify-between text-sm">
-                <span>Montant validé à payer</span>
+                <span>
+                  Montant validé à payer
+                  {activationMonths > 1 && ` (${activationMonths} mois)`}
+                </span>
                 <span className="font-bold">{formatCurrency(activation)}</span>
               </div>
             )}
@@ -122,17 +127,16 @@ export function PaiementOrganisationClient({
                 Le montant vous sera communiqué après validation par KonaData.
               </p>
             )}
-            {showPricingBreakdown && isSchool && (
+            {showPricingBreakdown && isSchool && monthlyBase > 0 && (
               <>
-                {Number(offer.annual_base_gnf ?? offer.monthly_base_gnf ?? 0) > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Détail indicatif : forfait{' '}
-                    {formatCurrency(Number(offer.annual_base_gnf ?? offer.monthly_base_gnf ?? 0))}
-                    {Number(offer.per_enrolled_student_gnf ?? 0) > 0 &&
-                      ` + ${formatCurrency(Number(offer.per_enrolled_student_gnf))} / élève déclaré ou inscrit`}
-                    .
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  Détail indicatif : forfait mensuel {formatCurrency(monthlyBase)}
+                  {Number(offer.per_enrolled_student_gnf ?? 0) > 0 &&
+                    ` + ${formatCurrency(Number(offer.per_enrolled_student_gnf))} / élève inscrit / mois`}
+                  .
+                  {activationMonths > 1 &&
+                    ` Total pour ${activationMonths} mois : ${formatCurrency(activation)}.`}
+                </p>
                 {offer.declared_expected_students != null && (
                   <p className="text-xs text-muted-foreground">
                     Effectif déclaré à l&apos;inscription :{' '}
@@ -141,11 +145,19 @@ export function PaiementOrganisationClient({
                 )}
               </>
             )}
-            {showPricingBreakdown && !isSchool && Number(offer.annual_base_gnf ?? offer.monthly_base_gnf ?? 0) > 0 && (
+            {showPricingBreakdown && !isSchool && monthlyBase > 0 && (
               <div className="flex justify-between text-sm text-muted-foreground">
-                <span>Puis abonnement mensuel</span>
-                <span>{formatCurrency(Number(offer.annual_base_gnf ?? offer.monthly_base_gnf ?? 0))}</span>
+                <span>
+                  Puis abonnement mensuel
+                  {activationMonths > 1 && ` (${activationMonths} mois inclus)`}
+                </span>
+                <span>{formatCurrency(monthlyBase)}</span>
               </div>
+            )}
+            {showPricingBreakdown && billingPeriod === 'annual' && isSchool && (
+              <p className="text-xs text-amber-700">
+                Ancien tarif annuel — contactez KonaData si le montant affiché vous semble incorrect.
+              </p>
             )}
           </div>
 

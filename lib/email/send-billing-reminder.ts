@@ -37,7 +37,7 @@ export async function sendBillingRenewalReminderEmail(params: Params): Promise<R
     </p>
     ${
       isTrial
-        ? `<p style="color:#64748b;font-size:14px;">Après l'essai, l'abonnement annuel KonaData (forfait + élèves inscrits) s'appliquera.</p>`
+        ? `<p style="color:#64748b;font-size:14px;">Après l'essai, l'abonnement mensuel KonaData (forfait + élèves inscrits) s'appliquera.</p>`
         : ''
     }
   `;

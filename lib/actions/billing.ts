@@ -109,6 +109,7 @@ export async function recordSubscriptionRenewal(months = 1, reference?: string) 
   revalidatePath('/btp');
   revalidatePath('/ong');
   revalidatePath('/pme');
+  revalidatePath('/etablissement');
   return { success: true, data };
 }
 
@@ -350,7 +351,8 @@ export async function platformSetBillingOffer(
     tier: string;
     monthlyCredits: number;
     maxRequestsPerDay: number;
-  }
+  },
+  activationMonths = 1
 ) {
   const session = await getSession();
   if (session?.profile?.role !== 'platform_admin') {
@@ -367,6 +369,7 @@ export async function platformSetBillingOffer(
     p_ai_plan_tier: aiPlan?.tier ?? null,
     p_ai_monthly_credits: aiPlan?.monthlyCredits ?? null,
     p_ai_max_requests_per_day: aiPlan?.maxRequestsPerDay ?? null,
+    p_activation_months: activationMonths,
   });
   if (error) return { error: error.message };
 
@@ -462,7 +465,7 @@ export async function platformActivateSchoolTrial(orgId: string, notes?: string)
   return { success: true };
 }
 
-export async function prepareSchoolRenewalBilling(orgId: string) {
+export async function prepareSchoolRenewalBilling(orgId: string, months = 1) {
   const session = await getSession();
   if (session?.profile?.role !== 'platform_admin') {
     return { error: 'Réservé à l’admin KonaData' };
@@ -470,6 +473,7 @@ export async function prepareSchoolRenewalBilling(orgId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('prepare_school_renewal_billing', {
     p_org_id: orgId,
+    p_months: months,
   });
   if (error) return { error: error.message };
   revalidatePath('/organisations');

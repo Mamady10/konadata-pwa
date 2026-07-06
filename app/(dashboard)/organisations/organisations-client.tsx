@@ -19,7 +19,7 @@ import {
   type PlatformAccessMode,
 } from '@/lib/actions/billing';
 import { getSchoolBillingQuoteForCeo } from '@/lib/actions/school-onboarding';
-import { ORG_TYPE_LABELS, type OrganizationType } from '@/types/database';
+import { ORG_TYPE_LABELS, ORG_TYPE_STARTING_PRICE_GNF, type OrganizationType } from '@/types/database';
 import { formatCurrency } from '@/lib/utils';
 import {
   Building2,
@@ -59,6 +59,7 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
   const [activation, setActivation] = useState('');
   const [monthlyBase, setMonthlyBase] = useState('');
   const [perStudent, setPerStudent] = useState('');
+  const [activationMonths, setActivationMonths] = useState('1');
   const [notes, setNotes] = useState('');
   const [trialMode, setTrialMode] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -73,17 +74,19 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
     let per = Number(row.per_enrolled_student_gnf ?? 0);
 
     if (row.type === 'school') {
-      if (!base) base = 3_600_000;
-      if (!per) per = 300_000;
+      if (!base) base = ORG_TYPE_STARTING_PRICE_GNF.school;
+      if (!per) per = 0;
       const quote = await getSchoolBillingQuoteForCeo(row.id);
-      if (!quote.error && quote.declaredAnnual > 0) {
-        act = quote.declaredAnnual;
+      const months = Math.max(1, Number(activationMonths) || 1);
+      if (!quote.error && quote.declaredMonthly > 0) {
+        act = quote.declaredMonthly * months;
         setMsg(
-          `Devis indicatif (effectif déclaré) : ${formatCurrency(quote.declaredAnnual)} — après import élèves : ${formatCurrency(quote.enrolledAnnual)}`
+          `Devis indicatif mensuel (effectif déclaré) : ${formatCurrency(quote.declaredMonthly)} / mois — après import élèves : ${formatCurrency(quote.enrolledMonthly)} / mois`
         );
       } else if (!act) {
-        act = base + (row.declared_expected_students ?? 0) * per;
+        act = (base + (row.declared_expected_students ?? 0) * per) * months;
       }
+      setActivationMonths(String(months));
     }
 
     setActivation(String(act));
@@ -125,7 +128,8 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
       Number(perStudent),
       notes || undefined,
       mode,
-      aiPlan
+      aiPlan,
+      Math.max(1, Number(activationMonths) || 1)
     );
     if ('error' in res && res.error) {
       setMsg(res.error);
@@ -435,25 +439,37 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
                     <div>
                       <Label>
                         {org.type === 'school'
-                          ? 'Montant annuel à payer avant accès (GNF)'
+                          ? 'Montant à payer avant accès (GNF)'
                           : 'Activation (GNF)'}
                       </Label>
                       <Input value={activation} onChange={(e) => setActivation(e.target.value)} type="number" />
                     </div>
                     <div>
                       <Label>
-                        {org.type === 'school' ? 'Forfait annuel (GNF)' : 'Base mensuelle (GNF)'}
+                        {org.type === 'school' ? 'Forfait mensuel (GNF)' : 'Base mensuelle (GNF)'}
                       </Label>
                       <Input value={monthlyBase} onChange={(e) => setMonthlyBase(e.target.value)} type="number" />
                     </div>
                     <div>
                       <Label>
                         {org.type === 'school'
-                          ? 'GNF / élève inscrit / an'
+                          ? 'GNF / élève inscrit / mois'
                           : 'GNF / élève (si applicable)'}
                       </Label>
                       <Input value={perStudent} onChange={(e) => setPerStudent(e.target.value)} type="number" />
                     </div>
+                    {!trialMode && (
+                      <div>
+                        <Label>Mois couverts par le paiement</Label>
+                        <Input
+                          value={activationMonths}
+                          onChange={(e) => setActivationMonths(e.target.value)}
+                          type="number"
+                          min={1}
+                          max={36}
+                        />
+                      </div>
+                    )}
                     <div className="sm:col-span-3">
                       <Label>Note au client</Label>
                       <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -470,7 +486,7 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
                           }}
                         />
                         <Label htmlFor={`trial-${org.id}`} className="font-normal cursor-pointer">
-                          Proposer un essai 30 jours (accès module, puis abonnement annuel)
+                          Proposer un essai 30 jours (accès module, puis abonnement mensuel)
                         </Label>
                       </div>
                     )}
@@ -587,7 +603,7 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
                         onClick={async () => {
                           if (
                             !confirm(
-                              `Préparer le renouvellement annuel pour « ${org.name} » ? L’établissement sera bloqué jusqu’au paiement.`
+                              `Préparer le renouvellement mensuel pour « ${org.name} » ? L’établissement sera bloqué jusqu’au paiement.`
                             )
                           ) {
                             return;

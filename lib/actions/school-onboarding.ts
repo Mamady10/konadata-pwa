@@ -253,34 +253,53 @@ export async function getSchoolOnboardingStatus(): Promise<{
 }
 
 export async function getSchoolBillingQuoteForCeo(orgId: string): Promise<{
+  declaredMonthly: number;
+  enrolledMonthly: number;
   declaredAnnual: number;
   enrolledAnnual: number;
   error?: string;
 }> {
   const session = await getSession();
   if (session?.profile?.role !== 'platform_admin') {
-    return { declaredAnnual: 0, enrolledAnnual: 0, error: 'Réservé au CEO KonaData' };
+    return {
+      declaredMonthly: 0,
+      enrolledMonthly: 0,
+      declaredAnnual: 0,
+      enrolledAnnual: 0,
+      error: 'Réservé au CEO KonaData',
+    };
   }
 
   const supabase = await createClient();
   const [declaredRes, enrolledRes] = await Promise.all([
-    supabase.rpc('compute_school_annual_amount', {
+    supabase.rpc('compute_school_monthly_amount', {
       p_org_id: orgId,
       p_use_declared: true,
     }),
-    supabase.rpc('compute_school_annual_amount', {
+    supabase.rpc('compute_school_monthly_amount', {
       p_org_id: orgId,
       p_use_declared: false,
     }),
   ]);
 
   if (declaredRes.error) {
-    return { declaredAnnual: 0, enrolledAnnual: 0, error: declaredRes.error.message };
+    return {
+      declaredMonthly: 0,
+      enrolledMonthly: 0,
+      declaredAnnual: 0,
+      enrolledAnnual: 0,
+      error: declaredRes.error.message,
+    };
   }
 
+  const declaredMonthly = Number(declaredRes.data ?? 0);
+  const enrolledMonthly = Number(enrolledRes.data ?? 0);
+
   return {
-    declaredAnnual: Number(declaredRes.data ?? 0),
-    enrolledAnnual: Number(enrolledRes.data ?? 0),
+    declaredMonthly,
+    enrolledMonthly,
+    declaredAnnual: declaredMonthly * 12,
+    enrolledAnnual: enrolledMonthly * 12,
   };
 }
 

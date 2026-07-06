@@ -22,7 +22,7 @@ export function TrialWatermarkBanner({ trialEndsAt }: Props) {
         </span>
       </div>
       <Link href="/parametres/facturation" className="text-primary font-medium underline">
-        Activer l&apos;abonnement annuel
+        Activer l&apos;abonnement mensuel
       </Link>
     </div>
   );
