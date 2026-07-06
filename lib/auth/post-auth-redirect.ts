@@ -12,7 +12,7 @@ import {
   isLearnerIntent,
 } from '@/lib/auth/account-intent';
 
-const LEARNER_ROLES = new Set<AppRole>(['candidate', 'student', 'parent']);
+const LEARNER_ROLES = new Set<AppRole>(['candidate', 'student']);
 
 const LEARNER_HOME = '/etablissement/candidatures';
 
@@ -144,7 +144,7 @@ export function resolvePostAuthDestination(options: {
     ) {
       return redirect;
     }
-    return role === 'parent' ? '/etablissement/vie-scolaire' : LEARNER_HOME;
+    return LEARNER_HOME;
   }
 
   if (!organizationId) {

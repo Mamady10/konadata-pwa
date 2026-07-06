@@ -116,17 +116,6 @@ const DEMO_ROLE_ACCOUNTS = [
     notes: 'Candidature en attente',
   },
   {
-    key: 'parent',
-    email: 'demo.parent@konadata.demo',
-    fullName: 'Parent Démo Diallo',
-    role: 'parent',
-    orgId: DEMO_ORG_IDS.school,
-    sector: 'Établissement',
-    loginUrl: '/etablissement/vie-scolaire',
-    phone: '611000099',
-    notes: 'Tuteur de l\'élève démo — téléphone aligné sur la fiche inscription',
-  },
-  {
     key: 'ngo_director',
     email: 'demo.ong@konadata.demo',
     fullName: 'Directrice Démo FDG',
@@ -239,13 +228,7 @@ async function linkProfile(userId, account) {
     email: account.email,
     is_active: true,
   };
-  if (account.phone) {
-    patch.phone = account.phone;
-  }
   if (account.role === 'student' || account.role === 'candidate') {
-    patch.onboarding_path = 'learner';
-  }
-  if (account.role === 'parent') {
     patch.onboarding_path = 'learner';
   }
   const { error } = await admin.from('profiles').update(patch).eq('id', userId);
@@ -533,7 +516,6 @@ function accountIntent(role) {
   if (role === 'platform_admin') return 'platform_admin';
   if (['org_admin', 'deputy_director'].includes(role)) return 'org_admin';
   if (['student', 'candidate'].includes(role)) return 'learner';
-  if (role === 'parent') return 'learner';
   return 'staff';
 }
 

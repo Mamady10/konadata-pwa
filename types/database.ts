@@ -8,7 +8,6 @@ export type AppRole =
   | 'teacher'
   | 'student'
   | 'candidate'
-  | 'parent'
   | 'accountant'
   | 'ngo_staff'
   | 'btp_staff'
@@ -193,7 +192,6 @@ export const ROLE_LABELS: Record<string, string> = {
   teacher: 'Enseignant',
   student: 'Élève',
   candidate: 'Candidat',
-  parent: 'Parent / tuteur',
   ngo_staff: 'Staff ONG',
   btp_staff: 'Staff BTP',
   pme_staff: 'Staff PME',
