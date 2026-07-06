@@ -59,10 +59,17 @@ const ALLOWED_HREFS_BY_ROLE: Partial<Record<AppRole, Set<string> | null>> = {
     PATH_BY_PAGE.dashboard,
     PATH_BY_PAGE.candidatures,
     PATH_BY_PAGE.bulletins,
+    PATH_BY_PAGE['vie-scolaire'],
   ]),
   candidate: new Set([
     PATH_BY_PAGE.dashboard,
     PATH_BY_PAGE.candidatures,
+    PATH_BY_PAGE['vie-scolaire'],
+  ]),
+  parent: new Set([
+    PATH_BY_PAGE.dashboard,
+    PATH_BY_PAGE['vie-scolaire'],
+    PATH_BY_PAGE.bulletins,
   ]),
 };
 
@@ -108,7 +115,7 @@ export function isSchoolStaffRole(role: AppRole | string | undefined): boolean {
 }
 
 export function isSelfServiceLearner(role: AppRole | string | undefined): boolean {
-  return role === 'student' || role === 'candidate';
+  return role === 'student' || role === 'candidate' || role === 'parent';
 }
 
 export function getAllowedEtablissementHrefs(
@@ -156,6 +163,7 @@ export function getEtablissementFallbackPath(role: AppRole | string | undefined)
   const order: EtablissementPage[] = [
     'dashboard',
     'candidatures',
+    'vie-scolaire',
     'etudiants',
     'formations',
     'paiements',
@@ -199,6 +207,9 @@ export function filterEtablissementNav<T extends { href: string; label: string }
       }
       if (role === 'student' && item.href === PATH_BY_PAGE.bulletins) {
         return { ...item, label: 'Mon bulletin' };
+      }
+      if (role === 'parent' && item.href === PATH_BY_PAGE.bulletins) {
+        return { ...item, label: 'Bulletins de mon enfant' };
       }
       return item;
     });
@@ -349,6 +360,28 @@ export function getEtablissementCapabilities(
         viewOrgWideDashboard: false,
         isDirector: false,
       };
+    case 'parent':
+      return {
+        manageEnrollments: false,
+        manageStudents: false,
+        manageCatalog: false,
+        recordPayments: false,
+        viewPayments: false,
+        viewPaymentsByClass: false,
+        viewEnrollmentDocuments: false,
+        viewFinanceStats: false,
+        viewStudentsReadOnly: false,
+        viewFormationsReadOnly: false,
+        enterGrades: false,
+        generateReportCards: false,
+        viewReports: false,
+        manageOwnEnrollment: false,
+        createEnrollmentRequest: false,
+        submitEnrollmentDocuments: false,
+        viewOwnBulletinsOnly: true,
+        viewOrgWideDashboard: false,
+        isDirector: false,
+      };
     default:
       return {
         manageEnrollments: false,
@@ -382,5 +415,6 @@ export function getDashboardTitle(role: AppRole | string | undefined): string {
   if (role === 'teacher') return 'Mon espace enseignant';
   if (role === 'student') return 'Mon espace élève';
   if (role === 'candidate') return 'Mon espace candidat';
+  if (role === 'parent') return 'Espace parent / tuteur';
   return 'Accueil';
 }

@@ -53,6 +53,22 @@ async function assertSchoolCapability(
 
 export async function getLinkedSchoolStudentIds(): Promise<string[]> {
   const supabase = await createClient();
+  const session = await getSession();
+  const role = session?.profile?.role;
+
+  if (role === 'parent') {
+    const orgId = session?.profile?.organization_id;
+    if (!orgId) return [];
+    const { data, error } = await supabase.rpc('parent_linked_school_student_ids', {
+      p_org_id: orgId,
+    });
+    if (error) {
+      console.error('parent_linked_school_student_ids', error.message);
+      return [];
+    }
+    return (data as string[] | null) ?? [];
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -619,7 +635,7 @@ export interface PersonalDashboardLink {
 
 export interface PersonalSchoolDashboard {
   scope: 'personal';
-  role: 'teacher' | 'student' | 'candidate';
+  role: 'teacher' | 'student' | 'candidate' | 'parent';
   userName: string;
   highlights: { label: string; value: string }[];
   links: PersonalDashboardLink[];
@@ -691,8 +707,21 @@ export async function getPersonalSchoolDashboard(
       });
     }
   } else {
-    const studentId = await getLinkedSchoolStudentId();
-    const enrollmentRows = studentId ? await getEnrollments(orgId) : [];
+    const linkedIds = await getLinkedSchoolStudentIds();
+    const studentId = linkedIds[0] ?? null;
+    let enrollmentRows: Record<string, unknown>[] = [];
+
+    if (role === 'parent' && linkedIds.length > 0) {
+      const { data } = await supabase
+        .from('school_enrollments')
+        .select('*, school_classes(name)')
+        .eq('organization_id', orgId)
+        .in('student_id', linkedIds)
+        .order('created_at', { ascending: false });
+      enrollmentRows = (data ?? []) as Record<string, unknown>[];
+    } else if (studentId) {
+      enrollmentRows = await getEnrollments(orgId);
+    }
 
     enrollments = enrollmentRows.map((e) => ({
       id: e.id as string,
@@ -715,41 +744,73 @@ export async function getPersonalSchoolDashboard(
       bulletinPublished = (cards?.length ?? 0) > 0;
     }
 
-    const latest = enrollments[0];
-    highlights = [
-      {
-        label: 'Dossier',
-        value: latest?.status ?? 'Aucune demande',
-      },
-      { label: 'Pièces déposées', value: String(documentsCount) },
-      {
-        label: 'Bulletin',
-        value: bulletinPublished ? 'Disponible' : 'Pas encore publié',
-      },
-    ];
+    if (role === 'parent') {
+      highlights = [
+        {
+          label: 'Enfant(s) lié(s)',
+          value: linkedIds.length ? String(linkedIds.length) : 'Aucun — vérifiez votre téléphone',
+        },
+        {
+          label: 'Bulletin',
+          value: bulletinPublished ? 'Disponible' : 'Pas encore publié',
+        },
+      ];
+      links = [
+        {
+          href: '/etablissement/vie-scolaire',
+          label: 'Vie scolaire',
+          description: 'Actualités et emploi du temps de votre enfant',
+        },
+        {
+          href: '/etablissement/bulletins',
+          label: 'Bulletins',
+          description: bulletinPublished
+            ? 'Consulter le bulletin publié'
+            : 'Sera visible après publication',
+        },
+      ];
+    } else {
+      const latest = enrollments[0];
+      highlights = [
+        {
+          label: 'Dossier',
+          value: latest?.status ?? 'Aucune demande',
+        },
+        { label: 'Pièces déposées', value: String(documentsCount) },
+        {
+          label: 'Bulletin',
+          value: bulletinPublished ? 'Disponible' : 'Pas encore publié',
+        },
+      ];
 
-    links = [
-      {
-        href: '/etablissement/candidatures',
-        label: role === 'student' ? 'Ma réinscription' : 'Mon inscription',
-        description: 'Déposer ou suivre votre dossier',
-      },
-    ];
+      links = [
+        {
+          href: '/etablissement/vie-scolaire',
+          label: 'Vie scolaire',
+          description: 'Actualités, emploi du temps et présences',
+        },
+        {
+          href: '/etablissement/candidatures',
+          label: role === 'student' ? 'Ma réinscription' : 'Mon inscription',
+          description: 'Déposer ou suivre votre dossier',
+        },
+      ];
 
-    if (role === 'student') {
-      links.push({
-        href: '/etablissement/bulletins',
-        label: 'Mon bulletin',
-        description: bulletinPublished
-          ? 'Consulter votre bulletin'
-          : 'Sera visible après publication',
-      });
+      if (role === 'student') {
+        links.push({
+          href: '/etablissement/bulletins',
+          label: 'Mon bulletin',
+          description: bulletinPublished
+            ? 'Consulter votre bulletin'
+            : 'Sera visible après publication',
+        });
+      }
     }
   }
 
   return {
     scope: 'personal',
-    role: role as 'teacher' | 'student' | 'candidate',
+    role: role as 'teacher' | 'student' | 'candidate' | 'parent',
     userName,
     highlights,
     links,

@@ -44,7 +44,7 @@ export async function learnerHasEnrollmentHistory(
 }
 
 export function isLearnerRole(role: string | null | undefined): boolean {
-  return role === 'candidate' || role === 'student';
+  return role === 'candidate' || role === 'student' || role === 'parent';
 }
 
 /** Parcours choix établissement uniquement pour les nouveaux candidats sans historique. */

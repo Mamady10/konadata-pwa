@@ -31,7 +31,7 @@ export default async function EtablissementDashboardPage() {
       <div className="rounded-xl border border-dashed p-12 text-center">
         <h2 className="text-lg font-semibold">Organisation non configurée</h2>
         <p className="text-muted-foreground mt-2">
-          {role === 'candidate' || role === 'student' ? (
+          {role === 'candidate' || role === 'student' || role === 'parent' ? (
             <>
               Choisissez votre établissement sur la page{' '}
               <a href="/inscription-etablissement" className="text-primary underline">
@@ -53,7 +53,7 @@ export default async function EtablissementDashboardPage() {
   if (!caps.viewOrgWideDashboard) {
     const personal = await getPersonalSchoolDashboard(
       orgId,
-      role as 'teacher' | 'student' | 'candidate'
+      role as 'teacher' | 'student' | 'candidate' | 'parent'
     );
     return (
       <EtablissementDashboardClient

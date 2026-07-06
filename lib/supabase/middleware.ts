@@ -300,11 +300,11 @@ export async function updateSession(request: NextRequest) {
       (Boolean(organizationId) || hasEnrollmentHistory);
 
     if (learnerPortalOnly && pathname.startsWith('/etablissement')) {
-      if (pathname.startsWith('/etablissement/candidatures')) {
+      if (canAccessEtablissementPath(role as AppRole, pathname)) {
         return supabaseResponse;
       }
       const url = request.nextUrl.clone();
-      url.pathname = '/etablissement/candidatures';
+      url.pathname = getEtablissementFallbackPath(role as AppRole);
       return NextResponse.redirect(url);
     }
 

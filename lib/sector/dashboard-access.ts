@@ -58,6 +58,7 @@ export function getSectorDashboardTitle(
     if (role === 'teacher') return 'Mon espace enseignant';
     if (role === 'student') return 'Mon espace élève';
     if (role === 'candidate') return 'Mon espace candidat';
+    if (role === 'parent') return 'Espace parent / tuteur';
     return 'Accueil';
   }
 

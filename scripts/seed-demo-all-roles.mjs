@@ -116,6 +116,17 @@ const DEMO_ROLE_ACCOUNTS = [
     notes: 'Candidature en attente',
   },
   {
+    key: 'parent',
+    email: 'demo.parent@konadata.demo',
+    fullName: 'Parent Démo Diallo',
+    role: 'parent',
+    orgId: DEMO_ORG_IDS.school,
+    sector: 'Établissement',
+    loginUrl: '/etablissement/vie-scolaire',
+    phone: '611000099',
+    notes: 'Tuteur de l\'élève démo — téléphone aligné sur la fiche inscription',
+  },
+  {
     key: 'ngo_director',
     email: 'demo.ong@konadata.demo',
     fullName: 'Directrice Démo FDG',
@@ -228,7 +239,13 @@ async function linkProfile(userId, account) {
     email: account.email,
     is_active: true,
   };
+  if (account.phone) {
+    patch.phone = account.phone;
+  }
   if (account.role === 'student' || account.role === 'candidate') {
+    patch.onboarding_path = 'learner';
+  }
+  if (account.role === 'parent') {
     patch.onboarding_path = 'learner';
   }
   const { error } = await admin.from('profiles').update(patch).eq('id', userId);
@@ -311,7 +328,7 @@ async function setupTeacher(userId, orgId, email, fullName) {
   console.log(`    ✓ enseignant → ${classRow.name} / ${subjectRow.name}`);
 }
 
-async function setupStudent(userId, orgId, email, fullName, enrolled) {
+async function setupStudent(userId, orgId, email, fullName, enrolled, guardianPhone = null) {
   const { classRow } = await getSchoolClassAndSubject(orgId);
 
   let personId;
@@ -384,6 +401,39 @@ async function setupStudent(userId, orgId, email, fullName, enrolled) {
         academic_year: '2025-2026',
         request_type: 'new',
       });
+    }
+  }
+
+  if (enrolled && studentId) {
+    const { data: enrollment } = await admin
+      .from('school_enrollments')
+      .select('id')
+      .eq('student_id', studentId)
+      .eq('organization_id', orgId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!enrollment?.id) {
+      await admin.from('school_enrollments').insert({
+        organization_id: orgId,
+        student_id: studentId,
+        class_id: classRow?.id ?? null,
+        status: 'enrolled',
+        academic_year: '2025-2026',
+        request_type: 'new',
+      });
+    }
+    if (guardianPhone) {
+      await admin
+        .from('school_enrollments')
+        .update({
+          guardian_name: 'Parent Démo Diallo',
+          guardian_phone: guardianPhone,
+          guardian_relation: 'Père',
+          guardian_sms_consent: true,
+        })
+        .eq('student_id', studentId)
+        .eq('organization_id', orgId);
     }
   }
   console.log(`    ✓ ${enrolled ? 'élève inscrit' : 'candidat en attente'}`);
@@ -463,7 +513,7 @@ async function postSetup(userId, account) {
       await setupTeacher(userId, account.orgId, account.email, account.fullName);
       break;
     case 'student':
-      await setupStudent(userId, account.orgId, account.email, account.fullName, true);
+      await setupStudent(userId, account.orgId, account.email, account.fullName, true, '611000099');
       break;
     case 'candidate':
       await setupStudent(userId, account.orgId, account.email, account.fullName, false);
@@ -483,6 +533,7 @@ function accountIntent(role) {
   if (role === 'platform_admin') return 'platform_admin';
   if (['org_admin', 'deputy_director'].includes(role)) return 'org_admin';
   if (['student', 'candidate'].includes(role)) return 'learner';
+  if (role === 'parent') return 'learner';
   return 'staff';
 }
 

@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { requireEtablissementPage } from '@/lib/school/require-etablissement-page';
-import { getEtablissementCapabilities } from '@/lib/school/etablissement-access';
-import { getClasses, getSubjects, getStudents, getTeachers } from '@/lib/actions/school';
+import { getEtablissementCapabilities, isSelfServiceLearner } from '@/lib/school/etablissement-access';
+import { getClasses, getSubjects, getStudents, getTeachers, getLinkedSchoolStudentId } from '@/lib/actions/school';
 import { getClassSchedule } from '@/lib/actions/school-schedules';
 import { listAttendanceSessions } from '@/lib/actions/school-attendance';
 import { personName } from '@/lib/school/person-utils';
@@ -59,13 +59,33 @@ export default async function VieScolairePage() {
     /* schema pending */
   }
 
+  let initialClassId = classes[0]?.id ?? '';
+  if (isSelfServiceLearner(session.profile?.role)) {
+    const linkedId = await getLinkedSchoolStudentId();
+    const own = students.find((s) => s.id === linkedId);
+    if (own?.class_id) {
+      initialClassId = own.class_id;
+      if (!classes.some((c) => c.id === own.class_id)) {
+        classes = [{ id: own.class_id, name: 'Ma classe' }, ...classes];
+      }
+      try {
+        const sched = await getClassSchedule(own.class_id);
+        initialSchedule = Array.isArray(sched) ? sched : [];
+        const sess = await listAttendanceSessions(own.class_id);
+        initialSessions = Array.isArray(sess) ? sess : [];
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   return (
     <VieScolaireClient
       classes={classes}
       subjects={subjects}
       teachers={teachers}
       students={students}
-      initialClassId={classes[0]?.id ?? ''}
+      initialClassId={initialClassId}
       initialSchedule={initialSchedule}
       initialSessions={initialSessions}
       initialAnnouncements={initialAnnouncements}
