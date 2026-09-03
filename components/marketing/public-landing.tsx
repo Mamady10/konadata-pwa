@@ -17,6 +17,7 @@ import {
   LANDING_HERO_PILLS,
   LANDING_TRUST_PARTNERS,
   LANDING_AI_STRIP,
+  LANDING_LAUNCH_OFFER,
 } from '@/lib/marketing/landing-content';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
 import { KonaDataWordmark } from '@/components/brand/konadata-logo';
@@ -37,6 +38,7 @@ import {
   FileText,
   Globe,
   HeartHandshake,
+  Gift,
 } from 'lucide-react';
 
 const PILL_ICONS = {
@@ -54,6 +56,7 @@ const AI_STRIP_ICONS = {
 } as const;
 
 const NAV_ANCHORS = [
+  { href: '#offre', label: 'Offre gratuite' },
   { href: '#secteurs', label: 'Secteurs' },
   { href: '#fonctionnalites', label: 'Fonctionnalités' },
   { href: '#contact', label: 'Contact' },
@@ -320,6 +323,52 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
             }}
           />
           <div className="relative mx-auto max-w-7xl px-4 py-12 sm:py-14 space-y-14 sm:space-y-16">
+            {/* Offre de lancement */}
+            <div id="offre" className="scroll-mt-24">
+              <Card className="overflow-hidden border-2 border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-teal-50/70 shadow-md rounded-2xl">
+                <div className="h-1.5 bg-gradient-to-r from-emerald-500 to-teal-500" aria-hidden />
+                <CardContent className="p-6 sm:p-8">
+                  <div className="flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-10">
+                    <div className="flex-1 space-y-4">
+                      <div className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">
+                        <Gift className="h-3.5 w-3.5" />
+                        {LANDING_LAUNCH_OFFER.badge}
+                      </div>
+                      <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+                        {LANDING_LAUNCH_OFFER.title}
+                      </h2>
+                      <p className="text-sm sm:text-base text-muted-foreground leading-relaxed max-w-2xl">
+                        {LANDING_LAUNCH_OFFER.description}
+                      </p>
+                      <ul className="grid gap-2 sm:grid-cols-2 text-sm text-slate-700">
+                        {LANDING_LAUNCH_OFFER.rules.map((rule) => (
+                          <li key={rule} className="flex items-start gap-2">
+                            <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
+                            <span>{rule}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="shrink-0 flex flex-col gap-3 sm:min-w-[220px]">
+                      <Button
+                        size="lg"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        asChild
+                      >
+                        <Link href={LANDING_LAUNCH_OFFER.href}>
+                          {LANDING_LAUNCH_OFFER.cta}
+                          <ArrowRight className="h-4 w-4 ml-1" />
+                        </Link>
+                      </Button>
+                      <p className="text-xs text-muted-foreground text-center sm:text-left">
+                        Après inscription : Paramètres → Facturation pour activer l&apos;offre.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
             {/* Secteurs */}
             <div id="secteurs" className="scroll-mt-24">
               <div className="text-center max-w-2xl mx-auto mb-8">
@@ -349,11 +398,16 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
                       </CardHeader>
                       <CardContent className="px-5 pb-5 pt-0">
                         <p className="text-sm text-muted-foreground leading-relaxed">{s.description}</p>
-                        <span
-                          className={`mt-3 inline-flex items-center rounded-full bg-white/70 px-2.5 py-1 text-xs font-semibold ${s.accent} ring-1 ring-inset ring-current/20`}
-                        >
-                          {s.priceFrom}
-                        </span>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <span className="inline-flex items-center rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white">
+                            {s.launchOffer}
+                          </span>
+                          <span
+                            className={`inline-flex items-center rounded-full bg-white/70 px-2.5 py-1 text-xs font-semibold ${s.accent} ring-1 ring-inset ring-current/20`}
+                          >
+                            {s.priceFrom}
+                          </span>
+                        </div>
                         <Link
                           href={s.href}
                           className={`flex items-center gap-1 mt-3 text-sm font-semibold ${s.accent} hover:opacity-80 transition-opacity`}
