@@ -1,6 +1,6 @@
 import { getSchoolDashboard, getPersonalSchoolDashboard } from '@/lib/actions/school';
 import { getSchoolOnboardingStatus } from '@/lib/actions/school-onboarding';
-import { isTrialOrg, parseSchoolOrgSettings } from '@/lib/school/school-org-settings';
+import { isTrialOrg, isLaunchOfferOrg, parseSchoolOrgSettings } from '@/lib/school/school-org-settings';
 import { getStudentsWithoutMatriculeSummary } from '@/lib/actions/student-matricules';
 import { buildSchoolRecommendations } from '@/lib/ai/recommendations';
 import type { AIRecommendation, AppRole, Organization } from '@/types/database';
@@ -72,6 +72,7 @@ export default async function EtablissementDashboardPage() {
   let recommendations: AIRecommendation[] = [];
   let onboarding: Awaited<ReturnType<typeof getSchoolOnboardingStatus>>['status'] = null;
   let trialMode = false;
+  let launchOfferMode = false;
   let trialEndsAt: string | null = null;
   let matriculeSummary = { total: 0, assignable: 0, byClass: [] as Awaited<ReturnType<typeof getStudentsWithoutMatriculeSummary>>['byClass'] };
   try {
@@ -113,10 +114,13 @@ export default async function EtablissementDashboardPage() {
   const orgSettings = (org?.settings as Record<string, unknown>) ?? null;
   const schoolSettings = parseSchoolOrgSettings(orgSettings);
   trialMode = isTrialOrg(orgSettings);
+  launchOfferMode = isLaunchOfferOrg(orgSettings);
   trialEndsAt =
     typeof orgSettings?.platform_subscription_valid_until === 'string'
       ? orgSettings.platform_subscription_valid_until
-      : null;
+      : typeof orgSettings?.launch_offer_free_until === 'string'
+        ? orgSettings.launch_offer_free_until
+        : null;
 
   return (
     <EtablissementDashboardClient
@@ -130,8 +134,9 @@ export default async function EtablissementDashboardPage() {
       matriculeSummary={matriculeSummary}
       canManageMatricules={caps.manageStudents}
       onboarding={onboarding}
-      trialMode={trialMode}
+      trialMode={trialMode || launchOfferMode}
       trialEndsAt={trialEndsAt}
+      trialBannerMode={launchOfferMode ? 'launch_free' : 'trial_30d'}
       showStarterPack={caps.isDirector || caps.manageStudents}
       academicYear={schoolSettings.default_academic_year}
     />

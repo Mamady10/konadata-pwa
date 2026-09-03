@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   recordSubscriptionRenewal,
   updateSchoolDefaultTuitionFee,
+  claimLaunchFreeOffer,
 } from '@/lib/actions/billing';
 import type { OrganizationBillingStatus } from '@/lib/billing/types';
 import {
@@ -24,6 +25,7 @@ import {
   GraduationCap,
   Building2,
   ArrowLeft,
+  Gift,
 } from 'lucide-react';
 
 const RENEWAL_MONTH_OPTIONS = [1, 3, 6, 12] as const;
@@ -79,6 +81,10 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
   const offerStatus = status.offer?.status;
   const offerAccessMode = status.offer?.access_mode;
   const isTrialOffer = offerAccessMode === 'trial_30d';
+  const isLaunchOfferActive = offerAccessMode === 'launch_free';
+  const launch = status.launch_offer;
+  const canClaimLaunchOffer =
+    Boolean(launch?.eligible) && status.billing_status === 'pending_payment';
   const hasPaymentLink = Boolean(status.offer?.payment_token);
   const activationMonths = status.offer?.activation_months ?? 1;
   const monthlyPrice =
@@ -118,6 +124,22 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
       setMsg(`Abonnement prolongé de ${months} mois.`);
       window.location.reload();
     }
+  }
+
+  async function handleClaimLaunchOffer() {
+    setLoading(true);
+    setMsg(null);
+    const res = await claimLaunchFreeOffer();
+    setLoading(false);
+    if ('error' in res && res.error) {
+      setMsg(res.error);
+      return;
+    }
+    const message =
+      (res.data?.message as string | undefined) ??
+      'Offre de lancement activée. Accès gratuit débloqué.';
+    setMsg(message);
+    window.location.reload();
   }
 
   function handleCustomRenewal() {
@@ -254,6 +276,76 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
         </div>
       )}
 
+      {canClaimLaunchOffer && (
+        <Card className="border-emerald-500/50 bg-emerald-500/5 shadow-sm">
+          <CardContent className="pt-6 space-y-4">
+            <p className="font-semibold text-lg flex items-center gap-2">
+              <Gift className="h-5 w-5 text-emerald-600" />
+              Offre de lancement KonaData
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Activez gratuitement votre organisation pendant{' '}
+              <strong>
+                {launch?.free_months ?? (isSchool ? 12 : 6)} mois
+              </strong>
+              {isSchool ? ' (établissements scolaires)' : ' (ONG, BTP, PME)'}.
+            </p>
+            <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-5">
+              <li>Souscription possible une seule fois</li>
+              <li>
+                Fenêtre limitée : jusqu&apos;au{' '}
+                <strong>
+                  {launch?.claim_deadline
+                    ? new Date(launch.claim_deadline).toLocaleDateString('fr-FR')
+                    : '—'}
+                </strong>{' '}
+                (2 mois après inscription)
+              </li>
+              <li>
+                Après la période gratuite, l&apos;accès continue uniquement avec un abonnement
+                payant
+              </li>
+            </ul>
+            <Button
+              size="lg"
+              className="bg-emerald-600 hover:bg-emerald-700"
+              disabled={loading}
+              onClick={() => void handleClaimLaunchOffer()}
+            >
+              {loading
+                ? 'Activation…'
+                : `Activer ${launch?.free_months ?? (isSchool ? 12 : 6)} mois gratuits`}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              En activant, vous confirmez que cette offre ne pourra plus être demandée ensuite.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {launch && !launch.eligible && status.billing_status === 'pending_payment' && (
+        <Card className="border-muted">
+          <CardContent className="pt-6 space-y-2 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground flex items-center gap-2">
+              <Gift className="h-4 w-4" />
+              Offre de lancement
+            </p>
+            <p>
+              {launch.already_claimed
+                ? 'Cette organisation a déjà utilisé l’offre de lancement (une seule fois).'
+                : launch.reason ??
+                  'L’offre de lancement n’est plus disponible pour cette organisation.'}
+            </p>
+            {launch.claim_deadline && !launch.already_claimed && (
+              <p className="text-xs">
+                Date limite de souscription :{' '}
+                {new Date(launch.claim_deadline).toLocaleDateString('fr-FR')}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {canPayNow && (
         <Card className="border-primary shadow-sm">
           <CardContent className="pt-6 space-y-4">
@@ -337,13 +429,28 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
                     Essai 30 jours
                   </Badge>
                 )}
+                {isLaunchOfferActive && (
+                  <Badge className="ml-2 bg-emerald-600 hover:bg-emerald-600">
+                    Offre de lancement
+                  </Badge>
+                )}
               </p>
-              {(status.subscription_valid_until || status.subscription?.current_period_end) && (
+              {(status.subscription_valid_until ||
+                status.launch_offer?.free_until ||
+                status.subscription?.current_period_end) && (
                 <p className="text-xs text-muted-foreground">
                   Valide jusqu&apos;au{' '}
                   {new Date(
-                    status.subscription_valid_until ?? status.subscription!.current_period_end
+                    status.subscription_valid_until ??
+                      status.launch_offer?.free_until ??
+                      status.subscription!.current_period_end
                   ).toLocaleDateString('fr-FR')}
+                  {isLaunchOfferActive && ' (période gratuite)'}
+                </p>
+              )}
+              {isLaunchOfferActive && (
+                <p className="text-xs text-muted-foreground">
+                  Après cette date, un abonnement payant sera obligatoire pour conserver l&apos;accès.
                 </p>
               )}
               {monthlyPrice > 0 && (

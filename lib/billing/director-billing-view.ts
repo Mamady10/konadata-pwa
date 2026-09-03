@@ -15,12 +15,14 @@ export function sanitizeBillingStatusForDirector(
     platform_monthly_base_gnf: undefined,
     platform_annual_base_gnf: undefined,
     platform_per_student_gnf: undefined,
+    launch_offer: status.launch_offer,
     offer: status.offer
       ? {
           status: status.offer.status,
           payment_token: status.offer.payment_token,
           ceo_notes: status.offer.ceo_notes,
           access_mode: status.offer.access_mode,
+          activation_months: status.offer.activation_months,
           activation_amount_gnf: showValidatedTotal
             ? status.offer.activation_amount_gnf
             : undefined,

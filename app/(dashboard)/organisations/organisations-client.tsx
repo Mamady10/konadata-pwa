@@ -366,6 +366,11 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
                         Essai 30j
                       </Badge>
                     )}
+                    {org.access_mode === 'launch_free' && (
+                      <Badge className="ml-2 bg-emerald-600 hover:bg-emerald-600">
+                        Offre lancement
+                      </Badge>
+                    )}
                     {' '}— activation{' '}
                     <strong>{formatCurrency(org.activation_amount_gnf ?? 0)}</strong>
                     {type === 'school' && (

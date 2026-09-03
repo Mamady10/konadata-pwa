@@ -125,3 +125,7 @@ export function currentAcademicYearLabel(): string {
 export function isTrialOrg(settings: Record<string, unknown> | null | undefined): boolean {
   return (settings?.platform_billing_period as string) === 'trial_30d';
 }
+
+export function isLaunchOfferOrg(settings: Record<string, unknown> | null | undefined): boolean {
+  return (settings?.platform_access_mode as string) === 'launch_free';
+}

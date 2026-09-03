@@ -36,6 +36,20 @@ export interface SubscriptionBillingInfo {
   sector: string;
 }
 
+export interface LaunchOfferStatus {
+  eligible: boolean;
+  already_claimed: boolean;
+  claimed_at?: string | null;
+  claim_deadline?: string | null;
+  free_months?: number;
+  free_until?: string | null;
+  access_mode?: string | null;
+  org_type?: string;
+  one_time?: boolean;
+  label?: string;
+  reason?: string | null;
+}
+
 export interface OrganizationBillingStatus {
   model: PlatformBillingModel;
   access_allowed: boolean;
@@ -54,6 +68,7 @@ export interface OrganizationBillingStatus {
   subscription_valid_until?: string | null;
   current_invoice?: SchoolBillingInvoice | null;
   subscription?: SubscriptionBillingInfo;
+  launch_offer?: LaunchOfferStatus;
   offer?: {
     status?: string;
     activation_amount_gnf?: number;
@@ -63,6 +78,6 @@ export interface OrganizationBillingStatus {
     per_enrolled_student_gnf?: number;
     payment_token?: string;
     ceo_notes?: string | null;
-    access_mode?: 'annual' | 'trial_30d' | string;
+    access_mode?: 'annual' | 'trial_30d' | 'launch_free' | string;
   };
 }

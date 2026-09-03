@@ -465,6 +465,33 @@ export async function platformActivateSchoolTrial(orgId: string, notes?: string)
   return { success: true };
 }
 
+/** Offre de lancement : 12 mois (écoles) / 6 mois (autres), une seule fois, sous 2 mois après inscription. */
+export async function claimLaunchFreeOffer() {
+  const session = await getSession();
+  if (!session?.profile?.organization_id) {
+    return { error: 'Aucune organisation' };
+  }
+  if (!canManageBilling(session.profile.role)) {
+    return { error: 'Réservé au directeur ou à la direction' };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('claim_launch_free_offer', {
+    p_org_id: session.profile.organization_id,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath('/parametres/facturation');
+  revalidatePath('/organisations');
+  revalidatePath('/etablissement');
+  revalidatePath('/ong');
+  revalidatePath('/btp');
+  revalidatePath('/pme');
+
+  return { success: true, data: data as Record<string, unknown> };
+}
+
 export async function prepareSchoolRenewalBilling(orgId: string, months = 1) {
   const session = await getSession();
   if (session?.profile?.role !== 'platform_admin') {

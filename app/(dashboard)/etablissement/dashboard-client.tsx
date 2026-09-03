@@ -68,6 +68,7 @@ interface DashboardProps {
   onboarding?: SchoolOnboardingStatus | null;
   trialMode?: boolean;
   trialEndsAt?: string | null;
+  trialBannerMode?: 'trial_30d' | 'launch_free';
   showStarterPack?: boolean;
   academicYear?: string;
 }
@@ -138,6 +139,7 @@ function OrganizationDashboardView({
   onboarding,
   trialMode,
   trialEndsAt,
+  trialBannerMode = 'trial_30d',
   showStarterPack,
   academicYear,
 }: {
@@ -155,6 +157,7 @@ function OrganizationDashboardView({
   onboarding?: SchoolOnboardingStatus | null;
   trialMode?: boolean;
   trialEndsAt?: string | null;
+  trialBannerMode?: 'trial_30d' | 'launch_free';
   showStarterPack?: boolean;
   academicYear?: string;
 }) {
@@ -194,7 +197,9 @@ function OrganizationDashboardView({
         </p>
       </motion.div>
 
-      {trialMode && <TrialWatermarkBanner trialEndsAt={trialEndsAt} />}
+      {trialMode && (
+        <TrialWatermarkBanner trialEndsAt={trialEndsAt} mode={trialBannerMode} />
+      )}
 
       {onboarding && onboarding.completedCount < onboarding.totalCount && (
         <SchoolOnboardingChecklist onboarding={onboarding} compact />
@@ -350,6 +355,7 @@ export function EtablissementDashboardClient({
   onboarding,
   trialMode,
   trialEndsAt,
+  trialBannerMode,
   showStarterPack,
   academicYear,
 }: DashboardProps) {
@@ -369,6 +375,7 @@ export function EtablissementDashboardClient({
       onboarding={onboarding}
       trialMode={trialMode}
       trialEndsAt={trialEndsAt}
+      trialBannerMode={trialBannerMode}
       showStarterPack={showStarterPack}
       academicYear={academicYear}
     />
