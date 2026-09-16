@@ -143,7 +143,14 @@ export function RejoindreClient({ isLoggedIn, userEmail }: Props) {
                 </p>
                 <p className="text-muted-foreground">
                   Saisissez le code <span className="font-mono">KONA-…</span> fourni par votre
-                  établissement, ou créez une organisation si vous êtes directeur.
+                  établissement, ou{' '}
+                  <Link
+                    href={LANDING_LINKS.registerOrganization}
+                    className="text-primary font-medium underline"
+                  >
+                    finalisez la création de votre organisation
+                  </Link>{' '}
+                  si vous êtes directeur.
                 </p>
               </div>
             )}

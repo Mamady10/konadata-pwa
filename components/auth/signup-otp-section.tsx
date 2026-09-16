@@ -39,43 +39,45 @@ export function useSignupOtp() {
     method: AuthMethod;
     phone?: string;
     email?: string;
-  }): Promise<boolean> {
+  }): Promise<{ ok: true } | { ok: false; error: string }> {
     setOtpLoading(true);
     setOtpError(null);
     try {
       if (params.method === 'phone') {
         const phone = params.phone?.trim() ?? '';
         if (!phone) {
-          setOtpError('Numéro WhatsApp requis.');
-          return false;
+          const error = 'Numéro WhatsApp requis.';
+          setOtpError(error);
+          return { ok: false, error };
         }
         const res = await requestSignupPhoneOtp({ phone, channel });
         if (res.error) {
           setOtpError(res.error);
-          return false;
+          return { ok: false, error: res.error };
         }
         setChallengeId(res.challengeId ?? null);
         setMaskedContact(res.maskedPhone ?? '');
         setDevCode(res.devCode ?? null);
         setStep('verify');
-        return true;
+        return { ok: true };
       }
 
       const email = params.email?.trim() ?? '';
       if (!email) {
-        setOtpError('Email requis.');
-        return false;
+        const error = 'Email requis.';
+        setOtpError(error);
+        return { ok: false, error };
       }
       const res = await requestSignupEmailOtp(email);
       if (res.error) {
         setOtpError(res.error);
-        return false;
+        return { ok: false, error: res.error };
       }
       setChallengeId(res.challengeId ?? null);
       setMaskedContact(res.maskedEmail ?? '');
       setDevCode(res.devCode ?? null);
       setStep('verify');
-      return true;
+      return { ok: true };
     } finally {
       setOtpLoading(false);
     }

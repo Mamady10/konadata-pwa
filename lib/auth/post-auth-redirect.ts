@@ -10,6 +10,7 @@ import {
   isDirectorOnboardingPath,
   isDirectorOrStaffIntent,
   isLearnerIntent,
+  normalizeAccountIntent,
 } from '@/lib/auth/account-intent';
 
 const LEARNER_ROLES = new Set<AppRole>(['candidate', 'student']);
@@ -99,7 +100,13 @@ export function resolvePostAuthDestination(options: {
 
   if (isStaffProfile(accountIntent, onboardingPath)) {
     if (!organizationId) {
-      return `${LANDING_LINKS.rejoindre}?profil=directeur`;
+      const intent = normalizeAccountIntent(accountIntent);
+      const path = normalizeAccountIntent(onboardingPath);
+      // Collaborateur : code d'accès. Directeur : finaliser la création d'organisation.
+      if (intent === 'staff' || path === 'staff') {
+        return LANDING_LINKS.rejoindre;
+      }
+      return LANDING_LINKS.registerOrganization;
     }
     const redirect = redirectParam?.trim() ?? '';
     if (redirect && isLearnerOnlyRedirect(redirect)) {

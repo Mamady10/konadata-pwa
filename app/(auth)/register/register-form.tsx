@@ -16,7 +16,6 @@ import { SignupOtpSection, useSignupOtp } from '@/components/auth/signup-otp-sec
 import { motion } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { completeOrganizationRegistration } from '@/lib/actions/org-registration';
-import { ORG_REGISTRATION_SUCCESS_PATH } from '@/lib/org/org-registration-shared';
 import { createClient } from '@/lib/supabase/client';
 import { redeemAccessCodeClient } from '@/lib/auth/redeem-access-code-client';
 import { ORG_TYPE_LABELS, formatStartingPriceGnf, type OrganizationType } from '@/types/database';
@@ -31,6 +30,7 @@ import {
   ACCOUNT_PHONE_FIELD_HINT,
   ACCOUNT_PHONE_FIELD_LABEL,
 } from '@/lib/auth/phone-field-copy';
+import { normalizeGuineaPhone } from '@/lib/survey/phone';
 
 type RegisterMode = 'create' | 'join' | 'learner';
 
@@ -54,6 +54,8 @@ export default function RegisterForm() {
   const [authMethod, setAuthMethod] = useState<AuthMethod>('phone');
   const [fullName, setFullName] = useState('');
   const [acceptCgu, setAcceptCgu] = useState(false);
+  /** Compte déjà connecté sans organisation — finaliser le dossier sans refaire l’OTP. */
+  const [resumeOrgCreation, setResumeOrgCreation] = useState(false);
   const formElRef = useRef<HTMLFormElement | null>(null);
   const signupOtp = useSignupOtp();
 
@@ -65,6 +67,38 @@ export default function RegisterForm() {
   useEffect(() => {
     signupOtp.resetOtp();
   }, [authMethod]);
+
+  useEffect(() => {
+    if (mode !== 'create') {
+      setResumeOrgCreation(false);
+      return;
+    }
+    let cancelled = false;
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (cancelled || !user) return;
+      void supabase
+        .from('profiles')
+        .select('organization_id, full_name')
+        .eq('id', user.id)
+        .maybeSingle()
+        .then(({ data: profile }) => {
+          if (cancelled) return;
+          if (profile?.organization_id) {
+            window.location.href = LANDING_LINKS.login;
+            return;
+          }
+          setResumeOrgCreation(true);
+          if (profile?.full_name) setFullName(profile.full_name as string);
+          setInfo(
+            'Votre compte est déjà créé. Complétez le dossier organisation ci-dessous pour finaliser l’inscription.'
+          );
+        });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode]);
 
   function setRegisterMode(next: RegisterMode) {
     setMode(next);
@@ -118,25 +152,45 @@ export default function RegisterForm() {
     const formData = new FormData(form);
     formData.set('organization_type', orgType);
     formData.set('full_name', name);
+
     const { data: { user } } = await supabase.auth.getUser();
-    if (user?.email) formData.set('email', user.email);
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('phone')
-      .eq('id', user?.id ?? '')
-      .maybeSingle();
-    if (profile?.phone && !formData.get('declared_phone')) {
-      formData.set('declared_phone', profile.phone as string);
+    if (!user) {
+      setError(
+        'Session non établie après la création du compte. Rechargez la page, connectez-vous, puis finalisez le dossier organisation.'
+      );
+      setResumeOrgCreation(true);
+      return;
+    }
+
+    if (user.email) formData.set('email', user.email);
+
+    const phoneRaw = String(formData.get('phone') ?? '').trim();
+    const phoneE164 = phoneRaw ? normalizeGuineaPhone(phoneRaw) : null;
+    if (!formData.get('declared_phone')) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('phone')
+        .eq('id', user.id)
+        .maybeSingle();
+      const declared =
+        (profile?.phone as string | undefined)?.trim() ||
+        phoneE164 ||
+        phoneRaw;
+      if (declared) formData.set('declared_phone', declared);
     }
 
     const result = await completeOrganizationRegistration(formData);
     if ('error' in result && result.error) {
       setError(result.error);
+      setResumeOrgCreation(true);
       return;
     }
     if ('success' in result && result.success) {
       window.location.href = result.redirectTo;
+      return;
     }
+    setError('Création de l’organisation incomplète. Réessayez ou contactez le support KonaData.');
+    setResumeOrgCreation(true);
   }
 
   function accountIntentForMode(m: RegisterMode): string {
@@ -147,26 +201,40 @@ export default function RegisterForm() {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // Capturer le formulaire AVANT tout await — e.currentTarget devient null après.
+    const form = formElRef.current ?? e.currentTarget;
+    if (!(form instanceof HTMLFormElement)) {
+      setError('Formulaire indisponible. Rechargez la page et réessayez.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
-    setInfo(null);
+    if (!resumeOrgCreation) setInfo(null);
 
-    const formData = new FormData(e.currentTarget);
+    const formData = new FormData(form);
     const password = String(formData.get('password') ?? '');
-    const name = String(formData.get('full_name') ?? '').trim();
+    const name = String(formData.get('full_name') ?? '').trim() || fullName.trim();
     const phone = String(formData.get('phone') ?? '').trim();
     const email = String(formData.get('email') ?? '').trim();
     const effectiveMode =
       searchParams.get('mode') === 'learner' ? 'learner' : mode;
 
     try {
+      if (effectiveMode === 'create' && resumeOrgCreation) {
+        await finishOrganizationAfterAuth(form, name);
+        return;
+      }
+
       if (signupOtp.step === 'form') {
-        const ok = await signupOtp.requestOtp({
+        const otpRequest = await signupOtp.requestOtp({
           method: authMethod,
           phone,
           email,
         });
-        if (!ok && signupOtp.otpError) setError(signupOtp.otpError);
+        if (!otpRequest.ok) {
+          setError(otpRequest.error);
+        }
         return;
       }
 
@@ -181,6 +249,11 @@ export default function RegisterForm() {
         return;
       }
 
+      // Compte créé : en cas d’échec org, l’utilisateur pourra finaliser sans refaire l’OTP.
+      if (effectiveMode === 'create') {
+        setResumeOrgCreation(true);
+      }
+
       if (effectiveMode === 'join') {
         await finishJoinAfterAuth(name);
         return;
@@ -190,12 +263,28 @@ export default function RegisterForm() {
         return;
       }
       if (effectiveMode === 'create') {
-        await finishOrganizationAfterAuth(e.currentTarget, name);
+        await finishOrganizationAfterAuth(form, name);
       }
+    } catch (err) {
+      console.error('[register] handleSubmit', err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Une erreur est survenue. Réessayez — si le compte existe déjà, reconnectez-vous pour finaliser l’organisation.'
+      );
+      if (effectiveMode === 'create') setResumeOrgCreation(true);
     } finally {
       setLoading(false);
     }
   }
+
+  const createSubmitLabel = resumeOrgCreation
+    ? 'Créer mon organisation'
+    : signupOtp.step === 'form'
+      ? authMethod === 'phone'
+        ? 'Recevoir le code WhatsApp / SMS'
+        : 'Recevoir le code par email'
+      : 'Créer mon organisation';
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-[#F8FAFC] dark:bg-background">
@@ -209,14 +298,18 @@ export default function RegisterForm() {
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">
               {mode === 'create'
-                ? 'Créer une organisation'
+                ? resumeOrgCreation
+                  ? 'Finaliser mon organisation'
+                  : 'Créer une organisation'
                 : mode === 'learner'
                   ? 'Compte candidat / élève'
                   : 'Créer mon compte'}
             </CardTitle>
             <CardDescription>
               {mode === 'create'
-                ? 'Dossier complet pour analyse KonaData — accès module après validation du tarif et paiement'
+                ? resumeOrgCreation
+                  ? 'Votre compte existe — envoyez le dossier pour apparaître chez KonaData (validation tarif / offre gratuite).'
+                  : 'Dossier complet pour analyse KonaData — accès module après validation du tarif et paiement'
                 : mode === 'learner'
                   ? 'Ensuite vous choisirez votre établissement, filière et déposerez votre dossier'
                   : 'Compte collaborateur avec le code reçu de votre responsable'}
@@ -269,7 +362,9 @@ export default function RegisterForm() {
                 Code : {pendingCode}
               </div>
             )}
-            <AuthMethodToggle value={authMethod} onChange={setAuthMethod} />
+            {!resumeOrgCreation && (
+              <AuthMethodToggle value={authMethod} onChange={setAuthMethod} />
+            )}
             <form ref={formElRef} onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="full_name">Nom complet</Label>
@@ -316,7 +411,7 @@ export default function RegisterForm() {
                   </div>
                   <OrgRegistrationFields
                     orgType={orgType}
-                    hideDeclaredPhone={authMethod === 'phone'}
+                    hideDeclaredPhone={authMethod === 'phone' && !resumeOrgCreation}
                   />
                   <label className="flex items-start gap-2 text-sm cursor-pointer">
                     <input
@@ -341,56 +436,65 @@ export default function RegisterForm() {
                   </label>
                 </>
               )}
-              {authMethod === 'email' ? (
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="email" name="email" type="email" className="pl-9" placeholder="vous@organisation.gn" required />
+              {!resumeOrgCreation &&
+                (authMethod === 'email' ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input id="email" name="email" type="email" className="pl-9" placeholder="vous@organisation.gn" required />
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label htmlFor="phone">{ACCOUNT_PHONE_FIELD_LABEL}</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="phone" name="phone" type="tel" className="pl-9" placeholder="6XX XX XX XX" required autoComplete="tel" />
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">{ACCOUNT_PHONE_FIELD_LABEL}</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input id="phone" name="phone" type="tel" className="pl-9" placeholder="6XX XX XX XX" required autoComplete="tel" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">{ACCOUNT_PHONE_FIELD_HINT}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground">{ACCOUNT_PHONE_FIELD_HINT}</p>
+                ))}
+              {!resumeOrgCreation && (
+                <div className="space-y-2">
+                  <Label htmlFor="password">Mot de passe</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input id="password" name="password" type="password" className="pl-9" placeholder="Min. 8 caractères" minLength={8} required autoComplete="new-password" />
+                  </div>
                 </div>
               )}
-              <div className="space-y-2">
-                <Label htmlFor="password">Mot de passe</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input id="password" name="password" type="password" className="pl-9" placeholder="Min. 8 caractères" minLength={8} required autoComplete="new-password" />
-                </div>
-              </div>
-              <SignupOtpSection
-                method={authMethod}
-                step={signupOtp.step}
-                channel={signupOtp.channel}
-                onChannelChange={signupOtp.setChannel}
-                otpCode={signupOtp.otpCode}
-                onOtpCodeChange={signupOtp.setOtpCode}
-                maskedContact={signupOtp.maskedContact}
-                devCode={signupOtp.devCode}
-                error={signupOtp.otpError}
-                loading={signupOtp.otpLoading || loading}
-                onChangeContact={signupOtp.resetOtp}
-              />
+              {!resumeOrgCreation && (
+                <SignupOtpSection
+                  method={authMethod}
+                  step={signupOtp.step}
+                  channel={signupOtp.channel}
+                  onChannelChange={signupOtp.setChannel}
+                  otpCode={signupOtp.otpCode}
+                  onOtpCodeChange={signupOtp.setOtpCode}
+                  maskedContact={signupOtp.maskedContact}
+                  devCode={signupOtp.devCode}
+                  error={signupOtp.otpError}
+                  loading={signupOtp.otpLoading || loading}
+                  onChangeContact={signupOtp.resetOtp}
+                />
+              )}
               <Button type="submit" className="w-full bg-[#2563EB] hover:bg-[#2563EB]/90" disabled={loading || signupOtp.otpLoading}>
                 {loading || signupOtp.otpLoading
                   ? 'Traitement…'
-                  : signupOtp.step === 'form'
-                    ? authMethod === 'phone'
-                      ? 'Recevoir le code WhatsApp / SMS'
-                      : 'Recevoir le code par email'
-                    : mode === 'join'
-                      ? 'Créer et rejoindre'
-                      : mode === 'learner'
-                        ? 'Créer mon compte'
-                        : 'Créer mon organisation'}
+                  : mode === 'join'
+                    ? signupOtp.step === 'form'
+                      ? authMethod === 'phone'
+                        ? 'Recevoir le code WhatsApp / SMS'
+                        : 'Recevoir le code par email'
+                      : 'Créer et rejoindre'
+                    : mode === 'learner'
+                      ? signupOtp.step === 'form'
+                        ? authMethod === 'phone'
+                          ? 'Recevoir le code WhatsApp / SMS'
+                          : 'Recevoir le code par email'
+                        : 'Créer mon compte'
+                      : createSubmitLabel}
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </form>

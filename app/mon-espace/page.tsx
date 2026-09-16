@@ -45,10 +45,10 @@ export default async function MonEspacePage() {
             </p>
             <div className="flex flex-wrap gap-2">
               <Button asChild>
-                <Link href="/rejoindre?profil=directeur">Saisir mon code d&apos;accès</Link>
+                <Link href="/register?mode=create">Créer / finaliser mon organisation</Link>
               </Button>
               <Button variant="outline" asChild>
-                <Link href="/register?mode=create">Créer une organisation</Link>
+                <Link href="/rejoindre">J&apos;ai un code d&apos;accès staff</Link>
               </Button>
             </div>
           </CardContent>

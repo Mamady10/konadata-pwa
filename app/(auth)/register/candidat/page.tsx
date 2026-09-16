@@ -47,8 +47,8 @@ export default function RegisterCandidatPage() {
       const email = String(fd.get('email') ?? '').trim();
 
       if (signupOtp.step === 'form') {
-        const ok = await signupOtp.requestOtp({ method: authMethod, phone, email });
-        if (!ok && signupOtp.otpError) setError(signupOtp.otpError);
+        const otpRequest = await signupOtp.requestOtp({ method: authMethod, phone, email });
+        if (!otpRequest.ok) setError(otpRequest.error);
         return;
       }
 
