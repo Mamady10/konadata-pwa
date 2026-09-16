@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,7 +35,6 @@ interface LoginFormProps {
 }
 
 export default function LoginForm({ accountSwitched = false, accessBlocked = false }: LoginFormProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get('redirect') || '';
   const [error, setError] = useState<string | null>(
@@ -95,7 +94,10 @@ export default function LoginForm({ accountSwitched = false, accessBlocked = fal
 
       const supabase = createClient();
       const email = phoneToSyntheticEmail(phoneE164);
-      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: signInData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
       if (authError) {
         setError(
@@ -106,82 +108,19 @@ export default function LoginForm({ accountSwitched = false, accessBlocked = fal
         return;
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('organization_id, role, onboarding_path, is_active, organizations(type)')
-          .eq('id', user.id)
-          .single();
-
-        if (isProfileAccessBlocked(profile?.is_active)) {
-          await supabase.auth.signOut();
-          setError(PROFILE_ACCESS_BLOCKED_MESSAGE);
-          return;
-        }
-
-        await supabase
-          .from('profiles')
-          .update({ last_login_at: new Date().toISOString() })
-          .eq('id', user.id);
-
-        const accountIntent = user.user_metadata?.account_intent as string | undefined;
-        const orgType = (profile?.organizations as { type?: OrganizationType } | null)?.type;
-        const hasEnrollmentHistory = await learnerHasEnrollmentHistory(supabase, user.id);
-        const destination = resolvePostAuthDestination({
-          organizationId: profile?.organization_id,
-          role: profile?.role as AppRole | undefined,
-          orgType,
-          accountIntent,
-          onboardingPath: profile?.onboarding_path as string | undefined,
-          redirectParam,
-          hasEnrollmentHistory,
-        });
-
-        router.refresh();
-        window.location.replace(destination);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    try {
-    const formData = new FormData(e.currentTarget);
-    const email = (formData.get('email') as string).trim();
-    const password = formData.get('password') as string;
-
-    const supabase = createClient();
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (authError) {
-      const msg = authError.message.toLowerCase();
-      if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+      const user = signInData.user ?? (await supabase.auth.getUser()).data.user;
+      if (!user) {
         setError(
-          'Compte non confirmé. Utilisez « Mot de passe oublié » pour recevoir un lien par email.'
+          'Connexion refusée par le navigateur (cookies). Autorisez les cookies pour konadatagn.com puis réessayez.'
         );
-      } else if (msg.includes('invalid login credentials')) {
-        setError(
-          'Email ou mot de passe incorrect. Utilisez « Mot de passe oublié » pour réinitialiser.'
-        );
-      } else {
-        setError(authError.message);
+        return;
       }
-      return;
-    }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      let { data: profile } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
         .select('organization_id, role, onboarding_path, is_active, organizations(type)')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (isProfileAccessBlocked(profile?.is_active)) {
         await supabase.auth.signOut();
@@ -189,13 +128,12 @@ export default function LoginForm({ accountSwitched = false, accessBlocked = fal
         return;
       }
 
-      await supabase
+      void supabase
         .from('profiles')
         .update({ last_login_at: new Date().toISOString() })
         .eq('id', user.id);
 
       const accountIntent = user.user_metadata?.account_intent as string | undefined;
-
       const orgType = (profile?.organizations as { type?: OrganizationType } | null)?.type;
       const hasEnrollmentHistory = await learnerHasEnrollmentHistory(supabase, user.id);
       const destination = resolvePostAuthDestination({
@@ -208,10 +146,99 @@ export default function LoginForm({ accountSwitched = false, accessBlocked = fal
         hasEnrollmentHistory,
       });
 
-      router.refresh();
-      window.location.replace(destination);
-      return;
+      // Navigation dure uniquement — éviter router.refresh() qui réaffiche /login
+      // avant que les cookies de session soient pris en compte par le serveur.
+      window.location.assign(destination);
+    } catch (err) {
+      console.error('[login] phone', err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Connexion impossible. Vérifiez votre réseau et réessayez.'
+      );
+    } finally {
+      setLoading(false);
     }
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData(e.currentTarget);
+      const email = (formData.get('email') as string).trim();
+      const password = formData.get('password') as string;
+
+      const supabase = createClient();
+      const { data: signInData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        const msg = authError.message.toLowerCase();
+        if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+          setError(
+            'Compte non confirmé. Utilisez « Mot de passe oublié » pour recevoir un lien par email.'
+          );
+        } else if (msg.includes('invalid login credentials')) {
+          setError(
+            'Email ou mot de passe incorrect. Si vous vous êtes inscrit avec WhatsApp, utilisez l’onglet Téléphone.'
+          );
+        } else {
+          setError(authError.message);
+        }
+        return;
+      }
+
+      const user = signInData.user ?? (await supabase.auth.getUser()).data.user;
+      if (!user) {
+        setError(
+          'Connexion refusée par le navigateur (cookies). Autorisez les cookies pour konadatagn.com puis réessayez.'
+        );
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id, role, onboarding_path, is_active, organizations(type)')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (isProfileAccessBlocked(profile?.is_active)) {
+        await supabase.auth.signOut();
+        setError(PROFILE_ACCESS_BLOCKED_MESSAGE);
+        return;
+      }
+
+      void supabase
+        .from('profiles')
+        .update({ last_login_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+      const accountIntent = user.user_metadata?.account_intent as string | undefined;
+      const orgType = (profile?.organizations as { type?: OrganizationType } | null)?.type;
+      const hasEnrollmentHistory = await learnerHasEnrollmentHistory(supabase, user.id);
+      const destination = resolvePostAuthDestination({
+        organizationId: profile?.organization_id,
+        role: profile?.role as AppRole | undefined,
+        orgType,
+        accountIntent,
+        onboardingPath: profile?.onboarding_path as string | undefined,
+        redirectParam,
+        hasEnrollmentHistory,
+      });
+
+      window.location.assign(destination);
+    } catch (err) {
+      console.error('[login] email', err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Connexion impossible. Vérifiez votre réseau et réessayez.'
+      );
     } finally {
       setLoading(false);
     }

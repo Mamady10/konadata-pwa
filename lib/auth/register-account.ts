@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { isSyntheticPhoneEmail, phoneToSyntheticEmail } from '@/lib/auth/phone-email';
 import { findProfileByPhone, createPhoneAuthUser } from '@/lib/auth/phone-account';
 import { validatePassword } from '@/lib/auth/password-policy';
+import { onboardingPathForAccountIntent } from '@/lib/auth/onboarding-path';
 
 export interface RegisterAccountParams {
   method: 'email' | 'phone';
@@ -80,7 +81,14 @@ export async function registerAuthAccount(
   const userId = data.user?.id;
   if (!userId) return { error: 'Création du compte impossible.' };
 
-  await service.from('profiles').update({ full_name: fullName }).eq('id', userId);
+  const onboardingPath = onboardingPathForAccountIntent(params.accountIntent ?? 'director');
+  await service
+    .from('profiles')
+    .update({
+      full_name: fullName,
+      ...(onboardingPath ? { onboarding_path: onboardingPath } : {}),
+    })
+    .eq('id', userId);
 
   return { userId, email };
 }

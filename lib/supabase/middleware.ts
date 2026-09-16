@@ -358,8 +358,10 @@ export async function updateSession(request: NextRequest) {
         return supabaseResponse;
       }
 
-      // Directeur sans org : laisser terminer l'inscription organisation
-      if (isStaffIntent && !organizationId && isRegisterOrgCreate) {
+      // Directeur (ou compte orphelin) sans org : laisser terminer l'inscription organisation.
+      // Ne pas exiger isStaffIntent : les comptes créés avant fix ont role=candidate
+      // et le JWT peut omettre account_intent — le client les envoie quand même ici.
+      if (!organizationId && isRegisterOrgCreate) {
         return supabaseResponse;
       }
 

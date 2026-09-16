@@ -7,6 +7,7 @@ import { getOrgType } from '@/types/database';
 import type { Organization } from '@/types/database';
 import { learnerHasEnrollmentHistory, isLearnerRole } from '@/lib/auth/learner-enrollments';
 import { isDirectorOrStaffIntent } from '@/lib/auth/account-intent';
+import { LANDING_LINKS } from '@/lib/marketing/landing-links';
 
 export default async function InscriptionEtablissementPage({
   searchParams,
@@ -23,7 +24,11 @@ export default async function InscriptionEtablissementPage({
 
   const accountIntent = session.user.user_metadata?.account_intent as string | undefined;
   if (isDirectorOrStaffIntent(accountIntent)) {
-    redirect(session.profile?.organization_id ? '/mon-espace' : '/rejoindre?profil=directeur');
+    redirect(
+      session.profile?.organization_id
+        ? '/mon-espace'
+        : LANDING_LINKS.registerOrganization
+    );
   }
 
   const profile = session.profile;

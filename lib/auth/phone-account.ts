@@ -1,5 +1,6 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { phoneToSyntheticEmail } from '@/lib/auth/phone-email';
+import { onboardingPathForAccountIntent } from '@/lib/auth/onboarding-path';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export async function findProfileByPhone(
@@ -67,11 +68,13 @@ export async function createPhoneAuthUser(params: {
   const userId = data.user?.id;
   if (!userId) return { error: 'Création du compte impossible.' };
 
+  const onboardingPath = onboardingPathForAccountIntent(params.accountIntent ?? 'director');
   await service
     .from('profiles')
     .update({
       full_name: params.fullName,
       phone: params.phoneE164,
+      ...(onboardingPath ? { onboarding_path: onboardingPath } : {}),
     })
     .eq('id', userId);
 

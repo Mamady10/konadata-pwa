@@ -85,7 +85,7 @@ export default function RegisterForm() {
         .then(({ data: profile }) => {
           if (cancelled) return;
           if (profile?.organization_id) {
-            window.location.href = LANDING_LINKS.login;
+            window.location.href = '/mon-espace';
             return;
           }
           setResumeOrgCreation(true);
