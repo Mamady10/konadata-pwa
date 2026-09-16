@@ -3,7 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { hashOtpCode } from '@/lib/survey/security-hash';
 import {
   establishSessionForEmail,
-  findProfileByPhone,
+  findProfilesByPhone,
   syncProfilePhone,
 } from '@/lib/auth/phone-account';
 
@@ -17,8 +17,7 @@ export async function POST(request: NextRequest) {
     const challengeId = String(body.challengeId ?? '').trim();
     const code = String(body.code ?? '').trim();
     const fullName = String(body.fullName ?? '').trim();
-    const accountIntent = String(body.accountIntent ?? 'director').trim();
-    const signupIntent = body.signupIntent ? String(body.signupIntent).trim() : undefined;
+    const profileId = String(body.profileId ?? '').trim();
 
     if (!challengeId || !code) {
       return NextResponse.json({ error: 'Code et session OTP requis' }, { status: 400 });
@@ -78,11 +77,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const existing = await findProfileByPhone(supabase, phoneE164);
-    if (!existing) {
+    const profiles = await findProfilesByPhone(supabase, phoneE164);
+    if (!profiles.length) {
       return NextResponse.json({ error: 'Compte introuvable' }, { status: 404 });
     }
-    const email = existing.email;
+
+    const existing =
+      profiles.length === 1
+        ? profiles[0]!
+        : profiles.find((p) => p.id === profileId) ?? null;
+
+    if (!existing) {
+      return NextResponse.json(
+        {
+          error: 'Plusieurs comptes utilisent ce numéro. Choisissez le compte à connecter.',
+          accounts: profiles.map((p) => ({ id: p.id, label: p.label })),
+        },
+        { status: 409 }
+      );
+    }
+
     if (fullName) {
       await syncProfilePhone(existing.id, phoneE164, fullName);
     } else {
@@ -94,7 +108,7 @@ export async function POST(request: NextRequest) {
       .update({ verified_at: new Date().toISOString() })
       .eq('id', challengeId);
 
-    const session = await establishSessionForEmail(email);
+    const session = await establishSessionForEmail(existing.authEmail);
     if ('error' in session) {
       return NextResponse.json({ error: session.error }, { status: 500 });
     }

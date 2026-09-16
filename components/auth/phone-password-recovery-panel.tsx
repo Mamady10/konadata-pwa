@@ -11,6 +11,7 @@ import {
   resetPasswordWithPhoneOtp,
   type PhoneOtpChannel,
 } from '@/lib/auth/phone-otp-client';
+import { listContactAccounts, type ContactAccountOption } from '@/lib/auth/list-contact-accounts-client';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
 import { MIN_PASSWORD_LENGTH } from '@/lib/auth/password-policy';
 import {
@@ -30,11 +31,30 @@ export function PhonePasswordRecoveryPanel() {
   const [devCode, setDevCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [accounts, setAccounts] = useState<ContactAccountOption[]>([]);
+  const [profileId, setProfileId] = useState('');
 
   async function handleRequestOtp(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    const listed = await listContactAccounts({ method: 'phone', phone });
+    if (listed.error) {
+      setLoading(false);
+      setError(listed.error);
+      return;
+    }
+    if (!listed.accounts.length) {
+      setLoading(false);
+      setError('Aucun compte avec ce numéro.');
+      return;
+    }
+    setAccounts(listed.accounts);
+    if (listed.accounts.length === 1) {
+      setProfileId(listed.accounts[0]!.id);
+    }
+
     const res = await requestPhoneOtp({ phone, purpose: 'recovery', channel });
     setLoading(false);
     if (res.error) {
@@ -50,6 +70,10 @@ export function PhonePasswordRecoveryPanel() {
   async function handleReset(e: React.FormEvent) {
     e.preventDefault();
     if (!challengeId) return;
+    if (accounts.length > 1 && !profileId) {
+      setError('Choisissez le compte à réinitialiser.');
+      return;
+    }
     if (password.length < MIN_PASSWORD_LENGTH) {
       setError(`Le mot de passe doit contenir au moins ${MIN_PASSWORD_LENGTH} caractères.`);
       return;
@@ -60,8 +84,18 @@ export function PhonePasswordRecoveryPanel() {
     }
     setLoading(true);
     setError(null);
-    const res = await resetPasswordWithPhoneOtp({ challengeId, code: code.trim(), password });
+    const res = await resetPasswordWithPhoneOtp({
+      challengeId,
+      code: code.trim(),
+      password,
+      profileId: profileId || undefined,
+    });
     setLoading(false);
+    if (res.accounts?.length) {
+      setAccounts(res.accounts.map((a) => ({ id: a.id, label: a.label, authEmail: '' })));
+      setError(res.error ?? 'Choisissez le compte à réinitialiser.');
+      return;
+    }
     if (res.error) {
       setError(res.error);
       return;
@@ -96,6 +130,27 @@ export function PhonePasswordRecoveryPanel() {
           <p className="text-xs rounded-lg bg-amber-50 border border-amber-200 p-2 text-amber-900">
             Mode développement — code : <strong>{devCode}</strong>
           </p>
+        )}
+        {accounts.length > 1 && (
+          <div className="space-y-2">
+            <Label htmlFor="recovery-account">Compte à réinitialiser</Label>
+            <select
+              id="recovery-account"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={profileId}
+              onChange={(e) => setProfileId(e.target.value)}
+              required
+            >
+              <option value="" disabled>
+                Choisir un compte
+              </option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.label}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
         <div className="space-y-2">
           <Label htmlFor="recovery-code">Code à 6 chiffres</Label>

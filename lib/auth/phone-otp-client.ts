@@ -51,11 +51,31 @@ export async function resetPasswordWithPhoneOtp(params: {
   challengeId: string;
   code: string;
   password: string;
-}): Promise<{ success?: boolean; error?: string }> {
-  const result = await postPublicJson<{ error?: string }>(
-    '/api/auth/phone/reset-password',
-    params
-  );
-  if (!result.ok) return { error: result.error };
-  return { success: true };
+  profileId?: string;
+}): Promise<{
+  success?: boolean;
+  error?: string;
+  accounts?: { id: string; label: string }[];
+}> {
+  try {
+    const res = await fetch('/api/auth/phone/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(params),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      accounts?: { id: string; label: string }[];
+    };
+    if (!res.ok) {
+      return {
+        error: data.error ?? 'Réinitialisation impossible',
+        ...(data.accounts?.length ? { accounts: data.accounts } : {}),
+      };
+    }
+    return { success: true };
+  } catch {
+    return { error: 'Connexion impossible. Vérifiez votre réseau.' };
+  }
 }

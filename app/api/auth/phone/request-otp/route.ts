@@ -9,7 +9,7 @@ import {
   getClientIpFromHeaders,
 } from '@/lib/survey/security-hash';
 import { sendAuthOtp } from '@/lib/auth/send-auth-otp';
-import { findProfileByPhone } from '@/lib/auth/phone-account';
+import { findProfilesByPhone } from '@/lib/auth/phone-account';
 
 export const runtime = 'nodejs';
 
@@ -64,25 +64,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: rate.error }, { status: 429 });
     }
 
-    const existing = await findProfileByPhone(supabase, phoneE164);
-    if (purpose === 'login' && !existing) {
+    const existing = await findProfilesByPhone(supabase, phoneE164);
+    if (purpose === 'login' && existing.length === 0) {
       return NextResponse.json(
         { error: 'Aucun compte avec ce numéro. Créez un compte d\'abord.' },
         { status: 404 }
       );
     }
-    if (purpose === 'recovery' && !existing) {
+    if (purpose === 'recovery' && existing.length === 0) {
       return NextResponse.json(
         { error: 'Aucun compte avec ce numéro. Créez un compte ou vérifiez le numéro.' },
         { status: 404 }
       );
     }
-    if (purpose === 'signup' && existing) {
-      return NextResponse.json(
-        { error: 'Ce numéro a déjà un compte. Connectez-vous avec ce numéro.' },
-        { status: 409 }
-      );
-    }
+    // purpose === 'signup' : le même WhatsApp peut servir à plusieurs comptes.
 
     const channel =
       channelRaw === 'sms'

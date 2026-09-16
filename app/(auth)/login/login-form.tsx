@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Mail, Lock, ArrowRight, AlertCircle, Phone } from 'lucide-react';
 import { AuthMethodToggle, type AuthMethod } from '@/components/auth/auth-method-toggle';
-import { phoneToSyntheticEmail } from '@/lib/auth/phone-email';
 import { normalizeGuineaPhone } from '@/lib/survey/phone';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
@@ -26,11 +25,13 @@ import {
   ACCOUNT_PHONE_FIELD_LABEL,
 } from '@/lib/auth/phone-field-copy';
 import { isProfileAccessBlocked, PROFILE_ACCESS_BLOCKED_MESSAGE } from '@/lib/auth/profile-access';
+import {
+  listContactAccounts,
+  type ContactAccountOption,
+} from '@/lib/auth/list-contact-accounts-client';
 
 interface LoginFormProps {
-  /** Affiché après déconnexion depuis « Changer de compte ». */
   accountSwitched?: boolean;
-  /** Compte désactivé par la direction. */
   accessBlocked?: boolean;
 }
 
@@ -43,6 +44,8 @@ export default function LoginForm({ accountSwitched = false, accessBlocked = fal
   const [loading, setLoading] = useState(false);
   const [fixingLearner, setFixingLearner] = useState(false);
   const [authMethod, setAuthMethod] = useState<AuthMethod>('phone');
+  const [accountOptions, setAccountOptions] = useState<ContactAccountOption[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -55,6 +58,79 @@ export default function LoginForm({ accountSwitched = false, accessBlocked = fal
       window.location.replace(`/auth/confirm?code=${encodeURIComponent(code)}&next=/reset-password`);
     }
   }, []);
+
+  useEffect(() => {
+    setAccountOptions([]);
+    setSelectedAccountId('');
+    setError(null);
+  }, [authMethod]);
+
+  async function finishLogin(userId: string) {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || user.id !== userId) {
+      setError(
+        'Connexion refusée par le navigateur (cookies). Autorisez les cookies pour konadatagn.com puis réessayez.'
+      );
+      return;
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('organization_id, role, onboarding_path, is_active, organizations(type)')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (isProfileAccessBlocked(profile?.is_active)) {
+      await supabase.auth.signOut();
+      setError(PROFILE_ACCESS_BLOCKED_MESSAGE);
+      return;
+    }
+
+    void supabase
+      .from('profiles')
+      .update({ last_login_at: new Date().toISOString() })
+      .eq('id', user.id);
+
+    const accountIntent = user.user_metadata?.account_intent as string | undefined;
+    const orgType = (profile?.organizations as { type?: OrganizationType } | null)?.type;
+    const hasEnrollmentHistory = await learnerHasEnrollmentHistory(supabase, user.id);
+    const destination = resolvePostAuthDestination({
+      organizationId: profile?.organization_id,
+      role: profile?.role as AppRole | undefined,
+      orgType,
+      accountIntent,
+      onboardingPath: profile?.onboarding_path as string | undefined,
+      redirectParam,
+      hasEnrollmentHistory,
+    });
+
+    window.location.assign(destination);
+  }
+
+  async function signInWithAuthEmail(authEmail: string, password: string) {
+    const supabase = createClient();
+    const { data: signInData, error: authError } = await supabase.auth.signInWithPassword({
+      email: authEmail,
+      password,
+    });
+    if (authError) {
+      return {
+        error: authError.message.toLowerCase().includes('invalid login')
+          ? 'Identifiants incorrects pour ce compte. Vérifiez le mot de passe ou utilisez « Mot de passe oublié ».'
+          : authError.message,
+      };
+    }
+    const user = signInData.user ?? (await supabase.auth.getUser()).data.user;
+    if (!user) {
+      return {
+        error:
+          'Connexion refusée par le navigateur (cookies). Autorisez les cookies pour konadatagn.com puis réessayez.',
+      };
+    }
+    await finishLogin(user.id);
+    return { ok: true as const };
+  }
 
   async function handleResetToLearnerPath() {
     setFixingLearner(true);
@@ -92,63 +168,30 @@ export default function LoginForm({ accountSwitched = false, accessBlocked = fal
         return;
       }
 
-      const supabase = createClient();
-      const email = phoneToSyntheticEmail(phoneE164);
-      const { data: signInData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (authError) {
-        setError(
-          authError.message.toLowerCase().includes('invalid login')
-            ? 'Numéro ou mot de passe incorrect. Utilisez « Mot de passe oublié » si besoin.'
-            : authError.message
-        );
+      const listed = await listContactAccounts({ method: 'phone', phone: phoneRaw });
+      if (listed.error) {
+        setError(listed.error);
+        return;
+      }
+      if (!listed.accounts.length) {
+        setError('Aucun compte avec ce numéro. Créez un compte d’abord.');
         return;
       }
 
-      const user = signInData.user ?? (await supabase.auth.getUser()).data.user;
-      if (!user) {
-        setError(
-          'Connexion refusée par le navigateur (cookies). Autorisez les cookies pour konadatagn.com puis réessayez.'
-        );
+      setAccountOptions(listed.accounts);
+
+      let account = listed.accounts.length === 1 ? listed.accounts[0]! : null;
+      if (!account && selectedAccountId) {
+        account = listed.accounts.find((a) => a.id === selectedAccountId) ?? null;
+      }
+      if (!account) {
+        setError('Plusieurs comptes utilisent ce numéro. Choisissez lequel connecter.');
         return;
       }
+      if (!selectedAccountId) setSelectedAccountId(account.id);
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id, role, onboarding_path, is_active, organizations(type)')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (isProfileAccessBlocked(profile?.is_active)) {
-        await supabase.auth.signOut();
-        setError(PROFILE_ACCESS_BLOCKED_MESSAGE);
-        return;
-      }
-
-      void supabase
-        .from('profiles')
-        .update({ last_login_at: new Date().toISOString() })
-        .eq('id', user.id);
-
-      const accountIntent = user.user_metadata?.account_intent as string | undefined;
-      const orgType = (profile?.organizations as { type?: OrganizationType } | null)?.type;
-      const hasEnrollmentHistory = await learnerHasEnrollmentHistory(supabase, user.id);
-      const destination = resolvePostAuthDestination({
-        organizationId: profile?.organization_id,
-        role: profile?.role as AppRole | undefined,
-        orgType,
-        accountIntent,
-        onboardingPath: profile?.onboarding_path as string | undefined,
-        redirectParam,
-        hasEnrollmentHistory,
-      });
-
-      // Navigation dure uniquement — éviter router.refresh() qui réaffiche /login
-      // avant que les cookies de session soient pris en compte par le serveur.
-      window.location.assign(destination);
+      const result = await signInWithAuthEmail(account.authEmail, password);
+      if (result && 'error' in result && result.error) setError(result.error);
     } catch (err) {
       console.error('[login] phone', err);
       setError(
@@ -168,70 +211,45 @@ export default function LoginForm({ accountSwitched = false, accessBlocked = fal
 
     try {
       const formData = new FormData(e.currentTarget);
-      const email = (formData.get('email') as string).trim();
+      const email = (formData.get('email') as string).trim().toLowerCase();
       const password = formData.get('password') as string;
 
-      const supabase = createClient();
-      const { data: signInData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const listed = await listContactAccounts({ method: 'email', email });
+      if (listed.error) {
+        setError(listed.error);
+        return;
+      }
 
-      if (authError) {
-        const msg = authError.message.toLowerCase();
+      // Rétrocompat : si aucun contact_email, tenter l'email saisi comme auth email direct
+      const accounts =
+        listed.accounts.length > 0
+          ? listed.accounts
+          : [{ id: 'legacy', label: email, authEmail: email }];
+
+      setAccountOptions(listed.accounts);
+
+      let account = accounts.length === 1 ? accounts[0]! : null;
+      if (!account && selectedAccountId) {
+        account = accounts.find((a) => a.id === selectedAccountId) ?? null;
+      }
+      if (!account && listed.accounts.length > 1) {
+        setError('Plusieurs comptes utilisent cet email. Choisissez lequel connecter.');
+        return;
+      }
+      if (!account) account = accounts[0]!;
+      if (account.id !== 'legacy' && !selectedAccountId) setSelectedAccountId(account.id);
+
+      const result = await signInWithAuthEmail(account.authEmail, password);
+      if (result && 'error' in result && result.error) {
+        const msg = result.error.toLowerCase();
         if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
           setError(
             'Compte non confirmé. Utilisez « Mot de passe oublié » pour recevoir un lien par email.'
           );
-        } else if (msg.includes('invalid login credentials')) {
-          setError(
-            'Email ou mot de passe incorrect. Si vous vous êtes inscrit avec WhatsApp, utilisez l’onglet Téléphone.'
-          );
         } else {
-          setError(authError.message);
+          setError(result.error);
         }
-        return;
       }
-
-      const user = signInData.user ?? (await supabase.auth.getUser()).data.user;
-      if (!user) {
-        setError(
-          'Connexion refusée par le navigateur (cookies). Autorisez les cookies pour konadatagn.com puis réessayez.'
-        );
-        return;
-      }
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('organization_id, role, onboarding_path, is_active, organizations(type)')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (isProfileAccessBlocked(profile?.is_active)) {
-        await supabase.auth.signOut();
-        setError(PROFILE_ACCESS_BLOCKED_MESSAGE);
-        return;
-      }
-
-      void supabase
-        .from('profiles')
-        .update({ last_login_at: new Date().toISOString() })
-        .eq('id', user.id);
-
-      const accountIntent = user.user_metadata?.account_intent as string | undefined;
-      const orgType = (profile?.organizations as { type?: OrganizationType } | null)?.type;
-      const hasEnrollmentHistory = await learnerHasEnrollmentHistory(supabase, user.id);
-      const destination = resolvePostAuthDestination({
-        organizationId: profile?.organization_id,
-        role: profile?.role as AppRole | undefined,
-        orgType,
-        accountIntent,
-        onboardingPath: profile?.onboarding_path as string | undefined,
-        redirectParam,
-        hasEnrollmentHistory,
-      });
-
-      window.location.assign(destination);
     } catch (err) {
       console.error('[login] email', err);
       setError(
@@ -243,6 +261,32 @@ export default function LoginForm({ accountSwitched = false, accessBlocked = fal
       setLoading(false);
     }
   }
+
+  const accountPicker =
+    accountOptions.length > 1 ? (
+      <div className="space-y-2">
+        <Label htmlFor="login-account">Compte</Label>
+        <select
+          id="login-account"
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          value={selectedAccountId}
+          onChange={(e) => setSelectedAccountId(e.target.value)}
+          required
+        >
+          <option value="" disabled>
+            Choisir un compte
+          </option>
+          {accountOptions.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.label}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-muted-foreground">
+          Plusieurs comptes partagent ce contact — sélectionnez le vôtre.
+        </p>
+      </div>
+    ) : null;
 
   return (
     <div className="min-h-screen flex">
@@ -305,6 +349,7 @@ export default function LoginForm({ accountSwitched = false, accessBlocked = fal
                     </div>
                     <p className="text-xs text-muted-foreground">{ACCOUNT_PHONE_FIELD_HINT}</p>
                   </div>
+                  {accountPicker}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="login-phone-password">Mot de passe</Label>
@@ -331,6 +376,7 @@ export default function LoginForm({ accountSwitched = false, accessBlocked = fal
                     <Input id="email" name="email" type="email" placeholder="director@isc.gn" className="pl-9" required />
                   </div>
                 </div>
+                {accountPicker}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password">Mot de passe</Label>

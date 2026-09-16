@@ -1,8 +1,13 @@
 import { createServiceClient } from '@/lib/supabase/server';
-import { isSyntheticPhoneEmail, phoneToSyntheticEmail } from '@/lib/auth/phone-email';
-import { findProfileByPhone, createPhoneAuthUser } from '@/lib/auth/phone-account';
+import {
+  allocateEmailAuthEmail,
+  isSyntheticPhoneEmail,
+  phoneToSyntheticEmail,
+} from '@/lib/auth/phone-email';
+import { createPhoneAuthUser } from '@/lib/auth/phone-account';
 import { validatePassword } from '@/lib/auth/password-policy';
 import { onboardingPathForAccountIntent } from '@/lib/auth/onboarding-path';
+import { authEmailAlreadyTaken } from '@/lib/auth/contact-accounts';
 
 export interface RegisterAccountParams {
   method: 'email' | 'phone';
@@ -29,11 +34,7 @@ export async function registerAuthAccount(
     const phoneE164 = params.phoneE164?.trim();
     if (!phoneE164) return { error: 'Numéro de téléphone requis.' };
 
-    const existing = await findProfileByPhone(service, phoneE164);
-    if (existing) {
-      return { error: 'Ce numéro a déjà un compte. Connectez-vous ou réinitialisez votre mot de passe.' };
-    }
-
+    // Plusieurs comptes peuvent partager le même WhatsApp.
     return createPhoneAuthUser({
       phoneE164,
       password: params.password,
@@ -43,28 +44,23 @@ export async function registerAuthAccount(
     });
   }
 
-  const email = params.email?.trim().toLowerCase();
-  if (!email) return { error: 'Email requis.' };
-  if (isSyntheticPhoneEmail(email)) {
+  const contactEmail = params.email?.trim().toLowerCase();
+  if (!contactEmail) return { error: 'Email requis.' };
+  if (isSyntheticPhoneEmail(contactEmail)) {
     return { error: 'Adresse email invalide.' };
   }
 
-  const { data: existingProfile } = await service
-    .from('profiles')
-    .select('id')
-    .ilike('email', email)
-    .maybeSingle();
-  if (existingProfile?.id) {
-    return { error: 'Cet email a déjà un compte. Connectez-vous ou réinitialisez votre mot de passe.' };
-  }
+  const alreadyUsedAsAuth = await authEmailAlreadyTaken(service, contactEmail);
+  const authEmail = allocateEmailAuthEmail(contactEmail, alreadyUsedAsAuth);
 
   const { data, error } = await service.auth.admin.createUser({
-    email,
+    email: authEmail,
     password: params.password,
     email_confirm: true,
     user_metadata: {
       full_name: fullName,
       auth_method: 'email',
+      contact_email: contactEmail,
       account_intent: params.accountIntent ?? 'director',
       ...(params.signupIntent ? { signup_intent: params.signupIntent } : {}),
     },
@@ -73,7 +69,24 @@ export async function registerAuthAccount(
   if (error) {
     const msg = error.message.toLowerCase();
     if (msg.includes('already') || msg.includes('exists') || msg.includes('registered')) {
-      return { error: 'Cet email a déjà un compte.' };
+      const retryEmail = allocateEmailAuthEmail(contactEmail, true);
+      const retry = await service.auth.admin.createUser({
+        email: retryEmail,
+        password: params.password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: fullName,
+          auth_method: 'email',
+          contact_email: contactEmail,
+          account_intent: params.accountIntent ?? 'director',
+          ...(params.signupIntent ? { signup_intent: params.signupIntent } : {}),
+        },
+      });
+      if (retry.error || !retry.data.user?.id) {
+        return { error: retry.error?.message ?? 'Création du compte impossible.' };
+      }
+      await finalizeEmailProfile(service, retry.data.user.id, fullName, contactEmail, params.accountIntent);
+      return { userId: retry.data.user.id, email: retryEmail };
     }
     return { error: error.message };
   }
@@ -81,16 +94,26 @@ export async function registerAuthAccount(
   const userId = data.user?.id;
   if (!userId) return { error: 'Création du compte impossible.' };
 
-  const onboardingPath = onboardingPathForAccountIntent(params.accountIntent ?? 'director');
+  await finalizeEmailProfile(service, userId, fullName, contactEmail, params.accountIntent);
+  return { userId, email: authEmail };
+}
+
+async function finalizeEmailProfile(
+  service: Awaited<ReturnType<typeof createServiceClient>>,
+  userId: string,
+  fullName: string,
+  contactEmail: string,
+  accountIntent?: string
+) {
+  const onboardingPath = onboardingPathForAccountIntent(accountIntent ?? 'director');
   await service
     .from('profiles')
     .update({
       full_name: fullName,
+      contact_email: contactEmail,
       ...(onboardingPath ? { onboarding_path: onboardingPath } : {}),
     })
     .eq('id', userId);
-
-  return { userId, email };
 }
 
 export function loginEmailForPhone(phoneE164: string): string {

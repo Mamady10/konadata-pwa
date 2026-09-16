@@ -1,36 +1,13 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server';
-import { phoneToSyntheticEmail } from '@/lib/auth/phone-email';
+import { allocatePhoneAuthEmail } from '@/lib/auth/phone-email';
 import { onboardingPathForAccountIntent } from '@/lib/auth/onboarding-path';
+import {
+  findProfileByPhone,
+  findProfilesByPhone,
+} from '@/lib/auth/contact-accounts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export async function findProfileByPhone(
-  service: SupabaseClient,
-  phoneE164: string
-): Promise<{ id: string; email: string } | null> {
-  const synthetic = phoneToSyntheticEmail(phoneE164);
-
-  const { data: byPhone } = await service
-    .from('profiles')
-    .select('id, email')
-    .eq('phone', phoneE164)
-    .maybeSingle();
-
-  if (byPhone?.id) {
-    return { id: byPhone.id as string, email: byPhone.email as string };
-  }
-
-  const { data: byEmail } = await service
-    .from('profiles')
-    .select('id, email')
-    .ilike('email', synthetic)
-    .maybeSingle();
-
-  if (byEmail?.id) {
-    return { id: byEmail.id as string, email: byEmail.email as string };
-  }
-
-  return null;
-}
+export { findProfileByPhone, findProfilesByPhone } from '@/lib/auth/contact-accounts';
 
 export async function createPhoneAuthUser(params: {
   phoneE164: string;
@@ -40,14 +17,14 @@ export async function createPhoneAuthUser(params: {
   signupIntent?: string;
 }): Promise<{ userId: string; email: string } | { error: string }> {
   const service = await createServiceClient();
-  const email = phoneToSyntheticEmail(params.phoneE164);
+  // Email technique UNIQUE — le même WhatsApp peut servir plusieurs comptes.
+  // Ne pas poser auth.users.phone (contrainte unique côté Supabase Auth).
+  const email = allocatePhoneAuthEmail(params.phoneE164);
 
   const { data, error } = await service.auth.admin.createUser({
     email,
     password: params.password,
     email_confirm: true,
-    phone: params.phoneE164,
-    phone_confirm: true,
     user_metadata: {
       full_name: params.fullName,
       phone_e164: params.phoneE164,
@@ -60,7 +37,26 @@ export async function createPhoneAuthUser(params: {
   if (error) {
     const msg = error.message.toLowerCase();
     if (msg.includes('already') || msg.includes('exists') || msg.includes('registered')) {
-      return { error: 'Ce numéro est déjà associé à un compte.' };
+      // Collision extrêmement rare sur le suffixe — réessayer une fois
+      const retryEmail = allocatePhoneAuthEmail(params.phoneE164);
+      const retry = await service.auth.admin.createUser({
+        email: retryEmail,
+        password: params.password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: params.fullName,
+          phone_e164: params.phoneE164,
+          auth_method: 'phone',
+          account_intent: params.accountIntent ?? 'director',
+          ...(params.signupIntent ? { signup_intent: params.signupIntent } : {}),
+        },
+      });
+      if (retry.error || !retry.data.user?.id) {
+        return { error: retry.error?.message ?? 'Création du compte impossible.' };
+      }
+      const userId = retry.data.user.id;
+      await finalizePhoneProfile(service, userId, params);
+      return { userId, email: retryEmail };
     }
     return { error: error.message };
   }
@@ -68,6 +64,19 @@ export async function createPhoneAuthUser(params: {
   const userId = data.user?.id;
   if (!userId) return { error: 'Création du compte impossible.' };
 
+  await finalizePhoneProfile(service, userId, params);
+  return { userId, email };
+}
+
+async function finalizePhoneProfile(
+  service: SupabaseClient,
+  userId: string,
+  params: {
+    phoneE164: string;
+    fullName: string;
+    accountIntent?: string;
+  }
+) {
   const onboardingPath = onboardingPathForAccountIntent(params.accountIntent ?? 'director');
   await service
     .from('profiles')
@@ -77,8 +86,6 @@ export async function createPhoneAuthUser(params: {
       ...(onboardingPath ? { onboarding_path: onboardingPath } : {}),
     })
     .eq('id', userId);
-
-  return { userId, email };
 }
 
 /** Ouvre une session Supabase (cookies) pour un compte identifié par email technique. */
@@ -134,16 +141,20 @@ export async function adminUpdatePhoneAccountCredentials(params: {
   newPassword: string;
 }): Promise<{ ok: true; email: string } | { error: string }> {
   const service = await createServiceClient();
-  const newEmail = phoneToSyntheticEmail(params.newPhoneE164);
 
-  const taken = await findProfileByPhone(service, params.newPhoneE164);
-  if (taken && taken.id !== params.userId) {
-    return { error: 'Ce numéro WhatsApp est déjà utilisé par un autre compte.' };
+  const { data: profile } = await service
+    .from('profiles')
+    .select('email')
+    .eq('id', params.userId)
+    .maybeSingle();
+
+  const authEmail = (profile?.email as string | undefined)?.trim();
+  if (!authEmail) {
+    return { error: 'Profil introuvable.' };
   }
 
+  // Le numéro peut être partagé : on ne change pas l'email auth, seulement le contact WhatsApp.
   const { error: authErr } = await service.auth.admin.updateUserById(params.userId, {
-    email: newEmail,
-    phone: params.newPhoneE164,
     password: params.newPassword,
     phone_confirm: true,
     email_confirm: true,
@@ -156,9 +167,9 @@ export async function adminUpdatePhoneAccountCredentials(params: {
 
   const { error: profileErr } = await service
     .from('profiles')
-    .update({ phone: params.newPhoneE164, email: newEmail })
+    .update({ phone: params.newPhoneE164 })
     .eq('id', params.userId);
   if (profileErr) return { error: profileErr.message };
 
-  return { ok: true, email: newEmail };
+  return { ok: true, email: authEmail };
 }

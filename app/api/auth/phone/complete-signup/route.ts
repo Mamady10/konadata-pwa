@@ -6,7 +6,6 @@ import {
   verifyPhoneOtpChallenge,
 } from '@/lib/auth/verify-otp-challenge';
 import { registerAndSignIn } from '@/lib/auth/complete-signup-session';
-import { findProfileByPhone } from '@/lib/auth/phone-account';
 
 export const runtime = 'nodejs';
 
@@ -39,13 +38,6 @@ export async function POST(request: NextRequest) {
     }
 
     const phoneE164 = verified.challenge.phoneE164!;
-    const existing = await findProfileByPhone(supabase, phoneE164);
-    if (existing) {
-      return NextResponse.json(
-        { error: 'Ce numéro a déjà un compte. Connectez-vous.' },
-        { status: 409 }
-      );
-    }
 
     const created = await registerAndSignIn({
       method: 'phone',
