@@ -155,7 +155,12 @@ export function resolvePostAuthDestination(options: {
   }
 
   if (!organizationId) {
-    return LANDING_LINKS.rejoindre;
+    // Compte orphelin (souvent directeur après inscription incomplète) :
+    // ne pas envoyer vers le code staff par défaut.
+    if (normalizeAccountIntent(accountIntent) === 'staff') {
+      return LANDING_LINKS.rejoindre;
+    }
+    return LANDING_LINKS.registerOrganization;
   }
 
   return resolvePostLoginRedirect(redirectParam ?? '', orgType ?? undefined);

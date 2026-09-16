@@ -334,18 +334,15 @@ export async function updateSession(request: NextRequest) {
     if (needsOnboarding && isProtectedRoute && !isOnboardingRoute) {
       const url = request.nextUrl.clone();
       const intent = normalizeAccountIntent(accountIntent);
-      if (intent === 'staff') {
+      const path = normalizeAccountIntent(authz.onboardingPath);
+      if (intent === 'staff' || path === 'staff') {
         url.pathname = '/rejoindre';
       } else if (learnerNeedsPicker) {
         url.pathname = '/inscription-etablissement';
-      } else if (
-        intent === 'director' ||
-        isDirectorOnboardingPath(authz.onboardingPath ?? undefined)
-      ) {
+      } else {
+        // Directeur ou compte orphelin (inscription org incomplète) → finaliser le dossier.
         url.pathname = '/register';
         url.searchParams.set('mode', 'create');
-      } else {
-        url.pathname = '/rejoindre';
       }
       return NextResponse.redirect(url);
     }
@@ -380,7 +377,14 @@ export async function updateSession(request: NextRequest) {
       } else if (learnerNeedsPicker) {
         url.pathname = '/inscription-etablissement';
       } else if (needsOnboarding) {
-        url.pathname = '/rejoindre';
+        const intent = normalizeAccountIntent(accountIntent);
+        const path = normalizeAccountIntent(authz.onboardingPath);
+        if (intent === 'staff' || path === 'staff') {
+          url.pathname = '/rejoindre';
+        } else {
+          url.pathname = '/register';
+          url.searchParams.set('mode', 'create');
+        }
       } else if (learnerOnboarding) {
         url.pathname = '/etablissement/candidatures';
       } else {
