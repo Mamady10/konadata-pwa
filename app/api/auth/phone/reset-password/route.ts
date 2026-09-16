@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { hashOtpCode } from '@/lib/survey/security-hash';
-import { findProfileByPhone, updateAuthUserPassword } from '@/lib/auth/phone-account';
+import { findProfilesByPhone, updateAuthUserPassword } from '@/lib/auth/phone-account';
 import { validatePassword } from '@/lib/auth/password-policy';
 
 export const runtime = 'nodejs';
@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
     const challengeId = String(body.challengeId ?? '').trim();
     const code = String(body.code ?? '').trim();
     const password = String(body.password ?? '');
+    const profileId = String(body.profileId ?? '').trim();
 
     if (!challengeId || !code) {
       return NextResponse.json({ error: 'Code et session requis' }, { status: 400 });
@@ -65,9 +66,24 @@ export async function POST(request: NextRequest) {
     }
 
     const phoneE164 = challenge.phone_e164 as string;
-    const profile = await findProfileByPhone(supabase, phoneE164);
-    if (!profile) {
+    const profiles = await findProfilesByPhone(supabase, phoneE164);
+    if (!profiles.length) {
       return NextResponse.json({ error: 'Compte introuvable pour ce numéro.' }, { status: 404 });
+    }
+
+    const profile =
+      profiles.length === 1
+        ? profiles[0]!
+        : profiles.find((p) => p.id === profileId) ?? null;
+
+    if (!profile) {
+      return NextResponse.json(
+        {
+          error: 'Plusieurs comptes utilisent ce numéro. Choisissez le compte à réinitialiser.',
+          accounts: profiles.map((p) => ({ id: p.id, label: p.label })),
+        },
+        { status: 409 }
+      );
     }
 
     const updated = await updateAuthUserPassword(profile.id, password);

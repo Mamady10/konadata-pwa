@@ -34,6 +34,7 @@ import { isOrganizationMemberRole } from '@/lib/auth/org-member-roles';
 import {
   isDirectorOnboardingPath,
   isDirectorOrStaffIntent,
+  normalizeAccountIntent,
 } from '@/lib/auth/account-intent';
 import { resolvePostAuthDestination } from '@/lib/auth/post-auth-redirect';
 import {
@@ -96,6 +97,15 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/reset-password');
 
   const isRegisterCandidat = pathname.startsWith('/register/candidat');
+  const isRegisterSurveyOnly = pathname.startsWith('/register/sondage');
+  const registerMode = request.nextUrl.searchParams.get('mode');
+  /** Directeur sans org peut finaliser /register?mode=create (défaut). */
+  const isRegisterOrgCreate =
+    pathname.startsWith('/register') &&
+    !isRegisterCandidat &&
+    !isRegisterSurveyOnly &&
+    registerMode !== 'join' &&
+    registerMode !== 'learner';
 
   const isLearnerOnboarding =
     pathname.startsWith('/inscription-etablissement') ||
@@ -246,8 +256,15 @@ export async function updateSession(request: NextRequest) {
 
     if (isStaffIntent && pathname.startsWith('/inscription-etablissement')) {
       const url = request.nextUrl.clone();
-      url.pathname = organizationId ? sectorHomeFromOrgType(orgType) : '/rejoindre';
-      if (!organizationId) url.searchParams.set('profil', 'directeur');
+      if (organizationId) {
+        url.pathname = sectorHomeFromOrgType(orgType);
+      } else if (normalizeAccountIntent(accountIntent) === 'staff') {
+        url.pathname = '/rejoindre';
+        url.searchParams.set('profil', 'directeur');
+      } else {
+        url.pathname = '/register';
+        url.searchParams.set('mode', 'create');
+      }
       return NextResponse.redirect(url);
     }
 
@@ -316,12 +333,17 @@ export async function updateSession(request: NextRequest) {
 
     if (needsOnboarding && isProtectedRoute && !isOnboardingRoute) {
       const url = request.nextUrl.clone();
-      url.pathname =
-        accountIntent === 'staff'
-          ? '/rejoindre'
-          : learnerNeedsPicker
-            ? '/inscription-etablissement'
-            : '/rejoindre';
+      const intent = normalizeAccountIntent(accountIntent);
+      const path = normalizeAccountIntent(authz.onboardingPath);
+      if (intent === 'staff' || path === 'staff') {
+        url.pathname = '/rejoindre';
+      } else if (learnerNeedsPicker) {
+        url.pathname = '/inscription-etablissement';
+      } else {
+        // Directeur ou compte orphelin (inscription org incomplète) → finaliser le dossier.
+        url.pathname = '/register';
+        url.searchParams.set('mode', 'create');
+      }
       return NextResponse.redirect(url);
     }
 
@@ -333,16 +355,36 @@ export async function updateSession(request: NextRequest) {
         return supabaseResponse;
       }
 
+      // Directeur (ou compte orphelin) sans org : laisser terminer l'inscription organisation.
+      // Ne pas exiger isStaffIntent : les comptes créés avant fix ont role=candidate
+      // et le JWT peut omettre account_intent — le client les envoie quand même ici.
+      if (!organizationId && isRegisterOrgCreate) {
+        return supabaseResponse;
+      }
+
       const url = request.nextUrl.clone();
       if (isStaffIntent && !organizationId) {
-        url.pathname = '/rejoindre';
-        url.searchParams.set('profil', 'directeur');
+        const intent = normalizeAccountIntent(accountIntent);
+        if (intent === 'staff') {
+          url.pathname = '/rejoindre';
+          url.searchParams.set('profil', 'directeur');
+        } else {
+          url.pathname = '/register';
+          url.searchParams.set('mode', 'create');
+        }
       } else if (isStaffIntent || isOrgMember) {
         url.pathname = sectorHomeFromOrgType(orgType);
       } else if (learnerNeedsPicker) {
         url.pathname = '/inscription-etablissement';
       } else if (needsOnboarding) {
-        url.pathname = '/rejoindre';
+        const intent = normalizeAccountIntent(accountIntent);
+        const path = normalizeAccountIntent(authz.onboardingPath);
+        if (intent === 'staff' || path === 'staff') {
+          url.pathname = '/rejoindre';
+        } else {
+          url.pathname = '/register';
+          url.searchParams.set('mode', 'create');
+        }
       } else if (learnerOnboarding) {
         url.pathname = '/etablissement/candidatures';
       } else {

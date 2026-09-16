@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { KeyRound, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { KeyRound, ArrowRight, AlertCircle, CheckCircle2, Building2 } from 'lucide-react';
 import { AuthBackHome } from '@/components/auth/auth-back-home';
 import { AuthPageBrand } from '@/components/auth/auth-page-brand';
 import { motion } from 'framer-motion';
@@ -25,9 +25,15 @@ import { LANDING_LINKS } from '@/lib/marketing/landing-links';
 interface Props {
   isLoggedIn: boolean;
   userEmail?: string;
+  /** Compte connecté sans org : proposer clairement la création d'organisation. */
+  showDirectorEscape?: boolean;
 }
 
-export function RejoindreClient({ isLoggedIn, userEmail }: Props) {
+export function RejoindreClient({
+  isLoggedIn,
+  userEmail,
+  showDirectorEscape = false,
+}: Props) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -103,14 +109,41 @@ export function RejoindreClient({ isLoggedIn, userEmail }: Props) {
         </div>
         <AuthPageBrand />
 
+        {(showDirectorEscape || authenticated) && (
+          <Card className="border-primary/30 bg-primary/[0.03] mb-4 shadow-card-hover">
+            <CardContent className="pt-6 space-y-3">
+              <p className="font-semibold flex items-center gap-2 text-[#0A192F]">
+                <Building2 className="h-5 w-5 text-primary" />
+                Vous êtes directeur / gérant ?
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Pas besoin de code <span className="font-mono">KONA-…</span>. Finalisez le dossier de
+                votre organisation pour activer KonaData (offre gratuite de lancement incluse).
+              </p>
+              {authenticated && email && (
+                <p className="text-xs text-muted-foreground">
+                  Connecté : <strong className="break-all">{email}</strong>
+                </p>
+              )}
+              <Button asChild className="w-full bg-[#2563EB] hover:bg-[#2563EB]/90">
+                <Link href={LANDING_LINKS.registerOrganization}>
+                  Créer / finaliser mon organisation
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         <Card className="border-0 shadow-card-hover">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl flex items-center justify-center gap-2">
               <KeyRound className="h-6 w-6 text-primary" />
-              Rejoindre une organisation
+              Code collaborateur
             </CardTitle>
             <CardDescription>
-              Code au format <span className="font-mono">KONA-XXXX-XXXX</span>
+              Uniquement si votre responsable vous a donné un code{' '}
+              <span className="font-mono">KONA-XXXX-XXXX</span>
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -137,14 +170,8 @@ export function RejoindreClient({ isLoggedIn, userEmail }: Props) {
                 </Link>
               </div>
             ) : (
-              <div className="mb-4 space-y-2 text-center text-sm">
-                <p className="text-muted-foreground">
-                  Connecté : <strong>{email}</strong>
-                </p>
-                <p className="text-muted-foreground">
-                  Saisissez le code <span className="font-mono">KONA-…</span> fourni par votre
-                  établissement, ou créez une organisation si vous êtes directeur.
-                </p>
+              <div className="mb-4 text-center text-sm text-muted-foreground">
+                Connecté : <strong className="break-all">{email}</strong>
               </div>
             )}
 
@@ -160,7 +187,6 @@ export function RejoindreClient({ isLoggedIn, userEmail }: Props) {
                   className="uppercase tracking-widest font-mono text-center bg-white"
                   autoComplete="off"
                   required
-                  readOnly={false}
                 />
               </div>
               <Button
@@ -204,13 +230,6 @@ export function RejoindreClient({ isLoggedIn, userEmail }: Props) {
                     className="text-primary font-medium hover:underline"
                   >
                     Changer de compte
-                  </Link>
-                  {' · '}
-                  <Link
-                    href={LANDING_LINKS.registerOrganization}
-                    className="text-primary font-medium hover:underline"
-                  >
-                    Créer une organisation
                   </Link>
                 </>
               ) : (

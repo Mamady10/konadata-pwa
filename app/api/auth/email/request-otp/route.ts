@@ -43,17 +43,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: rate.error }, { status: 429 });
     }
 
-    const { data: existingProfile } = await supabase
-      .from('profiles')
-      .select('id')
-      .ilike('email', emailRaw)
-      .maybeSingle();
-    if (existingProfile?.id) {
-      return NextResponse.json(
-        { error: 'Cet email a déjà un compte. Connectez-vous.' },
-        { status: 409 }
-      );
-    }
+    // Plusieurs comptes peuvent partager le même email de contact.
 
     const code = generateOtpCode();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();

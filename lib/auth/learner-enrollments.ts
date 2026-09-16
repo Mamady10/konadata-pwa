@@ -68,10 +68,12 @@ export function learnerNeedsSchoolOnboarding(options: {
   ]);
   if (options.role && staffRoles.has(options.role)) return false;
 
+  // Ne pas traiter role=candidate seul : c'est le défaut SQL, y compris pour les
+  // directeurs dont l'inscription org a échoué (compte orphelin).
   const isLearner =
     options.accountIntent === 'learner' ||
     options.onboardingPath === 'learner' ||
-    isLearnerRole(options.role);
+    options.role === 'student';
 
   if (!isLearner) return false;
   if (options.hasEnrollmentHistory || options.organizationId) return false;

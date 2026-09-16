@@ -38,17 +38,6 @@ export async function POST(request: NextRequest) {
     }
 
     const email = verified.challenge.email!;
-    const { data: existingProfile } = await supabase
-      .from('profiles')
-      .select('id')
-      .ilike('email', email)
-      .maybeSingle();
-    if (existingProfile?.id) {
-      return NextResponse.json(
-        { error: 'Cet email a déjà un compte. Connectez-vous.' },
-        { status: 409 }
-      );
-    }
 
     const created = await registerAndSignIn({
       method: 'email',
