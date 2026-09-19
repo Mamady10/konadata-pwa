@@ -9,6 +9,8 @@ export const LANDING_LINKS = {
   loginStaff: '/login',
   /** Directeur : crée l’organisation + compte admin */
   registerOrganization: '/register?mode=create',
+  /** Compte déjà créé, dossier organisation à finaliser */
+  registerOrganizationResume: '/register?mode=create&resume=1',
   /** ONG non inscrite : compte + sondage uniquement (sans abonnement plateforme) */
   registerSurveyOnly: '/register/sondage',
   /** Collaborateur : formulaire compte + code (après /rejoindre ou direct) */

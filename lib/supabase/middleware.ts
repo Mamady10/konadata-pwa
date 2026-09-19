@@ -246,8 +246,13 @@ export async function updateSession(request: NextRequest) {
 
     if (isStaffIntent && pathname.startsWith('/inscription-etablissement')) {
       const url = request.nextUrl.clone();
-      url.pathname = organizationId ? sectorHomeFromOrgType(orgType) : '/rejoindre';
-      if (!organizationId) url.searchParams.set('profil', 'directeur');
+      if (organizationId) {
+        url.pathname = sectorHomeFromOrgType(orgType);
+      } else {
+        url.pathname = '/register';
+        url.searchParams.set('mode', 'create');
+        url.searchParams.set('resume', '1');
+      }
       return NextResponse.redirect(url);
     }
 
@@ -316,12 +321,18 @@ export async function updateSession(request: NextRequest) {
 
     if (needsOnboarding && isProtectedRoute && !isOnboardingRoute) {
       const url = request.nextUrl.clone();
-      url.pathname =
-        accountIntent === 'staff'
-          ? '/rejoindre'
-          : learnerNeedsPicker
-            ? '/inscription-etablissement'
-            : '/rejoindre';
+      if (isStaffIntent && accountIntent !== 'staff') {
+        url.pathname = '/register';
+        url.searchParams.set('mode', 'create');
+        url.searchParams.set('resume', '1');
+      } else {
+        url.pathname =
+          accountIntent === 'staff'
+            ? '/rejoindre'
+            : learnerNeedsPicker
+              ? '/inscription-etablissement'
+              : '/rejoindre';
+      }
       return NextResponse.redirect(url);
     }
 
@@ -333,10 +344,26 @@ export async function updateSession(request: NextRequest) {
         return supabaseResponse;
       }
 
+      // Compte orphelin (auth OK, pas d'org) : doit pouvoir finaliser la création d'organisation.
+      const registerMode = request.nextUrl.searchParams.get('mode');
+      const canResumeOrgCreate =
+        pathname.startsWith('/register') &&
+        isStaffIntent &&
+        !organizationId &&
+        (registerMode === 'create' || registerMode === null);
+      if (canResumeOrgCreate) {
+        return supabaseResponse;
+      }
+
       const url = request.nextUrl.clone();
       if (isStaffIntent && !organizationId) {
-        url.pathname = '/rejoindre';
-        url.searchParams.set('profil', 'directeur');
+        if (accountIntent === 'staff') {
+          url.pathname = '/rejoindre';
+        } else {
+          url.pathname = '/register';
+          url.searchParams.set('mode', 'create');
+          url.searchParams.set('resume', '1');
+        }
       } else if (isStaffIntent || isOrgMember) {
         url.pathname = sectorHomeFromOrgType(orgType);
       } else if (learnerNeedsPicker) {

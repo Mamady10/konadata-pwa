@@ -137,13 +137,19 @@ export function RejoindreClient({ isLoggedIn, userEmail }: Props) {
                 </Link>
               </div>
             ) : (
-              <div className="mb-4 space-y-2 text-center text-sm">
+              <div className="mb-4 space-y-3 text-center text-sm">
                 <p className="text-muted-foreground">
                   Connecté : <strong>{email}</strong>
                 </p>
-                <p className="text-muted-foreground">
-                  Saisissez le code <span className="font-mono">KONA-…</span> fourni par votre
-                  établissement, ou créez une organisation si vous êtes directeur.
+                <Button asChild className="w-full bg-[#2563EB] hover:bg-[#2563EB]/90">
+                  <Link href={LANDING_LINKS.registerOrganizationResume}>
+                    Finaliser / créer mon organisation
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+                <p className="text-muted-foreground text-xs">
+                  Ou saisissez un code <span className="font-mono">KONA-…</span> si vous rejoignez
+                  une organisation existante.
                 </p>
               </div>
             )}
@@ -207,7 +213,7 @@ export function RejoindreClient({ isLoggedIn, userEmail }: Props) {
                   </Link>
                   {' · '}
                   <Link
-                    href={LANDING_LINKS.registerOrganization}
+                    href={LANDING_LINKS.registerOrganizationResume}
                     className="text-primary font-medium hover:underline"
                   >
                     Créer une organisation

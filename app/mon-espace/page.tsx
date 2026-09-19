@@ -12,6 +12,7 @@ import { getOrgType } from '@/types/database';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { LANDING_LINKS } from '@/lib/marketing/landing-links';
 
 /**
  * Point d'entrée fiable après connexion (évite le parcours candidat par erreur).
@@ -45,10 +46,12 @@ export default async function MonEspacePage() {
             </p>
             <div className="flex flex-wrap gap-2">
               <Button asChild>
-                <Link href="/rejoindre?profil=directeur">Saisir mon code d&apos;accès</Link>
+                <Link href={LANDING_LINKS.registerOrganizationResume}>
+                  Finaliser mon organisation
+                </Link>
               </Button>
               <Button variant="outline" asChild>
-                <Link href="/register?mode=create">Créer une organisation</Link>
+                <Link href="/rejoindre?profil=directeur">Saisir mon code d&apos;accès</Link>
               </Button>
             </div>
           </CardContent>

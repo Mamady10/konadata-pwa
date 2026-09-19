@@ -16,7 +16,6 @@ import { SignupOtpSection, useSignupOtp } from '@/components/auth/signup-otp-sec
 import { motion } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { completeOrganizationRegistration } from '@/lib/actions/org-registration';
-import { ORG_REGISTRATION_SUCCESS_PATH } from '@/lib/org/org-registration-shared';
 import { createClient } from '@/lib/supabase/client';
 import { redeemAccessCodeClient } from '@/lib/auth/redeem-access-code-client';
 import { ORG_TYPE_LABELS, formatStartingPriceGnf, type OrganizationType } from '@/types/database';
@@ -31,6 +30,11 @@ import {
   ACCOUNT_PHONE_FIELD_HINT,
   ACCOUNT_PHONE_FIELD_LABEL,
 } from '@/lib/auth/phone-field-copy';
+import { normalizeGuineaPhone } from '@/lib/survey/phone';
+import {
+  isDirectorOnboardingPath,
+  isDirectorOrStaffIntent,
+} from '@/lib/auth/account-intent';
 
 type RegisterMode = 'create' | 'join' | 'learner';
 
@@ -54,6 +58,9 @@ export default function RegisterForm() {
   const [authMethod, setAuthMethod] = useState<AuthMethod>('phone');
   const [fullName, setFullName] = useState('');
   const [acceptCgu, setAcceptCgu] = useState(false);
+  /** Compte déjà créé (OTP ok) mais organisation jamais finalisée. */
+  const [resumeOrg, setResumeOrg] = useState(false);
+  const [resumeContact, setResumeContact] = useState<string | null>(null);
   const formElRef = useRef<HTMLFormElement | null>(null);
   const signupOtp = useSignupOtp();
 
@@ -65,6 +72,59 @@ export default function RegisterForm() {
   useEffect(() => {
     signupOtp.resetOtp();
   }, [authMethod]);
+
+  useEffect(() => {
+    if (mode !== 'create') {
+      setResumeOrg(false);
+      return;
+    }
+
+    let cancelled = false;
+    const supabase = createClient();
+
+    void (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (cancelled || !user) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('organization_id, full_name, phone, email, onboarding_path')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (cancelled || profile?.organization_id) return;
+
+      const intent = user.user_metadata?.account_intent as string | undefined;
+      const forceResume = searchParams.get('resume') === '1';
+      if (
+        !forceResume &&
+        !isDirectorOrStaffIntent(intent) &&
+        !isDirectorOnboardingPath(profile?.onboarding_path as string | undefined)
+      ) {
+        return;
+      }
+      if (intent === 'staff' && !forceResume) return;
+
+      setResumeOrg(true);
+      const name = (profile?.full_name as string | undefined)?.trim();
+      if (name) setFullName(name);
+      setResumeContact(
+        (user.email as string | undefined) ||
+          (profile?.email as string | undefined) ||
+          (profile?.phone as string | undefined) ||
+          null
+      );
+      setInfo(
+        'Votre compte est déjà créé. Finalisez le dossier de votre organisation ci-dessous pour ouvrir l’accès.'
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, searchParams]);
 
   function setRegisterMode(next: RegisterMode) {
     setMode(next);
@@ -113,20 +173,27 @@ export default function RegisterForm() {
     window.location.href = LANDING_LINKS.inscriptionEtablissement;
   }
 
-  async function finishOrganizationAfterAuth(form: HTMLFormElement, name: string) {
+  async function finishOrganizationAfterAuth(formData: FormData, name: string) {
     const supabase = createClient();
-    const formData = new FormData(form);
     formData.set('organization_type', orgType);
     formData.set('full_name', name);
+    if (acceptCgu) formData.set('accept_cgu', 'on');
+
+    const phoneRaw = String(formData.get('phone') ?? formData.get('declared_phone') ?? '').trim();
+    const phoneE164 = normalizeGuineaPhone(phoneRaw);
+    if (phoneE164) formData.set('declared_phone', phoneE164);
+
     const { data: { user } } = await supabase.auth.getUser();
     if (user?.email) formData.set('email', user.email);
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('phone')
-      .eq('id', user?.id ?? '')
-      .maybeSingle();
-    if (profile?.phone && !formData.get('declared_phone')) {
-      formData.set('declared_phone', profile.phone as string);
+    if (!formData.get('declared_phone')) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('phone')
+        .eq('id', user?.id ?? '')
+        .maybeSingle();
+      if (profile?.phone) {
+        formData.set('declared_phone', profile.phone as string);
+      }
     }
 
     const result = await completeOrganizationRegistration(formData);
@@ -149,8 +216,9 @@ export default function RegisterForm() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setInfo(null);
+    if (!resumeOrg) setInfo(null);
 
+    // Snapshot avant tout await — e.currentTarget devient null après.
     const formData = new FormData(e.currentTarget);
     const password = String(formData.get('password') ?? '');
     const name = String(formData.get('full_name') ?? '').trim();
@@ -160,6 +228,11 @@ export default function RegisterForm() {
       searchParams.get('mode') === 'learner' ? 'learner' : mode;
 
     try {
+      if (resumeOrg && effectiveMode === 'create') {
+        await finishOrganizationAfterAuth(formData, name);
+        return;
+      }
+
       if (signupOtp.step === 'form') {
         const ok = await signupOtp.requestOtp({
           method: authMethod,
@@ -190,8 +263,12 @@ export default function RegisterForm() {
         return;
       }
       if (effectiveMode === 'create') {
-        await finishOrganizationAfterAuth(e.currentTarget, name);
+        await finishOrganizationAfterAuth(formData, name);
       }
+    } catch {
+      setError(
+        'Une erreur est survenue après la création du compte. Reconnectez-vous puis finalisez le dossier organisation — vos identifiants existent déjà.'
+      );
     } finally {
       setLoading(false);
     }
@@ -208,50 +285,56 @@ export default function RegisterForm() {
         <Card className="border-0 shadow-card-hover">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">
-              {mode === 'create'
-                ? 'Créer une organisation'
-                : mode === 'learner'
-                  ? 'Compte candidat / élève'
-                  : 'Créer mon compte'}
+              {resumeOrg
+                ? 'Finaliser votre organisation'
+                : mode === 'create'
+                  ? 'Créer une organisation'
+                  : mode === 'learner'
+                    ? 'Compte candidat / élève'
+                    : 'Créer mon compte'}
             </CardTitle>
             <CardDescription>
-              {mode === 'create'
-                ? 'Dossier complet pour analyse KonaData — accès module après validation du tarif et paiement'
-                : mode === 'learner'
-                  ? 'Ensuite vous choisirez votre établissement, filière et déposerez votre dossier'
-                  : 'Compte collaborateur avec le code reçu de votre responsable'}
+              {resumeOrg
+                ? 'Votre compte existe déjà — il manquait seulement le dossier organisation.'
+                : mode === 'create'
+                  ? 'Dossier complet pour analyse KonaData — accès module après validation du tarif et paiement'
+                  : mode === 'learner'
+                    ? 'Ensuite vous choisirez votre établissement, filière et déposerez votre dossier'
+                    : 'Compte collaborateur avec le code reçu de votre responsable'}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6">
-              <Button
-                type="button"
-                variant={mode === 'learner' ? 'default' : 'outline'}
-                className="flex-1 text-xs sm:text-sm"
-                onClick={() => setRegisterMode('learner')}
-              >
-                <GraduationCap className="h-4 w-4" />
-                Candidat / élève
-              </Button>
-              <Button
-                type="button"
-                variant={mode === 'create' ? 'default' : 'outline'}
-                className="flex-1 text-xs sm:text-sm"
-                onClick={() => setRegisterMode('create')}
-              >
-                <Building2 className="h-4 w-4" />
-                Organisation
-              </Button>
-              <Button
-                type="button"
-                variant={mode === 'join' ? 'default' : 'outline'}
-                className="flex-1 text-xs sm:text-sm"
-                onClick={() => setRegisterMode('join')}
-              >
-                <KeyRound className="h-4 w-4" />
-                Code staff
-              </Button>
-            </div>
+            {!resumeOrg && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6">
+                <Button
+                  type="button"
+                  variant={mode === 'learner' ? 'default' : 'outline'}
+                  className="flex-1 text-xs sm:text-sm"
+                  onClick={() => setRegisterMode('learner')}
+                >
+                  <GraduationCap className="h-4 w-4" />
+                  Candidat / élève
+                </Button>
+                <Button
+                  type="button"
+                  variant={mode === 'create' ? 'default' : 'outline'}
+                  className="flex-1 text-xs sm:text-sm"
+                  onClick={() => setRegisterMode('create')}
+                >
+                  <Building2 className="h-4 w-4" />
+                  Organisation
+                </Button>
+                <Button
+                  type="button"
+                  variant={mode === 'join' ? 'default' : 'outline'}
+                  className="flex-1 text-xs sm:text-sm"
+                  onClick={() => setRegisterMode('join')}
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Code staff
+                </Button>
+              </div>
+            )}
 
             {error && (
               <div className="mb-4 flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
@@ -262,6 +345,9 @@ export default function RegisterForm() {
             {info && (
               <div className="mb-4 rounded-lg bg-blue-500/10 p-3 text-sm text-blue-800">
                 {info}
+                {resumeContact ? (
+                  <span className="block mt-1 text-xs opacity-90">Compte : {resumeContact}</span>
+                ) : null}
               </div>
             )}
             {mode === 'join' && pendingCode && (
@@ -269,7 +355,7 @@ export default function RegisterForm() {
                 Code : {pendingCode}
               </div>
             )}
-            <AuthMethodToggle value={authMethod} onChange={setAuthMethod} />
+            {!resumeOrg && <AuthMethodToggle value={authMethod} onChange={setAuthMethod} />}
             <form ref={formElRef} onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="full_name">Nom complet</Label>
@@ -316,7 +402,7 @@ export default function RegisterForm() {
                   </div>
                   <OrgRegistrationFields
                     orgType={orgType}
-                    hideDeclaredPhone={authMethod === 'phone'}
+                    hideDeclaredPhone={!resumeOrg && authMethod === 'phone'}
                   />
                   <label className="flex items-start gap-2 text-sm cursor-pointer">
                     <input
@@ -341,56 +427,63 @@ export default function RegisterForm() {
                   </label>
                 </>
               )}
-              {authMethod === 'email' ? (
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="email" name="email" type="email" className="pl-9" placeholder="vous@organisation.gn" required />
+              {!resumeOrg &&
+                (authMethod === 'email' ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input id="email" name="email" type="email" className="pl-9" placeholder="vous@organisation.gn" required />
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label htmlFor="phone">{ACCOUNT_PHONE_FIELD_LABEL}</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="phone" name="phone" type="tel" className="pl-9" placeholder="6XX XX XX XX" required autoComplete="tel" />
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">{ACCOUNT_PHONE_FIELD_LABEL}</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input id="phone" name="phone" type="tel" className="pl-9" placeholder="6XX XX XX XX" required autoComplete="tel" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">{ACCOUNT_PHONE_FIELD_HINT}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground">{ACCOUNT_PHONE_FIELD_HINT}</p>
+                ))}
+              {!resumeOrg && (
+                <div className="space-y-2">
+                  <Label htmlFor="password">Mot de passe</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input id="password" name="password" type="password" className="pl-9" placeholder="Min. 8 caractères" minLength={8} required autoComplete="new-password" />
+                  </div>
                 </div>
               )}
-              <div className="space-y-2">
-                <Label htmlFor="password">Mot de passe</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input id="password" name="password" type="password" className="pl-9" placeholder="Min. 8 caractères" minLength={8} required autoComplete="new-password" />
-                </div>
-              </div>
-              <SignupOtpSection
-                method={authMethod}
-                step={signupOtp.step}
-                channel={signupOtp.channel}
-                onChannelChange={signupOtp.setChannel}
-                otpCode={signupOtp.otpCode}
-                onOtpCodeChange={signupOtp.setOtpCode}
-                maskedContact={signupOtp.maskedContact}
-                devCode={signupOtp.devCode}
-                error={signupOtp.otpError}
-                loading={signupOtp.otpLoading || loading}
-                onChangeContact={signupOtp.resetOtp}
-              />
+              {!resumeOrg && (
+                <SignupOtpSection
+                  method={authMethod}
+                  step={signupOtp.step}
+                  channel={signupOtp.channel}
+                  onChannelChange={signupOtp.setChannel}
+                  otpCode={signupOtp.otpCode}
+                  onOtpCodeChange={signupOtp.setOtpCode}
+                  maskedContact={signupOtp.maskedContact}
+                  devCode={signupOtp.devCode}
+                  error={signupOtp.otpError}
+                  loading={signupOtp.otpLoading || loading}
+                  onChangeContact={signupOtp.resetOtp}
+                />
+              )}
               <Button type="submit" className="w-full bg-[#2563EB] hover:bg-[#2563EB]/90" disabled={loading || signupOtp.otpLoading}>
                 {loading || signupOtp.otpLoading
                   ? 'Traitement…'
-                  : signupOtp.step === 'form'
-                    ? authMethod === 'phone'
-                      ? 'Recevoir le code WhatsApp / SMS'
-                      : 'Recevoir le code par email'
-                    : mode === 'join'
-                      ? 'Créer et rejoindre'
-                      : mode === 'learner'
-                        ? 'Créer mon compte'
-                        : 'Créer mon organisation'}
+                  : resumeOrg
+                    ? 'Enregistrer mon organisation'
+                    : signupOtp.step === 'form'
+                      ? authMethod === 'phone'
+                        ? 'Recevoir le code WhatsApp / SMS'
+                        : 'Recevoir le code par email'
+                      : mode === 'join'
+                        ? 'Créer et rejoindre'
+                        : mode === 'learner'
+                          ? 'Créer mon compte'
+                          : 'Créer mon organisation'}
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </form>
@@ -410,20 +503,27 @@ export default function RegisterForm() {
                 </Link>
               </p>
             )}
-            {mode === 'create' && (
+            {mode === 'create' && !resumeOrg && (
               <p className="mt-4 text-xs text-center text-muted-foreground">
                 Vous êtes candidat ?{' '}
                 <Link href={LANDING_LINKS.registerLearner} className="text-primary underline">
                   Inscription élève
                 </Link>
+                {' · '}
+                Compte déjà créé sans organisation ?{' '}
+                <Link href={LANDING_LINKS.login} className="text-primary underline">
+                  Se connecter pour finaliser
+                </Link>
               </p>
             )}
-            <p className="mt-6 text-center text-sm text-muted-foreground">
-              Déjà un compte ?{' '}
-              <Link href={LANDING_LINKS.login} className="text-primary font-medium hover:underline">
-                Se connecter
-              </Link>
-            </p>
+            {!resumeOrg && (
+              <p className="mt-6 text-center text-sm text-muted-foreground">
+                Déjà un compte ?{' '}
+                <Link href={LANDING_LINKS.login} className="text-primary font-medium hover:underline">
+                  Se connecter
+                </Link>
+              </p>
+            )}
           </CardContent>
         </Card>
       </motion.div>
