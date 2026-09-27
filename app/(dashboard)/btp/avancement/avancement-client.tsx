@@ -246,11 +246,11 @@ export function AvancementClient({
                             {new Date(t.finishDate).toLocaleDateString('fr-FR')} · {t.durationDays} j
                           </p>
                         </div>
-                        <span className="tabular-nums text-muted-foreground">
+                        <span className="tabular-nums text-muted-foreground whitespace-nowrap text-[13px] sm:text-sm">
                           <span className="sm:hidden text-[11px]">Poids </span>
                           {taskWeights[t.uid] ?? 0} %
                         </span>
-                        <span className="tabular-nums text-muted-foreground">
+                        <span className="tabular-nums text-muted-foreground whitespace-nowrap text-[13px] sm:text-sm">
                           <span className="sm:hidden text-[11px]">Prévu </span>
                           {planned} %
                         </span>
