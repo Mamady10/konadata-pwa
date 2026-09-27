@@ -93,21 +93,28 @@ export default function LoginForm({
       const formData = new FormData(e.currentTarget);
       const phoneRaw = String(formData.get('phone') ?? '').trim();
       const password = String(formData.get('password') ?? '');
-      const phoneE164 = normalizeGuineaPhone(phoneRaw);
-      if (!phoneE164) {
+      // Le navigateur remplit parfois ce champ avec une adresse e-mail enregistrée.
+      const typedEmail = phoneRaw.includes('@') ? phoneRaw : null;
+      const phoneE164 = typedEmail ? null : normalizeGuineaPhone(phoneRaw);
+      if (!typedEmail && !phoneE164) {
         setError('Numéro invalide. Format : 6XX XX XX XX (Guinée).');
         return;
       }
 
       const supabase = createClient();
-      const email = phoneToSyntheticEmail(phoneE164);
+      const email = typedEmail ?? phoneToSyntheticEmail(phoneE164!);
       const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
       if (authError) {
+        const msg = authError.message.toLowerCase();
         setError(
-          authError.message.toLowerCase().includes('invalid login')
-            ? 'Numéro ou mot de passe incorrect. Utilisez « Mot de passe oublié » si besoin.'
-            : authError.message
+          msg.includes('not confirmed')
+            ? 'Compte non confirmé. Utilisez « Mot de passe oublié » pour recevoir un lien.'
+            : msg.includes('invalid login')
+              ? typedEmail
+                ? 'Email ou mot de passe incorrect. Utilisez « Mot de passe oublié » pour réinitialiser.'
+                : 'Numéro ou mot de passe incorrect. Utilisez « Mot de passe oublié » si besoin.'
+              : authError.message
         );
         return;
       }
@@ -326,7 +333,7 @@ export default function LoginForm({
                   <Label htmlFor="email">Email</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="email" name="email" type="email" placeholder="director@isc.gn" className="pl-9" required />
+                    <Input id="email" name="email" type="email" placeholder="director@isc.gn" className="pl-9" required autoComplete="username" />
                   </div>
                 </div>
                 <div className="space-y-2">
