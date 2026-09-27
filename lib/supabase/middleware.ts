@@ -355,6 +355,15 @@ export async function updateSession(request: NextRequest) {
         return supabaseResponse;
       }
 
+      // La page de connexion propose alors de terminer l'inscription ou de changer de compte.
+      const pendingWithoutOrg =
+        !organizationId &&
+        role !== 'platform_admin' &&
+        (isStaffIntent || (needsOnboarding && !learnerNeedsPicker));
+      if (pathname.startsWith('/login') && pendingWithoutOrg) {
+        return supabaseResponse;
+      }
+
       const url = request.nextUrl.clone();
       if (isStaffIntent && !organizationId) {
         if (accountIntent === 'staff') {

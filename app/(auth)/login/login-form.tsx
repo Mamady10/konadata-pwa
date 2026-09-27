@@ -32,9 +32,15 @@ interface LoginFormProps {
   accountSwitched?: boolean;
   /** Compte désactivé par la direction. */
   accessBlocked?: boolean;
+  /** Session ouverte sur un compte sans organisation (inscription non terminée). */
+  pendingSession?: { label: string; continueHref: string; continueLabel: string };
 }
 
-export default function LoginForm({ accountSwitched = false, accessBlocked = false }: LoginFormProps) {
+export default function LoginForm({
+  accountSwitched = false,
+  accessBlocked = false,
+  pendingSession,
+}: LoginFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get('redirect') || '';
@@ -259,6 +265,25 @@ export default function LoginForm({ accountSwitched = false, accessBlocked = fal
               {accountSwitched && (
                 <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
                   Session précédente fermée. Connectez-vous avec le compte souhaité.
+                </div>
+              )}
+              {pendingSession && !accountSwitched && (
+                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 space-y-2">
+                  <p>
+                    Une session est ouverte avec <strong>{pendingSession.label}</strong>, dont
+                    l&apos;inscription n&apos;est pas terminée (aucune organisation rattachée).
+                  </p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                    <Link href={pendingSession.continueHref} className="font-medium underline">
+                      {pendingSession.continueLabel}
+                    </Link>
+                    <Link href={LANDING_LINKS.loginSwitchAccount} className="underline">
+                      Fermer cette session
+                    </Link>
+                  </div>
+                  <p className="text-xs text-amber-800">
+                    Sinon, connectez-vous ci-dessous avec votre compte habituel.
+                  </p>
                 </div>
               )}
               {error && (
