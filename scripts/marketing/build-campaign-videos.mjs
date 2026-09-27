@@ -1,0 +1,509 @@
+#!/usr/bin/env node
+/**
+ * Vidéos de campagne KonaData : scènes HTML animées capturées image par image,
+ * voix off Edge TTS, ambiance musicale et sous-titres incrustés.
+ *
+ * Sorties : docs/marketing/campagne/videos/<id>-9x16.mp4 | -16x9.mp4 | .srt
+ *
+ * Usage : node scripts/marketing/build-campaign-videos.mjs [--only=konadata-btp] [--format=9x16]
+ * Variables : CAMPAIGN_TTS_VOICE (défaut fr-FR-DeniseNeural), CAMPAIGN_MUSIC_VOLUME (défaut 0.10)
+ * Musique : placez un fichier libre de droits dans docs/marketing/campagne/musique.mp3
+ *           (sinon une nappe discrète est générée).
+ */
+import { spawn, spawnSync } from 'child_process';
+import { once } from 'events';
+import { createHash } from 'crypto';
+import { mkdir, writeFile } from 'fs/promises';
+import { existsSync } from 'fs';
+import path from 'path';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import { EdgeTTS } from 'node-edge-tts';
+import { ACCENTS, CONTACT, SECTOR_LABELS } from './campaign-content.mjs';
+import { VIDEOS } from './campaign-videos.mjs';
+import {
+  CAMPAIGN,
+  CSS,
+  WORK,
+  capture,
+  esc,
+  glows,
+  icon,
+  laptop,
+  launchBrowser,
+  logo,
+  phone,
+  photo,
+  prepareBrandAssets,
+  qrSvg,
+  rich,
+  url,
+} from './campaign-html.mjs';
+
+const FFMPEG = ffmpegInstaller.path;
+const OUT = path.join(CAMPAIGN, 'videos');
+const VWORK = path.join(WORK, 'video');
+const MUSIC_FILE = path.join(CAMPAIGN, 'musique.mp3');
+const VOICE = process.env.CAMPAIGN_TTS_VOICE || 'fr-FR-DeniseNeural';
+const MUSIC_VOL = Number(process.env.CAMPAIGN_MUSIC_VOLUME || '0.10');
+
+const FPS = 30;
+const XF = 0.4; // fondu enchaîné entre scènes (s)
+const LEAD = 0.25; // silence avant la voix dans chaque scène (s)
+
+const VFORMATS = {
+  '9x16': { W: 1080, H: 1920, V: true },
+  '16x9': { W: 1920, H: 1080, V: false },
+};
+
+const arg = (name) => process.argv.find((a) => a.startsWith(`--${name}=`))?.split('=')[1];
+const ONLY = arg('only')?.split(',');
+const ONLY_FORMAT = arg('format');
+
+// ---------------------------------------------------------------- audio
+function ff(args, label) {
+  const r = spawnSync(FFMPEG, ['-hide_banner', '-loglevel', 'error', ...args], {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (r.status !== 0) throw new Error(`ffmpeg ${label}: ${r.stderr?.slice(-800)}`);
+}
+
+function durationSec(file) {
+  const r = spawnSync(FFMPEG, ['-hide_banner', '-i', file, '-f', 'null', '-'], { encoding: 'utf8' });
+  const m = (r.stderr || '').match(/Duration:\s*(\d+):(\d+):(\d+\.\d+)/);
+  return m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : null;
+}
+
+async function voiceClip(text) {
+  const key = createHash('md5').update(`${VOICE}|${text}`).digest('hex').slice(0, 16);
+  const mp3 = path.join(VWORK, 'tts', `${key}.mp3`);
+  const wav = path.join(VWORK, 'tts', `${key}.wav`);
+  if (!existsSync(wav)) {
+    await mkdir(path.dirname(mp3), { recursive: true });
+    const tts = new EdgeTTS({
+      voice: VOICE,
+      lang: 'fr-FR',
+      outputFormat: 'audio-24khz-96kbitrate-mono-mp3',
+      rate: '+2%',
+      timeout: 120000,
+    });
+    await tts.ttsPromise(text, mp3);
+    ff(
+      [
+        '-i', mp3,
+        '-af', 'highpass=f=90,lowpass=f=10000,acompressor=threshold=-20dB:ratio=2.5:attack=15:release=120,alimiter=limit=0.95',
+        '-ar', '44100', '-ac', '1', '-y', wav,
+      ],
+      'voix'
+    );
+  }
+  return { wav, dur: durationSec(wav) ?? 3 };
+}
+
+function buildMusic(total, out) {
+  const fadeOut = Math.max(0, total - 3);
+  if (existsSync(MUSIC_FILE)) {
+    ff(
+      [
+        '-stream_loop', '-1', '-i', MUSIC_FILE, '-t', String(total),
+        '-af', `afade=t=in:st=0:d=1.5,afade=t=out:st=${fadeOut}:d=3,volume=${MUSIC_VOL * 2.2}`,
+        '-ar', '44100', '-ac', '1', '-y', out,
+      ],
+      'musique'
+    );
+    return;
+  }
+  const notes = [130.81, 196.0, 261.63, 329.63, 392.0];
+  const inputs = notes.flatMap((fq) => ['-f', 'lavfi', '-i', `sine=frequency=${fq}:duration=${total}`]);
+  const mix = notes.map((_, i) => `[${i}:a]volume=${[0.5, 0.35, 0.3, 0.22, 0.16][i]},tremolo=f=${0.1 + i * 0.05}:d=0.35[n${i}]`);
+  ff(
+    [
+      ...inputs,
+      '-filter_complex',
+      `${mix.join(';')};${notes.map((_, i) => `[n${i}]`).join('')}amix=inputs=${notes.length}:duration=longest,` +
+        `aecho=0.7:0.5:900|1400:0.25|0.18,lowpass=f=2200,highpass=f=70,` +
+        `afade=t=in:st=0:d=2,afade=t=out:st=${fadeOut}:d=3,volume=${MUSIC_VOL * 4}`,
+      '-t', String(total), '-ar', '44100', '-ac', '1', '-y', out,
+    ],
+    'nappe'
+  );
+}
+
+async function buildAudio(video, clips, durs, total) {
+  const dir = path.join(VWORK, video.id);
+  await mkdir(dir, { recursive: true });
+  const padded = [];
+  for (const [i, c] of clips.entries()) {
+    const out = path.join(dir, `voice-${i}.wav`);
+    ff(
+      ['-i', c.wav, '-af', `adelay=${Math.round(LEAD * 1000)},apad,atrim=0:${durs[i].toFixed(3)}`, '-ar', '44100', '-ac', '1', '-y', out],
+      'pad'
+    );
+    padded.push(out);
+  }
+  const list = path.join(dir, 'voices.txt');
+  await writeFile(list, padded.map((p) => `file '${p.replace(/\\/g, '/')}'`).join('\n'));
+  const voice = path.join(dir, 'voice.wav');
+  ff(['-f', 'concat', '-safe', '0', '-i', list, '-ar', '44100', '-ac', '1', '-y', voice], 'concat');
+  const music = path.join(dir, 'music.wav');
+  buildMusic(total, music);
+  const mixed = path.join(dir, 'audio.m4a');
+  ff(
+    [
+      '-i', voice, '-i', music,
+      '-filter_complex', '[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=0,volume=2,alimiter=limit=0.97[a]',
+      '-map', '[a]', '-t', total.toFixed(3), '-c:a', 'aac', '-b:a', '160k', '-y', mixed,
+    ],
+    'mixage'
+  );
+  return mixed;
+}
+
+// ---------------------------------------------------------------- sous-titres
+function splitCaption(text, maxLen) {
+  const parts = text.split(/(?<=[,.:;?!])\s+/);
+  const chunks = [];
+  for (const part of parts) {
+    const words = part.split(/\s+/);
+    let cur = '';
+    for (const w of words) {
+      if ((cur + ' ' + w).trim().length > maxLen && cur) {
+        chunks.push(cur.trim());
+        cur = w;
+      } else cur = `${cur} ${w}`;
+    }
+    if (cur.trim()) chunks.push(cur.trim());
+  }
+  const merged = [];
+  for (const c of chunks) {
+    const prev = merged[merged.length - 1];
+    if (prev && (prev.length < 14 || c.length < 14) && prev.length + c.length + 1 <= maxLen + 8) {
+      merged[merged.length - 1] = `${prev} ${c}`;
+    } else merged.push(c);
+  }
+  return merged;
+}
+
+function captionTimeline(scenes, starts, clips, maxLen) {
+  const cues = [];
+  scenes.forEach((sc, i) => {
+    const chunks = splitCaption(sc.caption, maxLen);
+    const total = chunks.reduce((n, c) => n + c.length, 0);
+    let t = starts[i] + LEAD;
+    for (const c of chunks) {
+      const d = (clips[i].dur * c.length) / total;
+      cues.push({ text: c, start: t, end: t + d });
+      t += d;
+    }
+  });
+  return cues;
+}
+
+function srtTime(sec) {
+  const ms = Math.round(sec * 1000);
+  const p = (n, l = 2) => String(n).padStart(l, '0');
+  return `${p(Math.floor(ms / 3600000))}:${p(Math.floor(ms / 60000) % 60)}:${p(Math.floor(ms / 1000) % 60)},${p(ms % 1000, 3)}`;
+}
+
+// ---------------------------------------------------------------- scènes
+const EASE = 'cubic-bezier(.2,.8,.2,1)';
+const A = (name, delay, dur, ease = EASE, fill = 'both') => `${name} ${dur}s ${ease} ${Math.max(0, delay).toFixed(3)}s ${fill}`;
+
+const VIDEO_CSS = `
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes hide{from{opacity:1}to{opacity:0}}
+@keyframes up{from{opacity:0;transform:translateY(70px)}to{opacity:1;transform:none}}
+@keyframes rise{from{opacity:0;transform:translateY(300px)}to{opacity:1;transform:none}}
+@keyframes slideL{from{opacity:0;transform:translateX(260px)}to{opacity:1;transform:none}}
+@keyframes pop{0%{opacity:0;transform:scale(.55)}65%{opacity:1;transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
+@keyframes kb{from{transform:scale(1.02)}to{transform:scale(1.14)}}
+@keyframes zoom{from{transform:scale(1)}to{transform:scale(1.05)}}
+.scene{position:absolute;inset:0;overflow:hidden;background:#0A192F}
+.cap{position:absolute;left:0;right:0;display:flex;justify-content:center;z-index:100}
+.cap span{background:rgba(6,17,31,.82);color:#fff;font-weight:700;text-align:center;line-height:1.3;padding:.32em .75em;border-radius:.45em;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+.tile{border-radius:28px;display:flex;flex-direction:column;justify-content:space-between;padding:1em;font-weight:800;color:#fff}
+.tile svg{width:1.6em;height:1.6em}
+.qrbox{background:#fff;border-radius:24px;padding:18px;display:flex;flex-direction:column;align-items:center;gap:8px;color:#0A192F;font-weight:800}
+`;
+
+function sceneHook(sc, s, d, f) {
+  const V = f.V;
+  return `
+    <div class="abs" style="inset:0;overflow:hidden"><img class="abs" src="${photo(sc.photo)}" style="inset:0;width:100%;height:100%;object-fit:cover;object-position:${V ? '62% 30%' : '72% 35%'};animation:${A('kb', s - XF, d + XF, 'linear')}"></div>
+    <div class="abs" style="inset:0;background:${
+      V
+        ? 'linear-gradient(180deg,rgba(10,25,47,.45) 0%,rgba(10,25,47,0) 22%,rgba(10,25,47,.15) 42%,rgba(10,25,47,.94) 66%,#0A192F 100%)'
+        : 'linear-gradient(90deg,rgba(10,25,47,.96) 0%,rgba(10,25,47,.86) 36%,rgba(10,25,47,.15) 64%,rgba(10,25,47,0) 100%)'
+    }"></div>
+    <div class="abs col" style="${V ? 'left:80px;right:80px;top:1060px' : 'left:110px;width:860px;top:0;bottom:120px;justify-content:center'};gap:34px;font-size:${V ? 40 : 34}px">
+      <div style="animation:${A('up', s + 0.15, 0.7)}">${kickerHtml(sc.kicker)}</div>
+      <h1 style="font-size:${V ? 104 : 88}px;animation:${A('up', s + 0.3, 0.8)}">${rich(sc.title)}</h1>
+    </div>`;
+}
+
+const kickerHtml = (t) => `<div class="kicker"><i></i>${esc(t)}</div>`;
+
+function sceneLogo(sc, s, d, f) {
+  const V = f.V;
+  return `${glows()}
+    <div class="abs col" style="inset:0;align-items:center;justify-content:center;gap:${V ? 46 : 34}px;padding-bottom:${V ? 200 : 80}px">
+      <img src="${url(path.join(WORK, 'icon.png'))}" style="width:${V ? 300 : 230}px;height:${V ? 300 : 230}px;border-radius:${V ? 66 : 50}px;box-shadow:0 30px 90px -20px rgba(34,211,238,.55);animation:${A('pop', s + 0.1, 0.8)}">
+      <div style="animation:${A('up', s + 0.5, 0.8)}">${logoText(V ? 150 : 128)}</div>
+      <p style="font-size:${V ? 46 : 40}px;color:#CBD5E1;font-weight:600;animation:${A('up', s + 0.85, 0.8)}">${esc(CONTACT.slogan)}</p>
+      <div class="chips" style="font-size:${V ? 40 : 32}px;justify-content:center;animation:${A('up', s + 1.15, 0.8)}">${['Écoles', 'ONG', 'BTP', 'PME'].map((c) => `<span>${c}</span>`).join('')}</div>
+    </div>`;
+}
+
+const logoText = (size) =>
+  `<span style="font-size:${size}px;font-weight:800;letter-spacing:-.03em;line-height:1"><b style="color:#fff">Kona</b><b style="color:#38BDF8">Data</b></span>`;
+
+function sceneSectors(sc, s, d, f) {
+  const V = f.V;
+  const tiles = ['ecole', 'ong', 'btp', 'pme']
+    .map((k, i) => {
+      const [a1, a2] = ACCENTS[k];
+      return `<div class="tile" style="background:linear-gradient(135deg,${a1},${a2});height:${V ? 330 : 380}px;animation:${A('pop', s + 0.35 + i * 0.2, 0.7)}">${icon(k)}<span>${esc(SECTOR_LABELS[k])}</span></div>`;
+    })
+    .join('');
+  return `${glows()}
+    <div class="abs col" style="${V ? 'left:80px;right:80px;top:300px' : 'left:120px;right:120px;top:170px'};gap:${V ? 70 : 60}px">
+      <h1 style="font-size:${V ? 104 : 88}px;animation:${A('up', s + 0.1, 0.8)}">${rich(sc.title)}</h1>
+      <div style="display:grid;grid-template-columns:${V ? '1fr 1fr' : 'repeat(4,1fr)'};gap:28px;font-size:${V ? 46 : 38}px">${tiles}</div>
+    </div>`;
+}
+
+function bulletsAnim(items, s, off, step) {
+  return `<ul class="bul">${items
+    .map((b, i) => `<li style="animation:${A('up', s + off + i * step, 0.6)}">${icon('check')}<span>${esc(b)}</span></li>`)
+    .join('')}</ul>`;
+}
+
+function sceneDevice(sc, s, d, f) {
+  const V = f.V;
+  if (V) {
+    return `${glows()}
+      <div class="abs col" style="left:80px;right:80px;top:150px;gap:30px;font-size:40px">
+        <div style="animation:${A('up', s + 0.1, 0.7)}">${kickerHtml(sc.kicker)}</div>
+        <h1 style="font-size:92px;animation:${A('up', s + 0.25, 0.8)}">${rich(sc.title)}</h1>
+      </div>
+      <div class="abs" style="inset:0;animation:${A('zoom', s, d, 'linear')}">
+        <div class="abs" style="left:60px;top:590px;animation:${A('rise', s + 0.35, 0.9)}">${laptop(capture(sc.desktop), 960)}</div>
+        <div class="abs" style="right:44px;top:720px;animation:${A('slideL', s + 0.8, 0.9)}">${phone(capture(sc.mobile), 270)}</div>
+      </div>
+      <div class="abs" style="left:80px;right:80px;top:1320px;font-size:46px">${bulletsAnim(sc.bullets, s, 1.3, 0.4)}</div>`;
+  }
+  return `${glows()}
+    <div class="abs col" style="left:110px;top:0;bottom:130px;width:720px;justify-content:center;gap:34px;font-size:36px">
+      <div style="animation:${A('up', s + 0.1, 0.7)}">${kickerHtml(sc.kicker)}</div>
+      <h1 style="font-size:76px;animation:${A('up', s + 0.25, 0.8)}">${rich(sc.title)}</h1>
+      ${bulletsAnim(sc.bullets, s, 1.2, 0.4)}
+    </div>
+    <div class="abs" style="inset:0;animation:${A('zoom', s, d, 'linear')}">
+      <div class="abs" style="left:860px;top:190px;animation:${A('rise', s + 0.35, 0.9)}">${laptop(capture(sc.desktop), 960)}</div>
+      <div class="abs" style="left:1640px;top:390px;animation:${A('slideL', s + 0.8, 0.9)}">${phone(capture(sc.mobile), 220)}</div>
+    </div>`;
+}
+
+function sceneMobile(sc, s, d, f) {
+  const V = f.V;
+  if (V) {
+    return `${glows()}
+      <div class="abs col" style="left:80px;right:80px;top:150px;gap:30px;font-size:40px">
+        <div style="animation:${A('up', s + 0.1, 0.7)}">${kickerHtml(sc.kicker)}</div>
+        <h1 style="font-size:96px;animation:${A('up', s + 0.25, 0.8)}">${rich(sc.title)}</h1>
+      </div>
+      <div class="abs" style="left:300px;top:600px;animation:${A('rise', s + 0.3, 1)}"><div style="animation:${A('zoom', s, d, 'linear')}">${phone(capture(sc.mobile), 480)}</div></div>`;
+  }
+  return `${glows()}
+    <div class="abs col" style="left:110px;top:0;bottom:130px;width:900px;justify-content:center;gap:34px;font-size:36px">
+      <div style="animation:${A('up', s + 0.1, 0.7)}">${kickerHtml(sc.kicker)}</div>
+      <h1 style="font-size:92px;animation:${A('up', s + 0.25, 0.8)}">${rich(sc.title)}</h1>
+    </div>
+    <div class="abs" style="left:1230px;top:80px;animation:${A('rise', s + 0.3, 1)}"><div style="animation:${A('zoom', s, d, 'linear')}">${phone(capture(sc.mobile), 400)}</div></div>`;
+}
+
+function scenePhones(sc, s, d, f) {
+  const V = f.V;
+  const [m1, m2, m3] = sc.phones.map(capture);
+  const ph = (img, w, pos, rot, delay, z = 1) =>
+    `<div class="abs" style="${pos};z-index:${z};animation:${A('rise', s + delay, 0.9)}"><div style="transform:rotate(${rot}deg)">${phone(img, w)}</div></div>`;
+  if (V) {
+    return `${glows()}
+      <div class="abs col" style="left:80px;right:80px;top:150px;gap:30px;font-size:40px">
+        <div style="animation:${A('up', s + 0.1, 0.7)}">${kickerHtml(sc.kicker)}</div>
+        <h1 style="font-size:96px;animation:${A('up', s + 0.25, 0.8)}">${rich(sc.title)}</h1>
+      </div>
+      ${ph(m1, 300, 'left:50px;top:720px', -7, 0.35)}
+      ${ph(m3, 300, 'left:730px;top:720px', 7, 0.55)}
+      ${ph(m2, 340, 'left:370px;top:640px', 0, 0.75, 2)}`;
+  }
+  return `${glows()}
+    <div class="abs col" style="left:110px;top:0;bottom:130px;width:760px;justify-content:center;gap:34px;font-size:36px">
+      <div style="animation:${A('up', s + 0.1, 0.7)}">${kickerHtml(sc.kicker)}</div>
+      <h1 style="font-size:84px;animation:${A('up', s + 0.25, 0.8)}">${rich(sc.title)}</h1>
+    </div>
+    ${ph(m1, 300, 'left:930px;top:200px', -7, 0.35)}
+    ${ph(m3, 300, 'left:1530px;top:200px', 7, 0.55)}
+    ${ph(m2, 340, 'left:1210px;top:130px', 0, 0.75, 2)}`;
+}
+
+function sceneOffer(sc, s, d, f) {
+  const V = f.V;
+  const digits = (sc.big.match(/\d+/) || ['12'])[0];
+  return `${glows()}
+    <div class="abs" style="right:-3%;top:${V ? '14%' : '-8%'};font-weight:900;font-size:${V ? 900 : 1000}px;line-height:1;color:transparent;-webkit-text-stroke:4px rgba(52,211,153,.16);letter-spacing:-.06em;animation:${A('fade', s, 1.2)}">${digits}</div>
+    <div class="abs col" style="${V ? 'left:80px;right:80px;top:560px' : 'left:120px;width:1300px;top:0;bottom:140px;justify-content:center'};gap:${V ? 44 : 36}px;font-size:${V ? 40 : 34}px">
+      <div style="animation:${A('up', s + 0.1, 0.7)}">${kickerHtml('Offre de lancement')}</div>
+      <h1 style="font-size:${V ? 150 : 138}px;line-height:1;transform-origin:left center;animation:${A('pop', s + 0.3, 0.8)}">${rich(sc.big)}</h1>
+      <p style="font-size:${V ? 46 : 42}px;font-weight:700;color:#E2E8F0;animation:${A('up', s + 0.8, 0.7)}">${esc(sc.note)}</p>
+      <p class="fine" style="font-size:${V ? 34 : 30}px;animation:${A('up', s + 1.1, 0.7)}">Activation unique, dans les 2 mois suivant l'inscription.</p>
+    </div>`;
+}
+
+let QR = '';
+function sceneCta(sc, s, d, f) {
+  const V = f.V;
+  const texts = `
+    <div style="animation:${A('pop', s + 0.1, 0.8)}">${logo(V ? 84 : 76)}</div>
+    <div style="font-size:${V ? 50 : 42}px;animation:${A('up', s + 0.4, 0.7)}"><div class="cta">Essai gratuit${icon('arrow')}</div></div>
+    <div style="font-size:${V ? 88 : 84}px;font-weight:900;letter-spacing:-.03em;animation:${A('up', s + 0.6, 0.7)}"><em>${CONTACT.site}</em></div>
+    <div class="foot" style="font-size:${V ? 44 : 38}px;color:#CBD5E1;animation:${A('up', s + 0.8, 0.7)}"><span>${icon('phone')}WhatsApp ${CONTACT.whatsapp}</span></div>`;
+  const qr = `<div class="qrbox" style="font-size:${V ? 30 : 26}px;animation:${A('pop', s + 1.0, 0.7)}"><div style="width:${V ? 300 : 260}px;height:${V ? 300 : 260}px">${QR}</div>Scannez-moi</div>`;
+  if (V) {
+    return `${glows()}<div class="abs col" style="inset:0;align-items:center;justify-content:center;gap:48px;padding-bottom:160px;text-align:center">${texts}${qr}</div>`;
+  }
+  return `${glows()}<div class="abs" style="inset:0;display:flex;align-items:center;justify-content:center;gap:120px;padding-bottom:60px">
+    <div class="col" style="gap:40px">${texts}</div>${qr}</div>`;
+}
+
+const SCENES = {
+  hook: sceneHook,
+  logo: sceneLogo,
+  sectors: sceneSectors,
+  device: sceneDevice,
+  mobile: sceneMobile,
+  phones: scenePhones,
+  offer: sceneOffer,
+  cta: sceneCta,
+};
+
+function buildHtml(video, f, starts, durs, cues) {
+  const [a1, a2] = ACCENTS[video.accent];
+  const n = video.scenes.length;
+  const scenes = video.scenes
+    .map((sc, i) => {
+      const s = starts[i];
+      const d = durs[i];
+      const anims = [];
+      if (i > 0) anims.push(A('fade', s - XF, XF, 'linear'));
+      if (i < n - 1) anims.push(A('hide', s + d, 0.001, 'linear', 'forwards'));
+      const mark =
+        sc.type === 'logo' || sc.type === 'cta'
+          ? ''
+          : `<div class="abs" style="left:${f.V ? 80 : 110}px;top:${f.V ? 70 : 60}px;z-index:5">${logo(f.V ? 44 : 38)}</div>`;
+      return `<div class="scene" style="z-index:${i + 1};${anims.length ? `animation:${anims.join(',')}` : ''}">${SCENES[sc.type](sc, s, d, f)}${mark}</div>`;
+    })
+    .join('\n');
+  const caps = cues
+    .map(
+      (c) =>
+        `<div class="cap" style="${f.V ? 'bottom:150px;padding:0 70px' : 'bottom:60px;padding:0 200px'};font-size:${f.V ? 44 : 40}px;animation:${A('fade', c.start, 0.12, 'linear')},${A('hide', c.end, 0.001, 'linear', 'forwards')}"><span>${esc(c.text)}</span></div>`
+    )
+    .join('\n');
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>${CSS}${VIDEO_CSS}
+:root{--a1:${a1};--a2:${a2}}
+*{animation-play-state:paused!important}</style></head><body>
+<div class="cv" style="width:${f.W}px;height:${f.H}px">${scenes}${caps}</div></body></html>`;
+}
+
+// ---------------------------------------------------------------- rendu
+async function renderVideo(browser, html, f, total, audio, out) {
+  const htmlFile = path.join(VWORK, path.basename(out).replace(/\.mp4$/, '.html'));
+  await writeFile(htmlFile, html, 'utf8');
+  const ctx = await browser.newContext({ viewport: { width: f.W, height: f.H }, deviceScaleFactor: 1 });
+  const page = await ctx.newPage();
+  await page.goto(url(htmlFile), { waitUntil: 'load' });
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await Promise.all(Array.from(document.images).map((i) => (i.decode ? i.decode().catch(() => {}) : null)));
+    window.__anims = document.getAnimations();
+    window.__anims.forEach((a) => a.pause());
+    window.__seek = (t) => {
+      for (const a of window.__anims) a.currentTime = t;
+    };
+  });
+
+  const frames = Math.ceil(total * FPS);
+  const enc = spawn(
+    FFMPEG,
+    [
+      '-hide_banner', '-loglevel', 'error',
+      '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
+      '-i', audio,
+      '-map', '0:v', '-map', '1:a',
+      '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', '-r', String(FPS),
+      '-c:a', 'copy', '-shortest', '-movflags', '+faststart', '-y', out,
+    ],
+    { stdio: ['pipe', 'inherit', 'inherit'] }
+  );
+  const done = once(enc, 'close');
+  const t0 = Date.now();
+  for (let i = 0; i < frames; i++) {
+    await page.evaluate((t) => window.__seek(t), (i / FPS) * 1000);
+    const buf = await page.screenshot({ type: 'jpeg', quality: 90 });
+    if (!enc.stdin.write(buf)) await once(enc.stdin, 'drain');
+    if (i % (FPS * 5) === 0) process.stdout.write(`    ${Math.round((i / frames) * 100)} %\r`);
+  }
+  enc.stdin.end();
+  const [code] = await done;
+  await ctx.close();
+  if (code !== 0) throw new Error(`encodage ${path.basename(out)} (code ${code})`);
+  console.log(`  ✓ ${path.basename(out)} — ${total.toFixed(1)} s, rendu en ${Math.round((Date.now() - t0) / 1000)} s`);
+}
+
+async function main() {
+  await mkdir(OUT, { recursive: true });
+  await mkdir(VWORK, { recursive: true });
+  await prepareBrandAssets();
+  QR = await qrSvg();
+  const browser = await launchBrowser();
+
+  for (const video of VIDEOS) {
+    if (ONLY && !ONLY.includes(video.id)) continue;
+    console.log(`\n🎬 ${video.id}`);
+    const clips = [];
+    for (const sc of video.scenes) clips.push(await voiceClip(sc.say));
+    const durs = video.scenes.map((sc, i) => Math.max(sc.type === 'cta' ? 5 : 2.8, LEAD + clips[i].dur + 0.7));
+    const starts = [];
+    let total = 0;
+    for (const d of durs) {
+      starts.push(total);
+      total += d;
+    }
+    const audio = await buildAudio(video, clips, durs, total);
+
+    for (const [fk, f] of Object.entries(VFORMATS)) {
+      if (ONLY_FORMAT && ONLY_FORMAT !== fk) continue;
+      const cues = captionTimeline(video.scenes, starts, clips, f.V ? 34 : 64);
+      const html = buildHtml(video, f, starts, durs, cues);
+      const out = path.join(OUT, `${video.id}-${fk}.mp4`);
+      await renderVideo(browser, html, f, total, audio, out);
+      await writeFile(
+        out.replace(/\.mp4$/, '.srt'),
+        cues.map((c, i) => `${i + 1}\n${srtTime(c.start)} --> ${srtTime(c.end)}\n${c.text}\n`).join('\n'),
+        'utf8'
+      );
+    }
+  }
+
+  await Promise.race([browser.close(), new Promise((r) => setTimeout(r, 5000))]);
+  console.log('\n✅ Vidéos :', OUT);
+}
+
+main().then(
+  () => process.exit(0),
+  (e) => {
+    console.error('❌', e);
+    process.exit(1);
+  }
+);

@@ -38,6 +38,10 @@ yarn-error.log*
 /docs/formation/training/output/.work/
 /docs/formation/training/output/*.mp4
 
+# campagne marketing - fichiers lourds (regenerer avec scripts/marketing/build-campaign-videos.mjs)
+/docs/marketing/campagne/.work/
+/docs/marketing/campagne/videos/*.mp4
+
 # PowerPoint temporaire (fichier verrouille Office)
 ~$*.pptx
 ~$*.docx

@@ -1,0 +1,43 @@
+1
+00:00:00,250 --> 00:00:05,030
+Directeur d'école ? Inscriptions, notes, bulletins, paiements :
+
+2
+00:00:05,030 --> 00:00:07,230
+tout vous prend un temps fou.
+
+3
+00:00:08,180 --> 00:00:09,192
+Avec KonaData,
+
+4
+00:00:09,192 --> 00:00:11,143
+tout est réuni : effectifs,
+
+5
+00:00:11,143 --> 00:00:12,660
+paiements par classe,
+
+6
+00:00:12,660 --> 00:00:15,840
+et bulletins générés automatiquement en PDF.
+
+7
+00:00:16,790 --> 00:00:20,794
+Parents et élèves disposent de leur propre espace pour suivre la
+
+8
+00:00:20,794 --> 00:00:21,420
+scolarité.
+
+9
+00:00:22,370 --> 00:00:23,660
+Offre de lancement :
+
+10
+00:00:23,660 --> 00:00:26,950
+12 mois gratuits pour les établissements scolaires.
+
+11
+00:00:27,900 --> 00:00:33,830
+Rendez-vous sur konadatagn.com. KonaData : simple, connecté, local.

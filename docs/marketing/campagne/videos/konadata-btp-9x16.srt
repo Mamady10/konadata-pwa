@@ -1,0 +1,63 @@
+1
+00:00:00,250 --> 00:00:02,695
+Vous gérez plusieurs chantiers ?
+
+2
+00:00:02,695 --> 00:00:05,370
+Carburant, livraisons, avancement :
+
+3
+00:00:05,370 --> 00:00:07,280
+difficile de tout suivre.
+
+4
+00:00:08,230 --> 00:00:10,293
+KonaData suit chaque chantier au
+
+5
+00:00:10,293 --> 00:00:10,937
+quotidien,
+
+6
+00:00:10,937 --> 00:00:13,129
+détecte les anomalies de carburant
+
+7
+00:00:13,129 --> 00:00:15,321
+et compile votre rapport en PDF ou
+
+8
+00:00:15,321 --> 00:00:16,030
+PowerPoint.
+
+9
+00:00:16,980 --> 00:00:18,858
+Vos chefs de chantier saisissent
+
+10
+00:00:18,858 --> 00:00:21,205
+l'avancement directement sur le terrain,
+
+11
+00:00:21,205 --> 00:00:22,790
+même avec un réseau faible.
+
+12
+00:00:23,740 --> 00:00:25,143
+Offre de lancement :
+
+13
+00:00:25,143 --> 00:00:26,827
+6 mois gratuits pour les
+
+14
+00:00:26,827 --> 00:00:28,160
+entreprises du BTP.
+
+15
+00:00:29,110 --> 00:00:32,884
+Rendez-vous sur konadatagn.com. KonaData :
+
+16
+00:00:32,884 --> 00:00:35,040
+simple, connecté, local.

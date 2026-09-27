@@ -1,0 +1,226 @@
+/**
+ * Scénarios des vidéos de campagne (15–35 s).
+ * `say` : texte lu par la voix off (graphie phonétique si besoin).
+ * `caption` : sous-titre affiché (orthographe normale).
+ * Types de scène : hook, logo, sectors, device, mobile, phones, offer, cta.
+ */
+
+const CTA_SCENE = {
+  type: 'cta',
+  say: 'Rendez-vous sur kona data G N point com. Kona Data : simple, connecté, local.',
+  caption: 'Rendez-vous sur konadatagn.com. KonaData : simple, connecté, local.',
+};
+
+export const VIDEOS = [
+  {
+    id: 'konadata-marque',
+    accent: 'brand',
+    scenes: [
+      {
+        type: 'hook',
+        photo: 'photo-probleme.png',
+        kicker: 'Ça vous parle ?',
+        title: 'Vos données sont encore *dans des cahiers* ?',
+        say: 'Vos données sont encore dans des cahiers et des fichiers éparpillés ?',
+        caption: 'Vos données sont encore dans des cahiers et des fichiers éparpillés ?',
+      },
+      {
+        type: 'logo',
+        say: 'Découvrez Kona Data, la plateforme de gestion des données pensée pour la Guinée.',
+        caption: 'Découvrez KonaData, la plateforme de gestion des données pensée pour la Guinée.',
+      },
+      {
+        type: 'sectors',
+        title: 'Une plateforme, *4 secteurs*',
+        say: 'Écoles, ONG, chantiers BTP et PME : chaque secteur a son espace dédié.',
+        caption: 'Écoles, ONG, chantiers BTP et PME : chaque secteur a son espace dédié.',
+      },
+      {
+        type: 'device',
+        desktop: 'btp-dashboard-desktop.png',
+        mobile: 'pme-dashboard-mobile.png',
+        kicker: 'Tableaux de bord',
+        title: 'Vos chiffres *en temps réel*',
+        bullets: ['Rapports en un clic', 'Alertes intelligentes', 'Données sécurisées'],
+        say: "Suivez vos chiffres en temps réel, générez vos rapports en un clic, et laissez l'IA vous alerter.",
+        caption: "Suivez vos chiffres en temps réel, générez vos rapports en un clic, et laissez l'IA vous alerter.",
+      },
+      {
+        type: 'phones',
+        phones: ['btp-dashboard-mobile.png', 'ecole-dashboard-mobile.png', 'ong-dashboard-mobile.png'],
+        kicker: 'Pensée pour le terrain',
+        title: 'Même en 3G, *même hors-ligne*',
+        say: 'Sur ordinateur ou sur téléphone, même en 3G, même quand le réseau coupe.',
+        caption: 'Sur ordinateur ou sur téléphone, même en 3G, même quand le réseau coupe.',
+      },
+      {
+        type: 'offer',
+        big: "Jusqu'à *12 mois* gratuits",
+        note: 'Écoles : 12 mois · ONG, BTP, PME : 6 mois',
+        say: "Offre de lancement : jusqu'à douze mois gratuits.",
+        caption: "Offre de lancement : jusqu'à 12 mois gratuits.",
+      },
+      CTA_SCENE,
+    ],
+  },
+  {
+    id: 'konadata-ecoles',
+    accent: 'ecole',
+    scenes: [
+      {
+        type: 'hook',
+        photo: 'photo-ecole.png',
+        kicker: 'Établissements scolaires',
+        title: 'Directeurs, *gagnez des heures* chaque semaine.',
+        say: "Directeur d'école ? Inscriptions, notes, bulletins, paiements : tout vous prend un temps fou.",
+        caption: "Directeur d'école ? Inscriptions, notes, bulletins, paiements : tout vous prend un temps fou.",
+      },
+      {
+        type: 'device',
+        desktop: 'ecole-dashboard-desktop.png',
+        mobile: 'ecole-dashboard-mobile.png',
+        kicker: 'KonaData Écoles',
+        title: 'Toute votre école *au même endroit*',
+        bullets: ['Effectifs et paiements par classe', 'Bulletins PDF automatiques', 'Paiements en attente suivis'],
+        say: 'Avec Kona Data, tout est réuni : effectifs, paiements par classe, et bulletins générés automatiquement en PDF.',
+        caption: 'Avec KonaData, tout est réuni : effectifs, paiements par classe, et bulletins générés automatiquement en PDF.',
+      },
+      {
+        type: 'mobile',
+        mobile: 'ecole-dashboard-mobile.png',
+        kicker: 'Parents et élèves',
+        title: 'Les résultats *sur le téléphone*',
+        say: 'Parents et élèves disposent de leur propre espace pour suivre la scolarité.',
+        caption: 'Parents et élèves disposent de leur propre espace pour suivre la scolarité.',
+      },
+      {
+        type: 'offer',
+        big: '*12 mois* gratuits',
+        note: 'Pour les établissements scolaires',
+        say: 'Offre de lancement : douze mois gratuits pour les établissements scolaires.',
+        caption: 'Offre de lancement : 12 mois gratuits pour les établissements scolaires.',
+      },
+      CTA_SCENE,
+    ],
+  },
+  {
+    id: 'konadata-ong',
+    accent: 'ong',
+    scenes: [
+      {
+        type: 'hook',
+        photo: 'photo-ong.png',
+        kicker: 'ONG & projets',
+        title: 'Du terrain au rapport bailleur, *sans ressaisie*.',
+        say: 'Collecter les données sur le terrain, puis tout ressaisir pour le bailleur ? C’est fini.',
+        caption: 'Collecter les données sur le terrain, puis tout ressaisir pour le bailleur ? C’est fini.',
+      },
+      {
+        type: 'device',
+        desktop: 'ong-dashboard-desktop.png',
+        mobile: 'ong-dashboard-mobile.png',
+        kicker: 'KonaData ONG',
+        title: 'Tous vos projets, *une seule vue*',
+        bullets: ['Budget prévu et dépensé', 'Bénéficiaires par localité', 'Sondages et cartographie'],
+        say: 'Projets, bénéficiaires, budget et cartographie : Kona Data réunit tout sur un seul tableau de bord.',
+        caption: 'Projets, bénéficiaires, budget et cartographie : KonaData réunit tout sur un seul tableau de bord.',
+      },
+      {
+        type: 'mobile',
+        mobile: 'ong-cartographie-mobile.png',
+        kicker: 'Collecte terrain',
+        title: 'Sur téléphone, *même sans réseau*',
+        say: 'Vos agents collectent sur téléphone, même sans réseau, et les données remontent automatiquement.',
+        caption: 'Vos agents collectent sur téléphone, même sans réseau, et les données remontent automatiquement.',
+      },
+      {
+        type: 'offer',
+        big: '*6 mois* gratuits',
+        note: 'Pour les ONG',
+        say: 'Offre de lancement : six mois gratuits pour les ONG.',
+        caption: 'Offre de lancement : 6 mois gratuits pour les ONG.',
+      },
+      CTA_SCENE,
+    ],
+  },
+  {
+    id: 'konadata-btp',
+    accent: 'btp',
+    scenes: [
+      {
+        type: 'hook',
+        photo: 'photo-btp.png',
+        kicker: 'BTP & chantiers',
+        title: 'Plusieurs chantiers ? *Gardez le contrôle*.',
+        say: 'Vous gérez plusieurs chantiers ? Carburant, livraisons, avancement : difficile de tout suivre.',
+        caption: 'Vous gérez plusieurs chantiers ? Carburant, livraisons, avancement : difficile de tout suivre.',
+      },
+      {
+        type: 'device',
+        desktop: 'btp-dashboard-desktop.png',
+        mobile: 'btp-dashboard-mobile.png',
+        kicker: 'KonaData BTP',
+        title: 'Chaque chantier *en temps réel*',
+        bullets: ['Alertes anomalies carburant', 'Planifié vs réalisé', 'Rapport PDF et PowerPoint'],
+        say: 'Kona Data suit chaque chantier au quotidien, détecte les anomalies de carburant et compile votre rapport en PDF ou PowerPoint.',
+        caption: 'KonaData suit chaque chantier au quotidien, détecte les anomalies de carburant et compile votre rapport en PDF ou PowerPoint.',
+      },
+      {
+        type: 'mobile',
+        mobile: 'btp-dashboard-mobile.png',
+        kicker: 'Sur le terrain',
+        title: 'Saisie *depuis le chantier*',
+        say: "Vos chefs de chantier saisissent l'avancement directement sur le terrain, même avec un réseau faible.",
+        caption: "Vos chefs de chantier saisissent l'avancement directement sur le terrain, même avec un réseau faible.",
+      },
+      {
+        type: 'offer',
+        big: '*6 mois* gratuits',
+        note: 'Pour les entreprises du BTP',
+        say: 'Offre de lancement : six mois gratuits pour les entreprises du BTP.',
+        caption: 'Offre de lancement : 6 mois gratuits pour les entreprises du BTP.',
+      },
+      CTA_SCENE,
+    ],
+  },
+  {
+    id: 'konadata-pme',
+    accent: 'pme',
+    scenes: [
+      {
+        type: 'hook',
+        photo: 'photo-pme.png',
+        kicker: 'PME & commerce',
+        title: 'Combien avez-vous *gagné ce mois-ci* ?',
+        say: 'Commerçant ? Savez-vous exactement combien vous avez gagné ce mois-ci ?',
+        caption: 'Commerçant ? Savez-vous exactement combien vous avez gagné ce mois-ci ?',
+      },
+      {
+        type: 'device',
+        desktop: 'pme-dashboard-desktop.png',
+        mobile: 'pme-dashboard-mobile.png',
+        kicker: 'KonaData PME',
+        title: 'Ventes, dépenses, résultat : *en direct*',
+        bullets: ['Stock bas signalé', 'Crédits clients suivis', 'Recommandations automatiques'],
+        say: 'Avec Kona Data, vos ventes, vos dépenses et vos stocks sont suivis en direct, avec une alerte quand un stock est bas.',
+        caption: 'Avec KonaData, vos ventes, vos dépenses et vos stocks sont suivis en direct, avec une alerte quand un stock est bas.',
+      },
+      {
+        type: 'mobile',
+        mobile: 'pme-ventes-mobile.png',
+        kicker: 'Dans votre poche',
+        title: 'Tout *depuis votre téléphone*',
+        say: 'Vous enregistrez vos ventes et suivez les crédits clients depuis votre téléphone.',
+        caption: 'Vous enregistrez vos ventes et suivez les crédits clients depuis votre téléphone.',
+      },
+      {
+        type: 'offer',
+        big: '*6 mois* gratuits',
+        note: 'Pour les PME et commerces',
+        say: 'Offre de lancement : six mois gratuits pour les PME et les commerces.',
+        caption: 'Offre de lancement : 6 mois gratuits pour les PME et les commerces.',
+      },
+      CTA_SCENE,
+    ],
+  },
+];

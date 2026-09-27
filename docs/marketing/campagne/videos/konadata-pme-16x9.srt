@@ -1,0 +1,35 @@
+1
+00:00:00,250 --> 00:00:05,550
+Commerçant ? Savez-vous exactement combien vous avez gagné ce mois-ci ?
+
+2
+00:00:06,500 --> 00:00:08,181
+Avec KonaData, vos ventes,
+
+3
+00:00:08,181 --> 00:00:11,349
+vos dépenses et vos stocks sont suivis en direct,
+
+4
+00:00:11,349 --> 00:00:13,870
+avec une alerte quand un stock est bas.
+
+5
+00:00:14,820 --> 00:00:18,644
+Vous enregistrez vos ventes et suivez les crédits clients depuis
+
+6
+00:00:18,644 --> 00:00:19,600
+votre téléphone.
+
+7
+00:00:20,550 --> 00:00:21,838
+Offre de lancement :
+
+8
+00:00:21,838 --> 00:00:24,800
+6 mois gratuits pour les PME et les commerces.
+
+9
+00:00:25,750 --> 00:00:31,680
+Rendez-vous sur konadatagn.com. KonaData : simple, connecté, local.

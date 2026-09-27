@@ -1,0 +1,59 @@
+1
+00:00:00,250 --> 00:00:02,853
+Collecter les données sur le terrain,
+
+2
+00:00:02,853 --> 00:00:05,526
+puis tout ressaisir pour le bailleur ?
+
+3
+00:00:05,526 --> 00:00:06,300
+C’est fini.
+
+4
+00:00:07,250 --> 00:00:08,923
+Projets, bénéficiaires,
+
+5
+00:00:08,923 --> 00:00:10,669
+budget et cartographie :
+
+6
+00:00:10,669 --> 00:00:12,996
+KonaData réunit tout sur un seul
+
+7
+00:00:12,996 --> 00:00:14,160
+tableau de bord.
+
+8
+00:00:15,110 --> 00:00:17,394
+Vos agents collectent sur téléphone,
+
+9
+00:00:17,394 --> 00:00:18,472
+même sans réseau,
+
+10
+00:00:18,472 --> 00:00:19,995
+et les données remontent
+
+11
+00:00:19,995 --> 00:00:21,010
+automatiquement.
+
+12
+00:00:21,960 --> 00:00:23,487
+Offre de lancement :
+
+13
+00:00:23,487 --> 00:00:25,700
+6 mois gratuits pour les ONG.
+
+14
+00:00:26,650 --> 00:00:30,424
+Rendez-vous sur konadatagn.com. KonaData :
+
+15
+00:00:30,424 --> 00:00:32,580
+simple, connecté, local.
