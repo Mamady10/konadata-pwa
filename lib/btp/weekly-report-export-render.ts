@@ -292,18 +292,25 @@ export function drawSCurveChart(
   return legY + 5;
 }
 
-export function synthesisTableRows(s: WeeklyReportExportStructured['synthesis']): string[][] {
+export function synthesisTableRows(
+  s: WeeklyReportExportStructured['synthesis'],
+  hideFinancials = false
+): string[][] {
   const delta = s.physicalEnd - s.physicalStart;
   const sign = delta >= 0 ? '+' : '';
+  const physical = ['Avancement physique', `${s.physicalStart} % -> ${s.physicalEnd} % (${sign}${Math.round(delta)} pt)`];
+  const delay = ['Retard cumule', `${s.delayDays} jour(s)`];
+  const daily = ['Fiches journalieres', `${s.dailyCount} sur la periode`];
+  if (hideFinancials) return [['Indicateur', 'Valeur'], physical, delay, daily];
   return [
     ['Indicateur', 'Valeur'],
-    ['Avancement physique', `${s.physicalStart} % -> ${s.physicalEnd} % (${sign}${Math.round(delta)} pt)`],
+    physical,
     ['Avancement financier', `${Math.round(s.financialPct)} %`],
-    ['Retard cumule', `${s.delayDays} jour(s)`],
+    delay,
     ['Budget', formatGnfPdf(s.budget)],
     ['Depense', formatGnfPdf(s.spent)],
     ['Reste a engager', formatGnfPdf(Math.max(0, s.budget - s.spent))],
-    ['Fiches journalieres', `${s.dailyCount} sur la periode`],
+    daily,
   ];
 }
 
@@ -384,12 +391,19 @@ export function summaryCards(s: WeeklyReportExportStructured): SummaryCard[] {
       sub: c?.timeElapsedPct != null ? `Temps écoulé : ${c.timeElapsedPct} %` : '',
       status: c?.kpis.schedule ?? (s.synthesis.delayDays > 0 ? 'amber' : 'neutral'),
     },
-    {
-      label: 'Budget consommé',
-      value: budgetPct != null ? `${budgetPct} %` : '-',
-      sub: `${formatGnfPdf(s.synthesis.spent)} / ${formatGnfPdf(s.synthesis.budget)}`,
-      status: c?.kpis.budget ?? 'neutral',
-    },
+    s.hideFinancials
+      ? {
+          label: 'Effectif moyen',
+          value: s.avgWorkers != null ? `${s.avgWorkers} / jour` : '-',
+          sub: 'ouvriers présents sur la période',
+          status: 'neutral',
+        }
+      : {
+          label: 'Budget consommé',
+          value: budgetPct != null ? `${budgetPct} %` : '-',
+          sub: `${formatGnfPdf(s.synthesis.spent)} / ${formatGnfPdf(s.synthesis.budget)}`,
+          status: c?.kpis.budget ?? 'neutral',
+        },
     {
       label: 'État global',
       value: kpiStatusLabel(c?.kpis.overall ?? 'neutral'),

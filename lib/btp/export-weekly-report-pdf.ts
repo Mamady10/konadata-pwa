@@ -398,7 +398,7 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
 
   y = ensureSpace(doc, y, 55);
   y = drawSectionTitle(doc, y, 'Synthese de la semaine', MARGIN);
-  y = table(y, [58, CONTENT_W - 58], synthesisTableRows(s.synthesis));
+  y = table(y, [58, CONTENT_W - 58], synthesisTableRows(s.synthesis, s.hideFinancials));
 
   y = ensureSpace(doc, y, 50);
   y = drawBarChart(
@@ -410,7 +410,9 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
     [
       { label: 'Debut', value: s.synthesis.physicalStart, color: EXPORT_COLORS.muted },
       { label: 'Fin', value: s.synthesis.physicalEnd, color: EXPORT_COLORS.bar },
-      { label: 'Financier', value: s.synthesis.financialPct, color: EXPORT_COLORS.barSecondary },
+      ...(s.hideFinancials
+        ? []
+        : [{ label: 'Financier', value: s.synthesis.financialPct, color: EXPORT_COLORS.barSecondary }]),
     ],
     { maxValue: 100, unit: '%' }
   );
@@ -487,7 +489,7 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
     y = table(y, [58, CONTENT_W - 58], [
       ['Indicateur', 'Valeur'],
       ['Total litres', `${formatPdfNumber(s.fuel.totalLiters)} L`],
-      ['Cout total', formatGnfPdf(s.fuel.totalCost)],
+      ...(s.hideFinancials ? [] : [['Cout total', formatGnfPdf(s.fuel.totalCost)]]),
       ['Releves / anomalies', `${s.fuel.count} / ${s.fuel.anomalies}`],
     ]);
     if (s.fuel.rows.length > 0) {
@@ -518,22 +520,31 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
     y = table(y, [58, CONTENT_W - 58], [
       ['Resume', 'Valeur'],
       ['Nombre de bons', String(s.deliveries.count)],
-      ['Montant total', formatGnfPdf(s.deliveries.totalAmount)],
+      ...(s.hideFinancials ? [] : [['Montant total', formatGnfPdf(s.deliveries.totalAmount)]]),
     ]);
     y = ensureSpace(doc, y, 20);
-    y = table(
-      y,
-      [32, 38, 38, CONTENT_W - 108],
-      [
-        ['Reference', 'Fournisseur', 'Montant', 'Date'],
-        ...s.deliveries.rows.map((r) => [
-          r.reference,
-          r.supplier,
-          formatGnfPdf(r.amount),
-          r.dateLabel,
-        ]),
-      ]
-    );
+    y = s.hideFinancials
+      ? table(
+          y,
+          [40, 50, CONTENT_W - 90],
+          [
+            ['Reference', 'Fournisseur', 'Date'],
+            ...s.deliveries.rows.map((r) => [r.reference, r.supplier, r.dateLabel]),
+          ]
+        )
+      : table(
+          y,
+          [32, 38, 38, CONTENT_W - 108],
+          [
+            ['Reference', 'Fournisseur', 'Montant', 'Date'],
+            ...s.deliveries.rows.map((r) => [
+              r.reference,
+              r.supplier,
+              formatGnfPdf(r.amount),
+              r.dateLabel,
+            ]),
+          ]
+        );
   }
 
   y = ensureSpace(doc, y, 30);

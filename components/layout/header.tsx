@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Bell, Menu, Moon, Sun, GraduationCap, Heart, HardHat, Globe, Store, LogOut } from "lucide-react";
+import { Search, Bell, Menu, Moon, Sun, GraduationCap, Heart, HardHat, Globe, Store, LogOut, ArrowLeft } from "lucide-react";
 import { signOut } from "@/lib/actions/auth";
 import { ROLE_LABELS } from "@/types/database";
 
@@ -61,6 +61,16 @@ export function Header() {
     router.push(sectorRoutes[value]);
   };
 
+  const isHomePage = Object.values(sectorRoutes).includes(pathname.replace(/\/+$/, "") || "/");
+  const handleBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    const parent = pathname.replace(/\/+$/, "").split("/").slice(0, -1).join("/");
+    router.push(parent || sectorRoutes[sector]);
+  };
+
   const displayName = user?.name ?? organization?.name ?? "Utilisateur";
   const initials = displayName
     .split(" ")
@@ -79,6 +89,18 @@ export function Header() {
       >
         <Menu className="h-5 w-5" />
       </Button>
+
+      {!isHomePage && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleBack}
+          title="Retour"
+          aria-label="Revenir à la page précédente"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+      )}
 
       {/* Organization name */}
       <div className="hidden md:block">

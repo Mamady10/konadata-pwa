@@ -98,6 +98,7 @@ export async function compileBtpWeeklySiteReportAction(
     String(formData.get('period_value') ?? '').trim() || getDefaultPeriodValue(periodType);
   const weeklyComment = String(formData.get('weekly_comment') ?? '').trim();
   const planningRefSlot = Number(formData.get('planning_ref_slot') ?? 1) === 2 ? 2 : 1;
+  const includeFinancials = String(formData.get('include_financials') ?? '1') !== '0';
 
   if (!siteId) return { error: 'Chantier requis.' };
 
@@ -119,6 +120,7 @@ export async function compileBtpWeeklySiteReportAction(
       orgName: org?.name ?? null,
       planningRefSlot,
       preparedBy,
+      includeFinancials,
     });
 
     const isDirector = await canManageAssignments();

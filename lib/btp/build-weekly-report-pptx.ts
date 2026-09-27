@@ -357,7 +357,9 @@ export async function buildWeeklyReportPptxBuffer(
     cmpSlide.background = { color: COLORS.bg };
     addHeaderBar(cmpSlide, 'Analyse planifié vs réel');
     cmpSlide.addText(
-      `Planning : ${kpiStatusLabel(cmp.kpis.planning)}  ·  Budget : ${kpiStatusLabel(cmp.kpis.budget)}  ·  Délais : ${kpiStatusLabel(cmp.kpis.schedule)}  ·  Global : ${kpiStatusLabel(cmp.kpis.overall)}`,
+      s.hideFinancials
+        ? `Planning : ${kpiStatusLabel(cmp.kpis.planning)}  ·  Délais : ${kpiStatusLabel(cmp.kpis.schedule)}  ·  Global : ${kpiStatusLabel(cmp.kpis.overall)}`
+        : `Planning : ${kpiStatusLabel(cmp.kpis.planning)}  ·  Budget : ${kpiStatusLabel(cmp.kpis.budget)}  ·  Délais : ${kpiStatusLabel(cmp.kpis.schedule)}  ·  Global : ${kpiStatusLabel(cmp.kpis.overall)}`,
       {
         x: 0.45,
         y: 0.95,
@@ -448,7 +450,7 @@ export async function buildWeeklyReportPptxBuffer(
   const compareChartSlide = cmp ? pptx.addSlide() : null;
   if (compareChartSlide && cmp) {
     compareChartSlide.background = { color: COLORS.bg };
-    addHeaderBar(compareChartSlide, 'Comparaisons — courbes & budget');
+    addHeaderBar(compareChartSlide, s.hideFinancials ? 'Comparaisons — courbes' : 'Comparaisons — courbes & budget');
     if (cmp.timeElapsedPct != null) {
       compareChartSlide.addChart(
         pptx.ChartType.bar,
@@ -653,17 +655,24 @@ export async function buildWeeklyReportPptxBuffer(
   addHeaderBar(synthSlide, 'Synthèse de la période');
   const delta = s.synthesis.physicalEnd - s.synthesis.physicalStart;
   const sign = delta >= 0 ? '+' : '';
-  addKeyValueTable(synthSlide, [
-    [
-      'Avancement physique',
-      `${s.synthesis.physicalStart} % → ${s.synthesis.physicalEnd} % (${sign}${Math.round(delta)} pt)`,
-    ],
-    ['Avancement financier', `${s.synthesis.financialPct} %`],
-    ['Retard cumulé', `${s.synthesis.delayDays} jour(s)`],
-    ['Budget', fmtGnf(s.synthesis.budget)],
-    ['Dépensé', fmtGnf(s.synthesis.spent)],
-    ['Reste', fmtGnf(Math.max(0, s.synthesis.budget - s.synthesis.spent))],
-  ]);
+  const physicalRow: [string, string] = [
+    'Avancement physique',
+    `${s.synthesis.physicalStart} % → ${s.synthesis.physicalEnd} % (${sign}${Math.round(delta)} pt)`,
+  ];
+  const delayRow: [string, string] = ['Retard cumulé', `${s.synthesis.delayDays} jour(s)`];
+  addKeyValueTable(
+    synthSlide,
+    s.hideFinancials
+      ? [physicalRow, delayRow, ['Fiches journalières', `${s.synthesis.dailyCount} sur la période`]]
+      : [
+          physicalRow,
+          ['Avancement financier', `${s.synthesis.financialPct} %`],
+          delayRow,
+          ['Budget', fmtGnf(s.synthesis.budget)],
+          ['Dépensé', fmtGnf(s.synthesis.spent)],
+          ['Reste', fmtGnf(Math.max(0, s.synthesis.budget - s.synthesis.spent))],
+        ]
+  );
 
   const chartSlide = pptx.addSlide();
   chartSlide.background = { color: COLORS.bg };
@@ -673,8 +682,10 @@ export async function buildWeeklyReportPptxBuffer(
     [
       {
         name: 'Avancement (%)',
-        labels: ['Début semaine', 'Fin semaine', 'Financier'],
-        values: [s.synthesis.physicalStart, s.synthesis.physicalEnd, s.synthesis.financialPct],
+        labels: s.hideFinancials ? ['Début semaine', 'Fin semaine'] : ['Début semaine', 'Fin semaine', 'Financier'],
+        values: s.hideFinancials
+          ? [s.synthesis.physicalStart, s.synthesis.physicalEnd]
+          : [s.synthesis.physicalStart, s.synthesis.physicalEnd, s.synthesis.financialPct],
       },
     ],
     {
@@ -799,7 +810,7 @@ export async function buildWeeklyReportPptxBuffer(
   } else {
     addKeyValueTable(fuelSlide, [
       ['Total litres', `${s.fuel.totalLiters.toLocaleString('fr-FR')} L`],
-      ['Coût total', fmtGnf(s.fuel.totalCost)],
+      ...(s.hideFinancials ? [] : [['Coût total', fmtGnf(s.fuel.totalCost)] as [string, string]]),
       ['Relevés / anomalies', `${s.fuel.count} / ${s.fuel.anomalies}`],
     ]);
     if (s.fuel.rows.length > 0) {
@@ -840,18 +851,19 @@ export async function buildWeeklyReportPptxBuffer(
       fontFace: 'Segoe UI',
     });
   } else {
+    const hideAmounts = !!s.hideFinancials;
     blSlide.addTable(
       [
         [
           tableHeaderCell('Référence'),
           tableHeaderCell('Fournisseur'),
-          tableHeaderCell('Montant'),
+          ...(hideAmounts ? [] : [tableHeaderCell('Montant')]),
           tableHeaderCell('Date'),
         ],
         ...s.deliveries.rows.map((r) => [
           tableCell(r.reference),
           tableCell(r.supplier),
-          tableCell(fmtGnf(r.amount)),
+          ...(hideAmounts ? [] : [tableCell(fmtGnf(r.amount))]),
           tableCell(r.dateLabel),
         ]),
       ],
@@ -859,13 +871,15 @@ export async function buildWeeklyReportPptxBuffer(
         x: 0.45,
         y: 1.05,
         w: 9.1,
-        colW: [2, 3.2, 2.2, 1.7],
+        colW: hideAmounts ? [2.6, 4.3, 2.2] : [2, 3.2, 2.2, 1.7],
         fontSize: 10,
         border: { type: 'solid', color: 'E2E8F0', pt: 0.75 },
       }
     );
     blSlide.addText(
-      `${s.deliveries.count} bon(s) — total ${fmtGnf(s.deliveries.totalAmount)}`,
+      hideAmounts
+        ? `${s.deliveries.count} bon(s) de livraison`
+        : `${s.deliveries.count} bon(s) — total ${fmtGnf(s.deliveries.totalAmount)}`,
       {
         x: 0.55,
         y: 5.1,

@@ -10,7 +10,7 @@ import type {
   WeeklyReportUpcoming,
   WeeklyReportUpcomingTask,
 } from '@/lib/btp/weekly-report-export-types';
-import { UPCOMING_EVENT_LABELS } from '@/lib/btp/weekly-report-export-types';
+import { stripReportFinancials, UPCOMING_EVENT_LABELS } from '@/lib/btp/weekly-report-export-types';
 import { loadOrgLogoForReport, loadSitePhotosForReport } from '@/lib/btp/weekly-report-media';
 import type { ResolvedPlanningRef } from '@/lib/btp/planning-ref';
 import {
@@ -107,6 +107,8 @@ export interface BtpWeeklyCompileInput {
   preparedBy?: string | null;
   /** Logo et photos (désactivable pour les compilations sans export). */
   includeMedia?: boolean;
+  /** false : aucune donnée financière (budget, dépensé, reste, montants carburant et BL). */
+  includeFinancials?: boolean;
 }
 
 export interface BtpWeeklyCompileResult {
@@ -429,6 +431,7 @@ export async function compileBtpWeeklySiteReport(
     ? null
     : buildUpcoming({ resolvedRef, periodType, periodTo: to, lastTaskPct });
 
+  const showFinancials = input.includeFinancials !== false;
   const spent = comparison.budgetConsumedCumulative;
   const financialPct =
     comparison.financialPctAuto ?? Math.round(Number(site.financial_progress ?? 0));
@@ -463,7 +466,7 @@ export async function compileBtpWeeklySiteReport(
       `Temps écoulé : ${comparison.timeElapsedPct} % — travaux : ${comparison.actualPhysicalPct} % (écart ${comparison.timeVsPhysicalGapPts! >= 0 ? '+' : ''}${comparison.timeVsPhysicalGapPts} pt)`
     );
   }
-  if (comparison.budgetPlannedCumulative != null && budget > 0) {
+  if (showFinancials && comparison.budgetPlannedCumulative != null && budget > 0) {
     comparisonLines.push(
       `Budget planifié cumulé : ${formatCurrencyGnf(comparison.budgetPlannedCumulative)} — consommé : ${formatCurrencyGnf(comparison.budgetConsumedCumulative)} (écart ${comparison.budgetGapAmount! >= 0 ? '+' : ''}${formatCurrencyGnf(comparison.budgetGapAmount ?? 0)})`
     );
@@ -472,7 +475,9 @@ export async function compileBtpWeeklySiteReport(
     );
   }
   comparisonLines.push(
-    `KPI synthèse : Planning ${kpiStatusLabel(comparison.kpis.planning)} · Budget ${kpiStatusLabel(comparison.kpis.budget)} · Délais ${kpiStatusLabel(comparison.kpis.schedule)} · Global ${kpiStatusLabel(comparison.kpis.overall)}`
+    showFinancials
+      ? `KPI synthèse : Planning ${kpiStatusLabel(comparison.kpis.planning)} · Budget ${kpiStatusLabel(comparison.kpis.budget)} · Délais ${kpiStatusLabel(comparison.kpis.schedule)} · Global ${kpiStatusLabel(comparison.kpis.overall)}`
+      : `KPI synthèse : Planning ${kpiStatusLabel(comparison.kpis.planning)} · Délais ${kpiStatusLabel(comparison.kpis.schedule)}`
   );
   if (comparison.taskRows.length > 0) {
     comparisonLines.push('Tâches (poids = durée) :');
@@ -502,7 +507,7 @@ export async function compileBtpWeeklySiteReport(
       );
     }
   }
-  if (comparison.posteComparison.length > 0) {
+  if (showFinancials && comparison.posteComparison.length > 0) {
     comparisonLines.push('Ventilation budgétaire (prévu vs réel) :');
     for (const p of comparison.posteComparison) {
       comparisonLines.push(
@@ -528,11 +533,13 @@ export async function compileBtpWeeklySiteReport(
     heading: 'Synthèse de la période',
     lines: [
       `Avancement physique : ${Math.round(physStart)} % → ${Math.round(physEnd)} % (${physEnd >= physStart ? '+' : ''}${Math.round(physEnd - physStart)} pt)`,
-      `Avancement financier (calculé) : ${financialPct} %`,
+      showFinancials ? `Avancement financier (calculé) : ${financialPct} %` : '',
       `Retard cumulé : ${Number(site.delay_days ?? 0)} jour(s)`,
-      `Budget : ${formatCurrencyGnf(budget)} — dépensé (cumul) ${formatCurrencyGnf(spent)} — reste ${formatCurrencyGnf(Math.max(0, budget - spent))}`,
+      showFinancials
+        ? `Budget : ${formatCurrencyGnf(budget)} — dépensé (cumul) ${formatCurrencyGnf(spent)} — reste ${formatCurrencyGnf(Math.max(0, budget - spent))}`
+        : '',
       `${daily.length} fiche(s) journalière(s) enregistrée(s) sur la période.`,
-    ],
+    ].filter(Boolean),
   });
 
   if (daily.length === 0) {
@@ -579,7 +586,9 @@ export async function compileBtpWeeklySiteReport(
       fuel.length === 0
         ? ['Aucun relevé carburant sur la période.']
         : [
-            `Total : ${totalL.toLocaleString('fr-FR')} L — ${formatCurrencyGnf(totalFuelCost)}`,
+            showFinancials
+              ? `Total : ${totalL.toLocaleString('fr-FR')} L — ${formatCurrencyGnf(totalFuelCost)}`
+              : `Total : ${totalL.toLocaleString('fr-FR')} L`,
             `Relevés : ${fuel.length} — Anomalies : ${anomalies}`,
             ...fuel.slice(0, 10).map((l) => {
               const d = new Date(l.logged_at as string).toLocaleDateString('fr-FR');
@@ -595,12 +604,13 @@ export async function compileBtpWeeklySiteReport(
       notes.length === 0
         ? ['Aucun bon de livraison sur la période.']
         : [
-            `${notes.length} bon(s) — total ${formatCurrencyGnf(blTotal)}`,
+            showFinancials ? `${notes.length} bon(s) — total ${formatCurrencyGnf(blTotal)}` : `${notes.length} bon(s)`,
             ...notes.map((n) => {
               const d = n.delivery_date
                 ? new Date(n.delivery_date as string).toLocaleDateString('fr-FR')
                 : '—';
-              return `• ${n.reference} — ${n.supplier ?? '—'} — ${formatCurrencyGnf(Number(n.total_amount ?? 0))} (${d})`;
+              const amount = showFinancials ? ` — ${formatCurrencyGnf(Number(n.total_amount ?? 0))}` : '';
+              return `• ${n.reference} — ${n.supplier ?? '—'}${amount} (${d})`;
             }),
           ],
   });
@@ -671,7 +681,7 @@ export async function compileBtpWeeklySiteReport(
 
   const [logo, photos] = await mediaPromise;
 
-  const structured: WeeklyReportExportStructured = {
+  const fullStructured: WeeklyReportExportStructured = {
     identification: {
       chantier: siteName,
       localisation: (site.location as string) || null,
@@ -735,6 +745,7 @@ export async function compileBtpWeeklySiteReport(
       moa: baseline.moaRecipient || baseline.client || null,
     },
   };
+  const structured = showFinancials ? fullStructured : stripReportFinancials(fullStructured);
 
   return {
     title,

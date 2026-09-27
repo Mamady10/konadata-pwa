@@ -1,6 +1,10 @@
 import type { ReportSection } from '@/lib/ai/reports/render-report';
 
-import type { BtpBudgetBreakdown, BtpWeeklyComparisonMetrics } from '@/lib/btp/site-baseline-types';
+import type {
+  BtpBudgetBreakdown,
+  BtpWeeklyComparisonMetrics,
+  KpiTrafficStatus,
+} from '@/lib/btp/site-baseline-types';
 import type { ReportPeriodType } from '@/lib/btp/report-period';
 
 export interface WeeklyReportExportStats {
@@ -124,6 +128,46 @@ export interface WeeklyReportExportStructured {
   photos?: WeeklyReportPhoto[];
   upcoming?: WeeklyReportUpcoming | null;
   signatories?: WeeklyReportSignatories;
+  /** Rapport sans données financières (budget, dépensé, reste, montants). */
+  hideFinancials?: boolean;
+}
+
+const KPI_SEVERITY: Record<KpiTrafficStatus, number> = { neutral: 0, green: 1, amber: 2, red: 3 };
+
+/** Retire du rapport toutes les données financières (le rapport reste identique pour le reste). */
+export function stripReportFinancials(s: WeeklyReportExportStructured): WeeklyReportExportStructured {
+  const c = s.comparison;
+  const overall: KpiTrafficStatus = c
+    ? KPI_SEVERITY[c.kpis.planning] >= KPI_SEVERITY[c.kpis.schedule]
+      ? c.kpis.planning
+      : c.kpis.schedule
+    : 'neutral';
+  return {
+    ...s,
+    hideFinancials: true,
+    synthesis: { ...s.synthesis, financialPct: 0, budget: 0, spent: 0 },
+    budgetBreakdown: {},
+    fuel: { ...s.fuel, totalCost: 0 },
+    deliveries: {
+      ...s.deliveries,
+      totalAmount: 0,
+      rows: s.deliveries.rows.map((r) => ({ ...r, amount: 0 })),
+    },
+    comparison: c
+      ? {
+          ...c,
+          budgetPlannedCumulative: null,
+          budgetConsumedCumulative: 0,
+          budgetGapAmount: null,
+          budgetExecutionPct: null,
+          financialPctAuto: null,
+          physicalVsFinancialGapPts: null,
+          kpis: { ...c.kpis, budget: 'neutral', overall },
+          budgetByPoste: { labor: 0, materials: 0, equipment: 0, subcontract: 0, overhead: 0, other: 0 },
+          posteComparison: [],
+        }
+      : null,
+  };
 }
 
 /** Données structurées pour export PDF / PPTX du rapport hebdo chantier. */

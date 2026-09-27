@@ -84,6 +84,7 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
   const [periodYear, setPeriodYear] = useState(String(new Date().getFullYear()));
   const [periodQuarter, setPeriodQuarter] = useState<'1' | '2' | '3' | '4'>('1');
   const [weeklyComment, setWeeklyComment] = useState('');
+  const [includeFinancials, setIncludeFinancials] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<string | null>(null);
@@ -200,6 +201,7 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
     fd.set('period_value', periodValue);
     fd.set('weekly_comment', weeklyComment);
     fd.set('planning_ref_slot', String(planningRefSlot));
+    fd.set('include_financials', includeFinancials ? '1' : '0');
 
     const result = await compileBtpWeeklySiteReportAction(fd);
     setLoading(false);
@@ -376,6 +378,21 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
               Choisissez sur quel planning baser la comparaison planifié vs réel dans ce rapport.
             </p>
           </div>
+          <label className="sm:col-span-2 flex cursor-pointer items-start gap-3 rounded-lg border bg-background/60 p-3 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 accent-primary"
+              checked={includeFinancials}
+              onChange={(e) => setIncludeFinancials(e.target.checked)}
+            />
+            <span>
+              <span className="font-medium">Afficher les données financières</span>
+              <span className="block text-xs text-muted-foreground">
+                Budget, coût dépensé, montant restant, coûts carburant et montants des bons de livraison.
+                Décochez pour un rapport sans aucun montant (ex. rapport destiné à l&apos;extérieur).
+              </span>
+            </span>
+          </label>
           <div className="space-y-2 sm:col-span-2">
             <Label>Commentaire de synthèse (optionnel)</Label>
             <textarea
