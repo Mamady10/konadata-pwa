@@ -1,3 +1,5 @@
+import { parseLotTakeoff, type LotTakeoff, type TakeoffMaterial } from '@/lib/btp/quotes/takeoff';
+
 export type QuoteSection = 'materials' | 'equipment' | 'labor' | 'supervision';
 export type QuoteLotKind = 'detailed' | 'lump_sum';
 export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'refused' | 'cancelled';
@@ -26,6 +28,8 @@ export interface QuoteLine {
   unit: string;
   quantity: number;
   unitPrice: number;
+  /** Ligne générée par le métré (mise à jour à chaque recalcul). */
+  takeoffKey?: string;
 }
 
 export interface QuoteLot {
@@ -38,6 +42,8 @@ export interface QuoteLot {
   /** Prix unitaire d'un lot forfaitaire (sans détail). */
   lumpSumAmount: number;
   lines: QuoteLine[];
+  /** Métré : ouvrages dimensionnés -> quantités de matériaux. */
+  takeoff?: LotTakeoff;
 }
 
 export interface QuoteHeader {
@@ -229,7 +235,54 @@ export function duplicateLot(lot: QuoteLot, title?: string): QuoteLot {
     id: newQuoteId(),
     title: title ?? `${lot.title} (copie)`,
     lines: lot.lines.map((l) => ({ ...l, id: newQuoteId() })),
+    takeoff: lot.takeoff ? parseLotTakeoff(JSON.parse(JSON.stringify(lot.takeoff))) : undefined,
   };
+}
+
+/**
+ * Reporte les quantités du métré dans la rubrique Matériaux du lot : met à jour les lignes
+ * déjà générées (prix et libellé conservés), ajoute les nouvelles, retire celles devenues nulles.
+ */
+export function applyTakeoffToLines(
+  lines: QuoteLine[],
+  materials: TakeoffMaterial[],
+  priceFor: (designation: string) => { unit: string; unitPrice: number } | undefined
+): QuoteLine[] {
+  const byKey = new Map(materials.map((m) => [m.key, m]));
+  const kept: QuoteLine[] = [];
+  const seen = new Set<string>();
+  for (const line of lines) {
+    if (!line.takeoffKey) {
+      kept.push(line);
+      continue;
+    }
+    const m = byKey.get(line.takeoffKey);
+    if (!m || seen.has(line.takeoffKey)) continue;
+    seen.add(line.takeoffKey);
+    kept.push({ ...line, quantity: m.quantity });
+  }
+  const added: QuoteLine[] = materials
+    .filter((m) => !seen.has(m.key))
+    .map((m) => {
+      const catalog = priceFor(m.designation);
+      return {
+        id: newQuoteId(),
+        section: 'materials' as QuoteSection,
+        designation: m.designation,
+        unit: m.unit,
+        quantity: m.quantity,
+        unitPrice: catalog?.unitPrice ?? 0,
+        takeoffKey: m.key,
+      };
+    });
+  if (added.length === 0) return kept;
+  // Nouvelles lignes après les matériaux existants ; une ligne matériaux vide est remplacée.
+  const withoutBlank = kept.filter(
+    (l) => !(l.section === 'materials' && !l.takeoffKey && !l.designation.trim() && !l.unitPrice && !l.quantity)
+  );
+  const lastMaterial = withoutBlank.map((l) => l.section).lastIndexOf('materials');
+  const insertAt = lastMaterial >= 0 ? lastMaterial + 1 : 0;
+  return [...withoutBlank.slice(0, insertAt), ...added, ...withoutBlank.slice(insertAt)];
 }
 
 function toNumber(value: unknown, fallback = 0): number {
@@ -270,8 +323,10 @@ export function parseQuoteLots(raw: unknown): QuoteLot[] {
                 unit: toText(l.unit, 20),
                 quantity: Math.max(0, toNumber(l.quantity)),
                 unitPrice: Math.max(0, toNumber(l.unitPrice)),
+                ...(l.takeoffKey ? { takeoffKey: toText(l.takeoffKey, 40) } : {}),
               };
             }),
+      ...(kind === 'detailed' && o.takeoff ? { takeoff: parseLotTakeoff(o.takeoff) } : {}),
     };
   });
 }

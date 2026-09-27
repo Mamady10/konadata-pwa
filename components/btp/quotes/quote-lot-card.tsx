@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
+  applyTakeoffToLines,
   computeLotTotals,
   emptyLine,
   formatQuoteAmount,
@@ -13,8 +14,10 @@ import {
   type QuoteLot,
   type QuoteSection,
 } from '@/lib/btp/quotes/quote-types';
+import type { TakeoffMaterial } from '@/lib/btp/quotes/takeoff';
 import { QuoteNumberInput } from './quote-number-input';
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Copy, Plus, Trash2 } from 'lucide-react';
+import { QuoteTakeoffPanel } from './quote-takeoff-panel';
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Copy, Plus, Ruler, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const QUOTE_CATALOG_DATALIST_ID = 'btp-quote-catalog';
@@ -52,10 +55,27 @@ export function QuoteLotCard({
   onDelete,
 }: Props) {
   const [open, setOpen] = useState(true);
+  const [showTakeoff, setShowTakeoff] = useState(false);
   const totals = computeLotTotals(lot);
   const isLumpSum = lot.kind === 'lump_sum';
+  const takeoffCount = lot.takeoff?.items.length ?? 0;
 
   const patch = (changes: Partial<QuoteLot>) => onChange({ ...lot, ...changes });
+
+  /** Prix du catalogue : désignation exacte, sinon article commençant par le nom de base (« Ciment », « Fer HA12 »…). */
+  function catalogPrice(designation: string) {
+    const full = designation.trim().toLowerCase();
+    const base = full.split(' (')[0];
+    const match =
+      catalogByKey.get(full) ??
+      catalogByKey.get(base) ??
+      [...catalogByKey.entries()].find(([key]) => key.startsWith(base))?.[1];
+    return match ? { unit: match.unit, unitPrice: match.unitPrice } : undefined;
+  }
+
+  function applyTakeoff(materials: TakeoffMaterial[]) {
+    patch({ lines: applyTakeoffToLines(lot.lines, materials, catalogPrice) });
+  }
 
   function updateLine(lineId: string, changes: Partial<QuoteLine>) {
     patch({ lines: lot.lines.map((l) => (l.id === lineId ? { ...l, ...changes } : l)) });
@@ -211,6 +231,32 @@ export function QuoteLotCard({
               <span className="text-sm text-muted-foreground">GNF</span>
             </div>
           ) : (
+            <>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowTakeoff((v) => !v)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium',
+                  showTakeoff ? 'border-blue-300 bg-blue-50 text-[#0f2a4a]' : 'hover:bg-muted'
+                )}
+              >
+                <Ruler className="h-3.5 w-3.5" />
+                Métré / extrait des matériaux
+                {takeoffCount > 0 && (
+                  <span className="rounded-full bg-[#2563EB] px-1.5 text-[10px] text-white">{takeoffCount}</span>
+                )}
+                {showTakeoff ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+            {showTakeoff && (
+              <QuoteTakeoffPanel
+                takeoff={lot.takeoff}
+                locked={locked}
+                onChange={(takeoff) => patch({ takeoff })}
+                onApply={applyTakeoff}
+              />
+            )}
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-sm">
                 <thead className="text-xs text-muted-foreground">
@@ -242,7 +288,17 @@ export function QuoteLotCard({
                       lineNumber += 1;
                       return (
                         <tr key={line.id} className="group">
-                          <td className="px-1 py-0.5 text-center text-xs text-muted-foreground">{lineNumber}</td>
+                          <td className="px-1 py-0.5 text-center text-xs text-muted-foreground">
+                            {lineNumber}
+                            {line.takeoffKey && (
+                              <span
+                                className="block text-[9px] font-medium uppercase text-[#2563EB]"
+                                title="Quantité calculée par le métré"
+                              >
+                                métré
+                              </span>
+                            )}
+                          </td>
                           <td className="px-1 py-0.5">
                             <input
                               data-line-designation={line.id}
@@ -317,6 +373,7 @@ export function QuoteLotCard({
                 ))}
               </table>
             </div>
+            </>
           )}
         </div>
       )}
