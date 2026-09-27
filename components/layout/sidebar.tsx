@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { KonaDataWordmark } from "@/components/brand/konadata-logo";
 import { usePathname } from "next/navigation";
@@ -296,6 +297,10 @@ export function Sidebar() {
     assistantNavVisible,
     btpQuoteAccess,
   } = useApp();
+
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname, setSidebarOpen]);
 
   const routeSector = pathSector(pathname);
   const effectiveSector =

@@ -69,7 +69,7 @@ export function AppProvider({
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [sector, setSector] = useState<Sector>(() => sectorFromProfile(initialProfile));
   const [darkMode, setDarkMode] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [assistantNavVisible, setAssistantNavVisible] = useState(
     () => initialProfile?.assistantNavVisible ?? false
   );
