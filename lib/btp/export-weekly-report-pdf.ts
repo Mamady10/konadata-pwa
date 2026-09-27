@@ -7,6 +7,7 @@ import type {
 } from '@/lib/btp/weekly-report-export-types';
 import {
   displayOrgName,
+  formatReportGeneratedAt,
   slugifyReportFilename,
   UPCOMING_EVENT_LABELS,
 } from '@/lib/btp/weekly-report-export-types';
@@ -35,6 +36,10 @@ const CONTENT_W = PAGE_W - MARGIN * 2;
 const RUNNING_HEADER_H = 15;
 const CONTENT_TOP = RUNNING_HEADER_H + 11;
 const PAGE_BOTTOM = 278;
+const COVER_LOGO_MAX_W = 52;
+const COVER_LOGO_MAX_H = 34;
+const HEADER_LOGO_MAX_W = 30;
+const HEADER_LOGO_MAX_H = 11;
 
 function wrapLines(doc: jsPDF, text: string, maxWidth: number): string[] {
   return doc.splitTextToSize(sanitizePdfText(text), maxWidth) as string[];
@@ -58,17 +63,31 @@ function imageDataUrl(img: WeeklyReportImage): string {
   return `data:image/${img.format === 'JPEG' ? 'jpeg' : 'png'};base64,${img.base64}`;
 }
 
-/** Logo sur fond blanc arrondi (lisible sur le bandeau sombre). */
-function drawLogo(doc: jsPDF, logo: WeeklyReportImage, x: number, y: number, box: number) {
-  doc.setFillColor(255, 255, 255);
-  doc.roundedRect(x, y, box, box, 1.5, 1.5, 'F');
-  const pad = box * 0.08;
-  const fit = fitImage(logo.width, logo.height, box - pad * 2, box - pad * 2);
+/**
+ * Logo sans cadre, ajusté (ratio conservé) dans la zone maxW × maxH, centré verticalement.
+ * Retourne la largeur réellement occupée (0 si l'image est illisible).
+ */
+function drawLogo(
+  doc: jsPDF,
+  logo: WeeklyReportImage,
+  x: number,
+  y: number,
+  maxW: number,
+  maxH: number,
+  align: 'left' | 'right' = 'left'
+): number {
+  const fit = fitImage(logo.width, logo.height, maxW, maxH);
+  const left = align === 'right' ? x + maxW - fit.w : x;
   try {
-    doc.addImage(imageDataUrl(logo), logo.format, x + pad + fit.dx, y + pad + fit.dy, fit.w, fit.h);
+    doc.addImage(imageDataUrl(logo), logo.format, left, y + fit.dy, fit.w, fit.h);
+    return fit.w;
   } catch {
-    // Image illisible : on garde le cadre blanc.
+    return 0;
   }
+}
+
+function logoFitWidth(logo: WeeklyReportImage | null, maxW: number, maxH: number): number {
+  return logo ? fitImage(logo.width, logo.height, maxW, maxH).w : 0;
 }
 
 /** Bandeau rappelant entreprise, chantier et période sur les pages suivant la couverture. */
@@ -81,7 +100,8 @@ function drawRunningHeaders(
 ) {
   const pageCount = doc.getNumberOfPages();
   const half = CONTENT_W / 2 - 4;
-  const textX = logo ? MARGIN + 14 : MARGIN;
+  const logoW = logoFitWidth(logo, HEADER_LOGO_MAX_W, HEADER_LOGO_MAX_H);
+  const textX = logoW > 0 ? MARGIN + logoW + 3 : MARGIN;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   const scopeW = doc.getTextWidth(sanitizePdfText(scopeLabel));
@@ -96,7 +116,7 @@ function drawRunningHeaders(
     doc.rect(0, 0, PAGE_W, RUNNING_HEADER_H, 'F');
     doc.setFillColor(...EXPORT_COLORS.blue);
     doc.rect(0, RUNNING_HEADER_H, PAGE_W, 1, 'F');
-    if (logo) drawLogo(doc, logo, MARGIN, 2, 11);
+    if (logo) drawLogo(doc, logo, MARGIN, 2, HEADER_LOGO_MAX_W, HEADER_LOGO_MAX_H);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
@@ -211,10 +231,7 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const orgName = displayOrgName(payload.orgName);
   const { structured: s } = payload;
-  const generatedAt = sanitizePdfText(
-    payload.generatedAt ??
-      new Date().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })
-  );
+  const generatedAt = sanitizePdfText(formatReportGeneratedAt(payload.generatedAt));
   const newPage = () => {
     doc.addPage();
     return CONTENT_TOP;
@@ -223,7 +240,8 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
     drawTable(doc, y, MARGIN, CONTENT_W, widths, rows, { pageBottom: PAGE_BOTTOM, newPage });
 
   const logo = s.logo ?? null;
-  const coverTextW = logo ? CONTENT_W - 40 : CONTENT_W;
+  const coverLogoW = logoFitWidth(logo, COVER_LOGO_MAX_W, COVER_LOGO_MAX_H);
+  const coverTextW = coverLogoW > 0 ? CONTENT_W - coverLogoW - 6 : CONTENT_W;
   const titleMatch = payload.title.match(/^(Rapport de chantier \S+) — (.+)$/);
   const reportKind = titleMatch?.[1] ?? 'Rapport de chantier';
   const siteTitle = titleMatch?.[2] ?? payload.title;
@@ -232,7 +250,17 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
   doc.rect(0, 0, PAGE_W, 48, 'F');
   doc.setFillColor(...EXPORT_COLORS.blue);
   doc.rect(0, 46, PAGE_W, 2, 'F');
-  if (logo) drawLogo(doc, logo, PAGE_W - MARGIN - 34, 7, 34);
+  if (logo) {
+    drawLogo(
+      doc,
+      logo,
+      PAGE_W - MARGIN - COVER_LOGO_MAX_W,
+      (46 - COVER_LOGO_MAX_H) / 2,
+      COVER_LOGO_MAX_W,
+      COVER_LOGO_MAX_H,
+      'right'
+    );
+  }
 
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
@@ -257,7 +285,7 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
   let y = 58;
   doc.setTextColor(...EXPORT_COLORS.muted);
   doc.setFontSize(8);
-  doc.text(sanitizePdfText(`Genere le ${generatedAt} - ${payload.periodLabel}`), MARGIN, y);
+  doc.text(sanitizePdfText(`Généré le ${generatedAt} - ${payload.periodLabel}`), MARGIN, y);
   y += 10;
 
   y = drawSectionTitle(doc, y, 'Résumé', MARGIN);

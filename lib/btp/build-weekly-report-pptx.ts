@@ -5,7 +5,11 @@ import type {
   WeeklyReportExportPayload,
   WeeklyReportImage,
 } from '@/lib/btp/weekly-report-export-types';
-import { displayOrgName, UPCOMING_EVENT_LABELS } from '@/lib/btp/weekly-report-export-types';
+import {
+  displayOrgName,
+  formatReportGeneratedAt,
+  UPCOMING_EVENT_LABELS,
+} from '@/lib/btp/weekly-report-export-types';
 import { formatCurrency } from '@/lib/utils';
 import { kpiStatusLabel } from '@/lib/btp/site-baseline';
 import {
@@ -24,6 +28,7 @@ const STATUS_HEX: Record<string, string> = {
 
 const TASKS_PER_CHART_SLIDE = 14;
 const PHOTOS_PER_SLIDE = 2;
+const UPCOMING_PER_SLIDE = 10;
 
 function imageData(img: WeeklyReportImage): string {
   return `image/${img.format === 'JPEG' ? 'jpeg' : 'png'};base64,${img.base64}`;
@@ -54,28 +59,39 @@ interface HeaderContext {
   logo: WeeklyReportImage | null;
 }
 
-function addLogo(slide: PptxSlide, logo: WeeklyReportImage, x: number, y: number, box: number) {
-  slide.addShape('roundRect', {
-    x,
-    y,
-    w: box,
-    h: box,
-    fill: { color: 'FFFFFF' },
-    line: { color: 'FFFFFF', width: 0 },
-    rectRadius: 0.06,
-  });
-  const pad = box * 0.08;
-  const fit = fitImage(logo.width, logo.height, box - pad * 2, box - pad * 2);
+const HEADER_LOGO_MAX_W = 1.05;
+const HEADER_LOGO_MAX_H = 0.6;
+const HEADER_TEXT_X = 5.35;
+const HERO_LOGO_MAX_W = 3;
+const HERO_LOGO_MAX_H = 1.1;
+
+/** Logo sans cadre, ajusté (ratio conservé) dans la zone maxW × maxH ; retourne la largeur occupée. */
+function addLogo(
+  slide: PptxSlide,
+  logo: WeeklyReportImage,
+  x: number,
+  y: number,
+  maxW: number,
+  maxH: number,
+  align: 'left' | 'center' | 'right' = 'left'
+): number {
+  const fit = fitImage(logo.width, logo.height, maxW, maxH);
+  const dx = align === 'right' ? maxW - fit.w : align === 'center' ? fit.dx : 0;
   slide.addImage({
     data: imageData(logo),
-    x: x + pad + fit.dx,
-    y: y + pad + fit.dy,
+    x: x + dx,
+    y: y + fit.dy,
     w: fit.w,
     h: fit.h,
   });
+  return fit.w;
 }
 
 function drawHeaderBar(slide: PptxSlide, title: string, ctx: HeaderContext) {
+  const logoW = ctx.logo
+    ? fitImage(ctx.logo.width, ctx.logo.height, HEADER_LOGO_MAX_W, HEADER_LOGO_MAX_H).w
+    : 0;
+  const textRight = logoW > 0 ? 9.75 - logoW - 0.15 : 9.7;
   slide.addShape('rect', {
     x: 0,
     y: 0,
@@ -93,7 +109,7 @@ function drawHeaderBar(slide: PptxSlide, title: string, ctx: HeaderContext) {
   slide.addText(title, {
     x: 0.35,
     y: 0.14,
-    w: 5.5,
+    w: HEADER_TEXT_X - 0.45,
     h: 0.52,
     fontSize: 18,
     bold: true,
@@ -105,17 +121,17 @@ function drawHeaderBar(slide: PptxSlide, title: string, ctx: HeaderContext) {
     [
       {
         text: ctx.orgName.toUpperCase(),
-        options: { bold: true, fontSize: 10, color: 'FFFFFF', breakLine: true },
+        options: { bold: true, fontSize: 9, color: 'FFFFFF', breakLine: true },
       },
       {
         text: `${ctx.scopeLabel} · ${ctx.periodLabel}`,
-        options: { fontSize: 8.5, color: 'CBD5E1' },
+        options: { fontSize: 8, color: 'CBD5E1' },
       },
     ],
     {
-      x: 5.95,
+      x: HEADER_TEXT_X,
       y: 0.1,
-      w: ctx.logo ? 3.1 : 3.75,
+      w: textRight - HEADER_TEXT_X,
       h: 0.62,
       align: 'right',
       valign: 'middle',
@@ -123,7 +139,17 @@ function drawHeaderBar(slide: PptxSlide, title: string, ctx: HeaderContext) {
       fit: 'shrink',
     }
   );
-  if (ctx.logo) addLogo(slide, ctx.logo, 9.14, 0.12, 0.58);
+  if (ctx.logo) {
+    addLogo(
+      slide,
+      ctx.logo,
+      9.75 - HEADER_LOGO_MAX_W,
+      0.11,
+      HEADER_LOGO_MAX_W,
+      HEADER_LOGO_MAX_H,
+      'right'
+    );
+  }
   slide.slideNumber = { x: 9.25, y: 5.3, w: 0.5, h: 0.25, fontSize: 9, color: '94A3B8', align: 'right' };
 }
 
@@ -178,9 +204,7 @@ export async function buildWeeklyReportPptxBuffer(
   const pptx = new PptxGenJS();
   const orgName = displayOrgName(payload.orgName);
   const { structured: s } = payload;
-  const generatedAt =
-    payload.generatedAt ??
-    new Date().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
+  const generatedAt = `Généré le ${formatReportGeneratedAt(payload.generatedAt)}`;
 
   pptx.author = orgName;
   pptx.title = payload.title;
@@ -194,7 +218,7 @@ export async function buildWeeklyReportPptxBuffer(
     logo: s.logo ?? null,
   };
   const addHeaderBar = (slide: PptxSlide, title: string) => drawHeaderBar(slide, title, headerCtx);
-  const logoOffset = s.logo ? 0.5 : 0;
+  const logoOffset = s.logo ? 0.6 : 0;
 
   const titleSlide = pptx.addSlide();
   titleSlide.background = { color: COLORS.dark };
@@ -205,7 +229,9 @@ export async function buildWeeklyReportPptxBuffer(
     h: 0.1,
     fill: { color: COLORS.primary },
   });
-  if (s.logo) addLogo(titleSlide, s.logo, 4.45, 0.2, 1.1);
+  if (s.logo) {
+    addLogo(titleSlide, s.logo, 5 - HERO_LOGO_MAX_W / 2, 0.2, HERO_LOGO_MAX_W, HERO_LOGO_MAX_H, 'center');
+  }
   titleSlide.addText(orgName.toUpperCase(), {
     x: 0.45,
     y: 0.65 + logoOffset + 0.1,
@@ -528,11 +554,22 @@ export async function buildWeeklyReportPptxBuffer(
     }
   }
 
-  if (s.upcoming && s.upcoming.tasks.length > 0) {
+  const upcoming = s.upcoming;
+  const upcomingPages = upcoming
+    ? Math.ceil(upcoming.tasks.length / UPCOMING_PER_SLIDE)
+    : 0;
+  for (let page = 0; upcoming && page < upcomingPages; page++) {
+    const pageTasks = upcoming.tasks.slice(
+      page * UPCOMING_PER_SLIDE,
+      (page + 1) * UPCOMING_PER_SLIDE
+    );
     const upcomingSlide = pptx.addSlide();
     upcomingSlide.background = { color: COLORS.bg };
-    addHeaderBar(upcomingSlide, 'Prévisions');
-    upcomingSlide.addText(s.upcoming.label, {
+    addHeaderBar(
+      upcomingSlide,
+      upcomingPages > 1 ? `Prévisions (${page + 1}/${upcomingPages})` : 'Prévisions'
+    );
+    upcomingSlide.addText(upcoming.label, {
       x: 0.35,
       y: 0.98,
       w: 9.3,
@@ -545,7 +582,7 @@ export async function buildWeeklyReportPptxBuffer(
     upcomingSlide.addTable(
       [
         ['Tâche', 'Période', 'Événement', 'Prévu fin', 'Actuel'].map((h) => tableHeaderCell(h)),
-        ...s.upcoming.tasks.map((t) =>
+        ...pageTasks.map((t) =>
           [
             t.name,
             `${frDate(t.startDate)} → ${frDate(t.finishDate)}`,
@@ -955,7 +992,9 @@ export async function buildWeeklyReportPptxBuffer(
 
   const closing = pptx.addSlide();
   closing.background = { color: COLORS.dark };
-  if (s.logo) addLogo(closing, s.logo, 4.45, 0.55, 1.1);
+  if (s.logo) {
+    addLogo(closing, s.logo, 5 - HERO_LOGO_MAX_W / 2, 0.55, HERO_LOGO_MAX_W, HERO_LOGO_MAX_H, 'center');
+  }
   closing.addText(orgName, {
     x: 0.5,
     y: 2.0,

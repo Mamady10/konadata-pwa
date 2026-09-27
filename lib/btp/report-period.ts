@@ -20,6 +20,55 @@ function monthLabelFr(year: number, month: number): string {
   return `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)} ${year}`;
 }
 
+function lastDayOfMonthIso(year: number, month: number): string {
+  return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+}
+
+function shortDateFr(iso: string): string {
+  return new Date(`${iso}T12:00:00Z`).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  });
+}
+
+/** Période de même nature qui suit immédiatement celle se terminant à `periodTo`. */
+export function nextReportPeriodRange(
+  periodType: ReportPeriodType,
+  periodTo: string
+): { from: string; to: string; label: string } | null {
+  const end = new Date(`${periodTo.slice(0, 10)}T12:00:00Z`);
+  if (Number.isNaN(end.getTime())) return null;
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() + 1);
+  const from = start.toISOString().slice(0, 10);
+  const year = start.getUTCFullYear();
+  const month = start.getUTCMonth() + 1;
+
+  if (periodType === 'week') {
+    const last = new Date(start);
+    last.setUTCDate(last.getUTCDate() + 6);
+    const to = last.toISOString().slice(0, 10);
+    return { from, to, label: `Semaine suivante (${shortDateFr(from)} - ${shortDateFr(to)})` };
+  }
+  if (periodType === 'month') {
+    return {
+      from,
+      to: lastDayOfMonthIso(year, month),
+      label: `Mois suivant (${monthLabelFr(year, month)})`,
+    };
+  }
+  if (periodType === 'quarter') {
+    const quarter = Math.ceil(month / 3);
+    return {
+      from,
+      to: lastDayOfMonthIso(year, quarter * 3),
+      label: `Trimestre suivant (T${quarter} ${year})`,
+    };
+  }
+  return { from, to: `${year}-12-31`, label: `Année suivante (${year})` };
+}
+
 export function getDefaultPeriodValue(periodType: ReportPeriodType): string {
   const now = new Date();
   const year = now.getFullYear();

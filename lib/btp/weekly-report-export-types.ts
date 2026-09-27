@@ -161,3 +161,16 @@ export function sectionsForExport(sections: ReportSection[]): ReportSection[] {
 export function displayOrgName(orgName?: string | null): string {
   return orgName?.trim() || 'Organisation';
 }
+
+/** Date de génération lisible (« 27 septembre 2026 à 13:21 »), même si on reçoit un ISO. */
+export function formatReportGeneratedAt(value?: string | null): string {
+  const raw = value?.trim();
+  const date = !raw ? new Date() : /^\d{4}-\d{2}-\d{2}T/.test(raw) ? new Date(raw) : null;
+  if (!date) return raw ?? '';
+  if (Number.isNaN(date.getTime())) return raw ?? '';
+  return date.toLocaleString('fr-FR', {
+    dateStyle: 'long',
+    timeStyle: 'short',
+    timeZone: 'Africa/Conakry',
+  });
+}

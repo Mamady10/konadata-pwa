@@ -13,7 +13,11 @@ import type {
 import { UPCOMING_EVENT_LABELS } from '@/lib/btp/weekly-report-export-types';
 import { loadOrgLogoForReport, loadSitePhotosForReport } from '@/lib/btp/weekly-report-media';
 import type { ResolvedPlanningRef } from '@/lib/btp/planning-ref';
-import { resolveReportPeriod, type ReportPeriodType } from '@/lib/btp/report-period';
+import {
+  nextReportPeriodRange,
+  resolveReportPeriod,
+  type ReportPeriodType,
+} from '@/lib/btp/report-period';
 import {
   buildWeeklyComparisonMetrics,
   mapSiteRowToBaseline,
@@ -26,29 +30,20 @@ import type {
 import { kpiStatusLabel } from '@/lib/btp/site-baseline';
 import { sumLaborEntryAmount, type ExpenseCategory } from '@/lib/btp/site-financial';
 import { mapPlanningRefRow, resolvePlanningRef } from '@/lib/btp/planning-ref';
-import { addDaysIso, parseTaskProgress, plannedTaskPctAt } from '@/lib/btp/planning-tasks';
+import { parseTaskProgress, plannedTaskPctAt } from '@/lib/btp/planning-tasks';
 
-const MAX_UPCOMING_TASKS = 12;
+const MAX_UPCOMING_TASKS = 20;
 
-function formatShortDate(iso: string): string {
-  return new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-  });
-}
-
-/** Tâches (ou jalons) actives sur la période qui suit le rapport. */
+/** Tâches (ou jalons) actives sur la période suivante : semaine, mois, trimestre ou année. */
 function buildUpcoming(params: {
   resolvedRef: ResolvedPlanningRef;
   periodType: ReportPeriodType;
   periodTo: string;
   lastTaskPct: Record<string, number>;
 }): WeeklyReportUpcoming | null {
-  const days = params.periodType === 'week' ? 7 : 30;
-  const from = addDaysIso(params.periodTo, 1);
-  const to = addDaysIso(params.periodTo, days);
-  if (!from || !to) return null;
-  const label = `${params.periodType === 'week' ? 'Semaine suivante' : `${days} prochains jours`} (${formatShortDate(from)} - ${formatShortDate(to)})`;
+  const next = nextReportPeriodRange(params.periodType, params.periodTo);
+  if (!next) return null;
+  const { from, to, label } = next;
 
   const tasks: WeeklyReportUpcomingTask[] = [];
   const schedule = params.resolvedRef.scheduleTasks ?? [];
@@ -254,7 +249,9 @@ export async function compileBtpWeeklySiteReport(
       .order('delivery_date', { ascending: true }),
     supabase
       .from('btp_site_documents')
-      .select('doc_type, created_at, documents(file_name, file_path, mime_type, created_at)')
+      .select(
+        'doc_type, created_at, documents(file_name, file_path, mime_type, created_at, extracted_data)'
+      )
       .eq('organization_id', input.orgId)
       .eq('site_id', input.siteId),
     supabase
@@ -316,22 +313,30 @@ export async function compileBtpWeeklySiteReport(
     return d ? dateInRange(d.slice(0, 10), from, to) : false;
   });
 
+  type SiteDocJoin = {
+    file_name?: string;
+    file_path?: string;
+    mime_type?: string;
+    created_at?: string;
+    extracted_data?: { photo_date?: unknown } | null;
+  } | null;
+  /** Date de prise de vue saisie à l'envoi (photo_date), sinon date d'envoi. */
+  const siteDocDate = (row: { documents: unknown; created_at: unknown }): string | null => {
+    const doc = row.documents as SiteDocJoin;
+    const photoDate = doc?.extracted_data?.photo_date;
+    if (typeof photoDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(photoDate)) return photoDate;
+    return doc?.created_at ?? (row.created_at as string | null) ?? null;
+  };
+
   const hseDocs = (docsRes.error ? [] : docsRes.data ?? []).filter((row) => {
-    const doc = row.documents as { created_at?: string } | null;
-    const created = doc?.created_at ?? (row.created_at as string);
-    if (!created) return false;
-    if (!timestampInRange(created, from, to)) return false;
+    const docDate = siteDocDate(row);
+    if (!docDate || !timestampInRange(docDate, from, to)) return false;
     const t = (row.doc_type as string) || '';
     return t === 'safety_sheet' || t === 'site_photo';
   });
 
   const photoSources = hseDocs.flatMap((row) => {
-    const doc = row.documents as {
-      file_name?: string;
-      file_path?: string;
-      mime_type?: string;
-      created_at?: string;
-    } | null;
+    const doc = row.documents as SiteDocJoin;
     if (row.doc_type !== 'site_photo' || !doc?.file_path) return [];
     const isImage =
       (doc.mime_type ?? '').startsWith('image/') || /\.(jpe?g|png|webp)$/i.test(doc.file_path);
@@ -340,7 +345,7 @@ export async function compileBtpWeeklySiteReport(
       {
         filePath: doc.file_path,
         fileName: doc.file_name ?? 'photo',
-        createdAt: doc.created_at ?? (row.created_at as string),
+        createdAt: siteDocDate(row) ?? '',
       },
     ];
   });
@@ -420,7 +425,9 @@ export async function compileBtpWeeklySiteReport(
     if (entry.date > to) continue;
     for (const t of entry.tasks) lastTaskPct[t.uid] = t.pct;
   }
-  const upcoming = buildUpcoming({ resolvedRef, periodType, periodTo: to, lastTaskPct });
+  const upcoming = input.customPeriodFrom
+    ? null
+    : buildUpcoming({ resolvedRef, periodType, periodTo: to, lastTaskPct });
 
   const spent = comparison.budgetConsumedCumulative;
   const financialPct =

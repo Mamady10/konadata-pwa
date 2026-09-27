@@ -353,6 +353,9 @@ export async function uploadBtpSiteDocument(formData: FormData) {
   const file = formData.get('file') as File;
   if (!file) return { error: 'Fichier requis' };
 
+  const rawPhotoDate = (formData.get('photo_date') as string | null)?.trim() ?? '';
+  const photoDate = /^\d{4}-\d{2}-\d{2}$/.test(rawPhotoDate) ? rawPhotoDate : null;
+
   const filePath = `${orgId}/${Date.now()}_${file.name}`;
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
@@ -385,6 +388,7 @@ export async function uploadBtpSiteDocument(formData: FormData) {
         document_type_label: typeDef.label,
         site_id: siteId,
         original_name: file.name,
+        ...(photoDate ? { photo_date: photoDate } : {}),
       },
     })
     .select()
