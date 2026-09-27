@@ -25,7 +25,7 @@ export function sanitizePdfText(text: string): string {
     .replace(/[\u2013\u2014]/g, '-')
     .replace(/\u2022/g, '-')
     .replace(/\u26a0\ufe0f?/g, '!')
-    .replace(/[^\x09\x0A\x0D\x20-\x7E\u00C0-\u024F]/g, ' ')
+    .replace(/[^\x09\x0A\x0D\x20-\x7E\u00A1-\u024F]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }

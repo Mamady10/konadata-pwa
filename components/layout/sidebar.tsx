@@ -46,6 +46,7 @@ import {
   Package,
   Wallet,
   UserCircle,
+  Calculator,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -129,6 +130,7 @@ const sectorNav: Record<Exclude<Sector, "global">, NavItem[]> = {
   btp: [
     { label: "Dashboard", href: "/btp", icon: LayoutDashboard },
     { label: "Chantiers", href: "/btp/chantiers", icon: HardHat },
+    { label: "Devis", href: "/btp/devis", icon: Calculator },
     { label: "Personnel", href: "/btp/personnel", icon: Users },
     { label: "Matériels", href: "/btp/materiels", icon: Truck },
     { label: "Carburant", href: "/btp/carburant", icon: Fuel },
@@ -266,7 +268,8 @@ function filterGlobalNav(role: AppRole | undefined, assistantNavVisible: boolean
 function filterSectorNav(
   role: AppRole | string | undefined,
   sector: Exclude<Sector, 'global'>,
-  items: NavItem[]
+  items: NavItem[],
+  btpQuoteAccess: boolean
 ): NavItem[] {
   if (sector === 'etablissement') {
     return filterEtablissementNav(role, items);
@@ -275,7 +278,7 @@ function filterSectorNav(
     return filterOngNav(role, items);
   }
   if (sector === 'btp') {
-    return filterBtpNav(role, items);
+    return filterBtpNav(role, items, { quoteAccess: btpQuoteAccess });
   }
   if (sector === 'pme') {
     return filterPmeNav(role, items);
@@ -285,7 +288,14 @@ function filterSectorNav(
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { sidebarOpen, setSidebarOpen, sector: userSector, user, assistantNavVisible } = useApp();
+  const {
+    sidebarOpen,
+    setSidebarOpen,
+    sector: userSector,
+    user,
+    assistantNavVisible,
+    btpQuoteAccess,
+  } = useApp();
 
   const routeSector = pathSector(pathname);
   const effectiveSector =
@@ -297,7 +307,7 @@ export function Sidebar() {
   const isDirector = isDirectorRole(user?.role);
 
   const mainNav = isSectorContext
-    ? filterSectorNav(user?.role, effectiveSector, sectorNav[effectiveSector])
+    ? filterSectorNav(user?.role, effectiveSector, sectorNav[effectiveSector], btpQuoteAccess)
     : filterGlobalNav(user?.role, assistantNavVisible);
 
   const toolNav = resolveToolNav(

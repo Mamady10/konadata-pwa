@@ -12,6 +12,7 @@ export interface DashboardInitialProfile {
   role: AppRole;
   organization: Organization | null;
   assistantNavVisible?: boolean;
+  btpQuoteAccess?: boolean;
 }
 
 export function DashboardShell({

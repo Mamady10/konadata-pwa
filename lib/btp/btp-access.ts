@@ -11,11 +11,13 @@ export type BtpPage =
   | 'avancement'
   | 'documents'
   | 'rapports'
-  | 'assignations';
+  | 'assignations'
+  | 'devis';
 
 const PATH_BY_PAGE: Record<BtpPage, string> = {
   dashboard: '/btp',
   chantiers: '/btp/chantiers',
+  devis: '/btp/devis',
   personnel: '/btp/personnel',
   materiels: '/btp/materiels',
   carburant: '/btp/carburant',
@@ -37,10 +39,12 @@ const DIRECTOR_ROLES = new Set<AppRole>([
  * Rôles BTP :
  * - Directeurs (org_admin, deputy_director…) : accès complet dont Finances et Personnel
  * - btp_staff (chef de chantier, etc.) : terrain uniquement — PAS Finances ni Personnel
+ * - Devis : la page vérifie l'accès délégué par le directeur (btp_quote_access)
  */
 const BTP_STAFF_HREFS = new Set([
   PATH_BY_PAGE.dashboard,
   PATH_BY_PAGE.chantiers,
+  PATH_BY_PAGE.devis,
   PATH_BY_PAGE.documents,
   PATH_BY_PAGE.avancement,
   PATH_BY_PAGE.carburant,
@@ -103,9 +107,13 @@ export function getBtpFallbackPath(role: AppRole | string | undefined): string {
 
 export function filterBtpNav<T extends { href: string; label: string }>(
   role: AppRole | string | undefined,
-  items: T[]
+  items: T[],
+  options: { quoteAccess?: boolean } = {}
 ): T[] {
   const allowed = getAllowedBtpHrefs(role);
   if (allowed === null) return items;
-  return items.filter((item) => allowed.has(item.href));
+  return items.filter(
+    (item) =>
+      allowed.has(item.href) && (item.href !== PATH_BY_PAGE.devis || options.quoteAccess === true)
+  );
 }

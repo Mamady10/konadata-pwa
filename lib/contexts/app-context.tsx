@@ -14,6 +14,8 @@ interface AppContextType {
   setOrganization: (org: Organization) => void;
   /** Directeur + offre IA active (ou CEO). */
   assistantNavVisible: boolean;
+  /** Chef de chantier autorisé par le directeur à gérer les devis. */
+  btpQuoteAccess: boolean;
   darkMode: boolean;
   toggleDarkMode: () => void;
   sidebarOpen: boolean;
@@ -31,6 +33,7 @@ export interface AppProviderInitialProfile {
   role: AppRole;
   organization: Organization | null;
   assistantNavVisible?: boolean;
+  btpQuoteAccess?: boolean;
 }
 
 function profileToAppUser(profile: AppProviderInitialProfile): AppUser {
@@ -70,6 +73,7 @@ export function AppProvider({
   const [assistantNavVisible, setAssistantNavVisible] = useState(
     () => initialProfile?.assistantNavVisible ?? false
   );
+  const btpQuoteAccess = initialProfile?.btpQuoteAccess ?? false;
   const [loading, setLoading] = useState(!initialProfile);
 
   const refreshUser = useCallback(async () => {
@@ -186,6 +190,7 @@ export function AppProvider({
         organizations,
         setOrganization,
         assistantNavVisible,
+        btpQuoteAccess,
         darkMode,
         toggleDarkMode,
         sidebarOpen,
