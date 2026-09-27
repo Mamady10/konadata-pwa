@@ -237,17 +237,23 @@ export function AvancementClient({
                     return (
                       <div
                         key={t.uid}
-                        className="grid grid-cols-[1fr_70px_90px_110px] gap-2 items-center text-sm"
+                        className="grid grid-cols-[1fr_1fr_110px] sm:grid-cols-[1fr_70px_90px_110px] gap-x-2 gap-y-1 items-center text-sm border-b last:border-0 pb-2 sm:border-0 sm:pb-0"
                       >
-                        <div className="min-w-0">
+                        <div className="min-w-0 col-span-3 sm:col-span-1">
                           <p className="truncate font-medium">{t.name}</p>
                           <p className="text-[11px] text-muted-foreground">
                             {new Date(t.startDate).toLocaleDateString('fr-FR')} →{' '}
                             {new Date(t.finishDate).toLocaleDateString('fr-FR')} · {t.durationDays} j
                           </p>
                         </div>
-                        <span className="tabular-nums text-muted-foreground">{taskWeights[t.uid] ?? 0} %</span>
-                        <span className="tabular-nums text-muted-foreground">{planned} %</span>
+                        <span className="tabular-nums text-muted-foreground">
+                          <span className="sm:hidden text-[11px]">Poids </span>
+                          {taskWeights[t.uid] ?? 0} %
+                        </span>
+                        <span className="tabular-nums text-muted-foreground">
+                          <span className="sm:hidden text-[11px]">Prévu </span>
+                          {planned} %
+                        </span>
                         <Input
                           type="number"
                           min={0}
