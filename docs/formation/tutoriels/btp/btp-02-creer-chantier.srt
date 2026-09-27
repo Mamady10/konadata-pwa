@@ -1,0 +1,27 @@
+1
+00:00:05,300 --> 00:00:08,780
+Chantiers → Ajouter
+
+2
+00:00:09,580 --> 00:00:15,580
+Identification du chantier
+
+3
+00:00:18,410 --> 00:00:23,740
+Dates et budget
+
+4
+00:00:24,540 --> 00:00:28,426
+Le planning par tâches :
+
+5
+00:00:28,426 --> 00:00:32,150
+durée et poids calculés
+
+6
+00:00:39,240 --> 00:00:49,970
+Niveau B : prévisions et répartition du budget
+
+7
+00:00:50,770 --> 00:00:55,830
+Enregistrer le chantier

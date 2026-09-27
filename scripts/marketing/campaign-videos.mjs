@@ -5,7 +5,7 @@
  * Types de scène : hook, logo, sectors, device, mobile, phones, offer, cta.
  */
 
-const CTA_SCENE = {
+export const CTA_SCENE = {
   type: 'cta',
   say: 'Rendez-vous sur kona data G N point com. Kona Data : simple, connecté, local.',
   caption: 'Rendez-vous sur konadatagn.com. KonaData : simple, connecté, local.',

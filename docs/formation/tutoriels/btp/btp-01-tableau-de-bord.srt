@@ -1,0 +1,19 @@
+1
+00:00:05,500 --> 00:00:13,780
+Les indicateurs clés de tous vos chantiers
+
+2
+00:00:14,580 --> 00:00:17,708
+Planifié et réalisé,
+
+3
+00:00:17,708 --> 00:00:20,680
+semaine par semaine
+
+4
+00:00:21,480 --> 00:00:29,330
+KonaAI signale les priorités du jour
+
+5
+00:00:30,130 --> 00:00:37,140
+Chantiers, bons de livraison et alertes carburant

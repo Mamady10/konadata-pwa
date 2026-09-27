@@ -1,0 +1,23 @@
+1
+00:00:06,170 --> 00:00:09,630
+Projets → Ajouter
+
+2
+00:00:10,430 --> 00:00:15,400
+Nom, région et localité
+
+3
+00:00:16,650 --> 00:00:21,260
+Budget et bénéficiaires visés
+
+4
+00:00:22,230 --> 00:00:28,300
+Enregistré : le projet est dans la liste
+
+5
+00:00:29,100 --> 00:00:32,320
+Mettre à jour dépenses,
+
+6
+00:00:32,320 --> 00:00:35,120
+avancement et statut

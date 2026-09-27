@@ -42,6 +42,10 @@ yarn-error.log*
 /docs/marketing/campagne/.work/
 /docs/marketing/campagne/videos/*.mp4
 
+# tutoriels video (regenerer avec node scripts/tutorials/build-tutorials.mjs)
+/docs/formation/tutoriels/.work/
+/docs/formation/tutoriels/**/*.mp4
+
 # PowerPoint temporaire (fichier verrouille Office)
 ~$*.pptx
 ~$*.docx

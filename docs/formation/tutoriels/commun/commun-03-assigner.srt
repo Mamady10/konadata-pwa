@@ -1,0 +1,11 @@
+1
+00:00:04,900 --> 00:00:14,240
+Chantiers, classes ou projets selon votre secteur
+
+2
+00:00:15,040 --> 00:00:17,780
+Cocher le chantier
+
+3
+00:00:18,580 --> 00:00:27,050
+Enregistré : accès immédiat

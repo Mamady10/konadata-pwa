@@ -1,0 +1,19 @@
+1
+00:00:04,990 --> 00:00:11,640
+Bénéficiaires → Ajouter
+
+2
+00:00:12,440 --> 00:00:16,260
+Nom, genre et téléphone
+
+3
+00:00:20,130 --> 00:00:25,720
+Le projet concerné
+
+4
+00:00:26,520 --> 00:00:31,440
+Région, localité et catégorie
+
+5
+00:00:32,270 --> 00:00:37,500
+Enregistrée et rattachée au projet

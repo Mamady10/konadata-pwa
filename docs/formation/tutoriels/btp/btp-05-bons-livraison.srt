@@ -1,0 +1,19 @@
+1
+00:00:06,020 --> 00:00:09,090
+Bons → Nouveau BL
+
+2
+00:00:09,890 --> 00:00:16,060
+Chantier, référence, montant, fournisseur
+
+3
+00:00:21,135 --> 00:00:25,645
+Les lignes reçues
+
+4
+00:00:27,905 --> 00:00:30,085
+Enregistrer en brouillon
+
+5
+00:00:30,885 --> 00:00:38,085
+Valider : le stock est mis à jour

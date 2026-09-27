@@ -1,0 +1,35 @@
+1
+00:00:06,620 --> 00:00:14,350
+Lot → Métré / extrait des matériaux
+
+2
+00:00:15,150 --> 00:00:23,550
+Poteaux : nombre et hauteur
+
+3
+00:00:24,350 --> 00:00:27,180
+Poutres : nombre et portée
+
+4
+00:00:29,925 --> 00:00:34,675
+Murs en agglos : longueur, hauteur, ouvertures
+
+5
+00:00:36,850 --> 00:00:43,127
+L’extrait des matériaux,
+
+6
+00:00:43,127 --> 00:00:47,050
+pertes incluses
+
+7
+00:00:47,850 --> 00:00:51,312
+Reporter dans le devis,
+
+8
+00:00:51,312 --> 00:00:53,870
+prix du catalogue
+
+9
+00:00:54,670 --> 00:01:02,130
+Enregistrer et exporter en PDF

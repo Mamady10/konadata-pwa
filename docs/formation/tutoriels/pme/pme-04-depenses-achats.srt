@@ -1,0 +1,27 @@
+1
+00:00:06,380 --> 00:00:09,570
+Dépenses → Ajouter
+
+2
+00:00:10,370 --> 00:00:19,110
+Catégorie, description et montant
+
+3
+00:00:20,645 --> 00:00:24,365
+Dépense enregistrée
+
+4
+00:00:25,165 --> 00:00:29,985
+Achats → Ajouter
+
+5
+00:00:30,785 --> 00:00:38,465
+Facture, montant, fournisseur, paiement
+
+6
+00:00:41,545 --> 00:00:44,997
+Achat enregistré,
+
+7
+00:00:44,997 --> 00:00:49,465
+en attente de paiement

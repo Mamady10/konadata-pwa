@@ -1,0 +1,27 @@
+1
+00:00:06,480 --> 00:00:15,190
+Rapports → Analyse financière
+
+2
+00:00:15,990 --> 00:00:24,800
+Boutique et période
+
+3
+00:00:25,600 --> 00:00:32,420
+Entrées, dépenses et reste
+
+4
+00:00:33,220 --> 00:00:36,955
+Tableaux et graphiques,
+
+5
+00:00:36,955 --> 00:00:40,040
+semaine par semaine
+
+6
+00:00:40,840 --> 00:00:43,975
+Le rapport PDF,
+
+7
+00:00:43,975 --> 00:00:47,320
+prêt à présenter

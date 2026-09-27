@@ -1,0 +1,15 @@
+1
+00:00:05,210 --> 00:00:12,530
+Les indicateurs clés de votre commerce
+
+2
+00:00:13,330 --> 00:00:20,720
+Les recommandations IA du jour
+
+3
+00:00:21,520 --> 00:00:27,740
+Dernières ventes et dépenses récentes
+
+4
+00:00:28,540 --> 00:00:34,710
+Stock bas et créances clients

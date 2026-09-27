@@ -10,14 +10,10 @@
  * Musique : placez un fichier libre de droits dans docs/marketing/campagne/musique.mp3
  *           (sinon une nappe discrète est générée).
  */
-import { spawn, spawnSync } from 'child_process';
-import { once } from 'events';
-import { createHash } from 'crypto';
 import { mkdir, writeFile } from 'fs/promises';
-import { existsSync } from 'fs';
 import path from 'path';
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
-import { EdgeTTS } from 'node-edge-tts';
+import { pathToFileURL } from 'url';
+import { buildAudio, captionTimeline, renderHtmlVideo, toSrt, voiceClip } from './video-kit.mjs';
 import { ACCENTS, CONTACT, SECTOR_LABELS } from './campaign-content.mjs';
 import { VIDEOS } from './campaign-videos.mjs';
 import {
@@ -39,18 +35,13 @@ import {
   url,
 } from './campaign-html.mjs';
 
-const FFMPEG = ffmpegInstaller.path;
 const OUT = path.join(CAMPAIGN, 'videos');
 const VWORK = path.join(WORK, 'video');
-const MUSIC_FILE = path.join(CAMPAIGN, 'musique.mp3');
-const VOICE = process.env.CAMPAIGN_TTS_VOICE || 'fr-FR-DeniseNeural';
-const MUSIC_VOL = Number(process.env.CAMPAIGN_MUSIC_VOLUME || '0.10');
 
-const FPS = 30;
-const XF = 0.4; // fondu enchaîné entre scènes (s)
+export const XF = 0.4; // fondu enchaîné entre scènes (s)
 const LEAD = 0.25; // silence avant la voix dans chaque scène (s)
 
-const VFORMATS = {
+export const VFORMATS = {
   '9x16': { W: 1080, H: 1920, V: true },
   '16x9': { W: 1920, H: 1080, V: false },
 };
@@ -59,155 +50,9 @@ const arg = (name) => process.argv.find((a) => a.startsWith(`--${name}=`))?.spli
 const ONLY = arg('only')?.split(',');
 const ONLY_FORMAT = arg('format');
 
-// ---------------------------------------------------------------- audio
-function ff(args, label) {
-  const r = spawnSync(FFMPEG, ['-hide_banner', '-loglevel', 'error', ...args], {
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  if (r.status !== 0) throw new Error(`ffmpeg ${label}: ${r.stderr?.slice(-800)}`);
-}
-
-function durationSec(file) {
-  const r = spawnSync(FFMPEG, ['-hide_banner', '-i', file, '-f', 'null', '-'], { encoding: 'utf8' });
-  const m = (r.stderr || '').match(/Duration:\s*(\d+):(\d+):(\d+\.\d+)/);
-  return m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : null;
-}
-
-async function voiceClip(text) {
-  const key = createHash('md5').update(`${VOICE}|${text}`).digest('hex').slice(0, 16);
-  const mp3 = path.join(VWORK, 'tts', `${key}.mp3`);
-  const wav = path.join(VWORK, 'tts', `${key}.wav`);
-  if (!existsSync(wav)) {
-    await mkdir(path.dirname(mp3), { recursive: true });
-    const tts = new EdgeTTS({
-      voice: VOICE,
-      lang: 'fr-FR',
-      outputFormat: 'audio-24khz-96kbitrate-mono-mp3',
-      rate: '+2%',
-      timeout: 120000,
-    });
-    await tts.ttsPromise(text, mp3);
-    ff(
-      [
-        '-i', mp3,
-        '-af', 'highpass=f=90,lowpass=f=10000,acompressor=threshold=-20dB:ratio=2.5:attack=15:release=120,alimiter=limit=0.95',
-        '-ar', '44100', '-ac', '1', '-y', wav,
-      ],
-      'voix'
-    );
-  }
-  return { wav, dur: durationSec(wav) ?? 3 };
-}
-
-function buildMusic(total, out) {
-  const fadeOut = Math.max(0, total - 3);
-  if (existsSync(MUSIC_FILE)) {
-    ff(
-      [
-        '-stream_loop', '-1', '-i', MUSIC_FILE, '-t', String(total),
-        '-af', `afade=t=in:st=0:d=1.5,afade=t=out:st=${fadeOut}:d=3,volume=${MUSIC_VOL * 2.2}`,
-        '-ar', '44100', '-ac', '1', '-y', out,
-      ],
-      'musique'
-    );
-    return;
-  }
-  const notes = [130.81, 196.0, 261.63, 329.63, 392.0];
-  const inputs = notes.flatMap((fq) => ['-f', 'lavfi', '-i', `sine=frequency=${fq}:duration=${total}`]);
-  const mix = notes.map((_, i) => `[${i}:a]volume=${[0.5, 0.35, 0.3, 0.22, 0.16][i]},tremolo=f=${0.1 + i * 0.05}:d=0.35[n${i}]`);
-  ff(
-    [
-      ...inputs,
-      '-filter_complex',
-      `${mix.join(';')};${notes.map((_, i) => `[n${i}]`).join('')}amix=inputs=${notes.length}:duration=longest,` +
-        `aecho=0.7:0.5:900|1400:0.25|0.18,lowpass=f=2200,highpass=f=70,` +
-        `afade=t=in:st=0:d=2,afade=t=out:st=${fadeOut}:d=3,volume=${MUSIC_VOL * 4}`,
-      '-t', String(total), '-ar', '44100', '-ac', '1', '-y', out,
-    ],
-    'nappe'
-  );
-}
-
-async function buildAudio(video, clips, durs, total) {
-  const dir = path.join(VWORK, video.id);
-  await mkdir(dir, { recursive: true });
-  const padded = [];
-  for (const [i, c] of clips.entries()) {
-    const out = path.join(dir, `voice-${i}.wav`);
-    ff(
-      ['-i', c.wav, '-af', `adelay=${Math.round(LEAD * 1000)},apad,atrim=0:${durs[i].toFixed(3)}`, '-ar', '44100', '-ac', '1', '-y', out],
-      'pad'
-    );
-    padded.push(out);
-  }
-  const list = path.join(dir, 'voices.txt');
-  await writeFile(list, padded.map((p) => `file '${p.replace(/\\/g, '/')}'`).join('\n'));
-  const voice = path.join(dir, 'voice.wav');
-  ff(['-f', 'concat', '-safe', '0', '-i', list, '-ar', '44100', '-ac', '1', '-y', voice], 'concat');
-  const music = path.join(dir, 'music.wav');
-  buildMusic(total, music);
-  const mixed = path.join(dir, 'audio.m4a');
-  ff(
-    [
-      '-i', voice, '-i', music,
-      '-filter_complex', '[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=0,volume=2,alimiter=limit=0.97[a]',
-      '-map', '[a]', '-t', total.toFixed(3), '-c:a', 'aac', '-b:a', '160k', '-y', mixed,
-    ],
-    'mixage'
-  );
-  return mixed;
-}
-
-// ---------------------------------------------------------------- sous-titres
-function splitCaption(text, maxLen) {
-  const parts = text.split(/(?<=[,.:;?!])\s+/);
-  const chunks = [];
-  for (const part of parts) {
-    const words = part.split(/\s+/);
-    let cur = '';
-    for (const w of words) {
-      if ((cur + ' ' + w).trim().length > maxLen && cur) {
-        chunks.push(cur.trim());
-        cur = w;
-      } else cur = `${cur} ${w}`;
-    }
-    if (cur.trim()) chunks.push(cur.trim());
-  }
-  const merged = [];
-  for (const c of chunks) {
-    const prev = merged[merged.length - 1];
-    if (prev && (prev.length < 14 || c.length < 14) && prev.length + c.length + 1 <= maxLen + 8) {
-      merged[merged.length - 1] = `${prev} ${c}`;
-    } else merged.push(c);
-  }
-  return merged;
-}
-
-function captionTimeline(scenes, starts, clips, maxLen) {
-  const cues = [];
-  scenes.forEach((sc, i) => {
-    const chunks = splitCaption(sc.caption, maxLen);
-    const total = chunks.reduce((n, c) => n + c.length, 0);
-    let t = starts[i] + LEAD;
-    for (const c of chunks) {
-      const d = (clips[i].dur * c.length) / total;
-      cues.push({ text: c, start: t, end: t + d });
-      t += d;
-    }
-  });
-  return cues;
-}
-
-function srtTime(sec) {
-  const ms = Math.round(sec * 1000);
-  const p = (n, l = 2) => String(n).padStart(l, '0');
-  return `${p(Math.floor(ms / 3600000))}:${p(Math.floor(ms / 60000) % 60)}:${p(Math.floor(ms / 1000) % 60)},${p(ms % 1000, 3)}`;
-}
-
 // ---------------------------------------------------------------- scènes
 const EASE = 'cubic-bezier(.2,.8,.2,1)';
-const A = (name, delay, dur, ease = EASE, fill = 'both') => `${name} ${dur}s ${ease} ${Math.max(0, delay).toFixed(3)}s ${fill}`;
+export const A = (name, delay, dur, ease = EASE, fill = 'both') => `${name} ${dur}s ${ease} ${Math.max(0, delay).toFixed(3)}s ${fill}`;
 
 const VIDEO_CSS = `
 @keyframes fade{from{opacity:0}to{opacity:1}}
@@ -229,7 +74,7 @@ const VIDEO_CSS = `
 function sceneHook(sc, s, d, f) {
   const V = f.V;
   return `
-    <div class="abs" style="inset:0;overflow:hidden"><img class="abs" src="${photo(sc.photo)}" style="inset:0;width:100%;height:100%;object-fit:cover;object-position:${V ? '62% 30%' : '72% 35%'};animation:${A('kb', s - XF, d + XF, 'linear')}"></div>
+    <div class="abs" style="inset:0;overflow:hidden"><img class="abs" src="${sc.photoUrl ?? photo(sc.photo)}" style="inset:0;width:100%;height:100%;object-fit:cover;object-position:${sc.pos?.[V ? 0 : 1] ?? (V ? '62% 30%' : '72% 35%')};animation:${A('kb', s - XF, d + XF, 'linear')}"></div>
     <div class="abs" style="inset:0;background:${
       V
         ? 'linear-gradient(180deg,rgba(10,25,47,.45) 0%,rgba(10,25,47,0) 22%,rgba(10,25,47,.15) 42%,rgba(10,25,47,.94) 66%,#0A192F 100%)'
@@ -241,7 +86,7 @@ function sceneHook(sc, s, d, f) {
     </div>`;
 }
 
-const kickerHtml = (t) => `<div class="kicker"><i></i>${esc(t)}</div>`;
+export const kickerHtml = (t) => `<div class="kicker"><i></i>${esc(t)}</div>`;
 
 function sceneLogo(sc, s, d, f) {
   const V = f.V;
@@ -272,7 +117,7 @@ function sceneSectors(sc, s, d, f) {
     </div>`;
 }
 
-function bulletsAnim(items, s, off, step) {
+export function bulletsAnim(items, s, off, step) {
   return `<ul class="bul">${items
     .map((b, i) => `<li style="animation:${A('up', s + off + i * step, 0.6)}">${icon('check')}<span>${esc(b)}</span></li>`)
     .join('')}</ul>`;
@@ -376,7 +221,8 @@ function sceneCta(sc, s, d, f) {
     <div class="col" style="gap:40px">${texts}</div>${qr}</div>`;
 }
 
-const SCENES = {
+/** Types de scène disponibles (extensibles par d'autres scripts vidéo). */
+export const SCENES = {
   hook: sceneHook,
   logo: sceneLogo,
   sectors: sceneSectors,
@@ -387,7 +233,7 @@ const SCENES = {
   cta: sceneCta,
 };
 
-function buildHtml(video, f, starts, durs, cues) {
+function buildHtml(video, f, starts, durs, cues, extraCss = '') {
   const [a1, a2] = ACCENTS[video.accent];
   const n = video.scenes.length;
   const scenes = video.scenes
@@ -410,69 +256,25 @@ function buildHtml(video, f, starts, durs, cues) {
         `<div class="cap" style="${f.V ? 'bottom:150px;padding:0 70px' : 'bottom:60px;padding:0 200px'};font-size:${f.V ? 44 : 40}px;animation:${A('fade', c.start, 0.12, 'linear')},${A('hide', c.end, 0.001, 'linear', 'forwards')}"><span>${esc(c.text)}</span></div>`
     )
     .join('\n');
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>${CSS}${VIDEO_CSS}
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>${CSS}${VIDEO_CSS}${extraCss}
 :root{--a1:${a1};--a2:${a2}}
 *{animation-play-state:paused!important}</style></head><body>
 <div class="cv" style="width:${f.W}px;height:${f.H}px">${scenes}${caps}</div></body></html>`;
 }
 
-// ---------------------------------------------------------------- rendu
-async function renderVideo(browser, html, f, total, audio, out) {
-  const htmlFile = path.join(VWORK, path.basename(out).replace(/\.mp4$/, '.html'));
-  await writeFile(htmlFile, html, 'utf8');
-  const ctx = await browser.newContext({ viewport: { width: f.W, height: f.H }, deviceScaleFactor: 1 });
-  const page = await ctx.newPage();
-  await page.goto(url(htmlFile), { waitUntil: 'load' });
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-    await Promise.all(Array.from(document.images).map((i) => (i.decode ? i.decode().catch(() => {}) : null)));
-    window.__anims = document.getAnimations();
-    window.__anims.forEach((a) => a.pause());
-    window.__seek = (t) => {
-      for (const a of window.__anims) a.currentTime = t;
-    };
-  });
-
-  const frames = Math.ceil(total * FPS);
-  const enc = spawn(
-    FFMPEG,
-    [
-      '-hide_banner', '-loglevel', 'error',
-      '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
-      '-i', audio,
-      '-map', '0:v', '-map', '1:a',
-      '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-pix_fmt', 'yuv420p', '-r', String(FPS),
-      '-c:a', 'copy', '-shortest', '-movflags', '+faststart', '-y', out,
-    ],
-    { stdio: ['pipe', 'inherit', 'inherit'] }
-  );
-  const done = once(enc, 'close');
-  const t0 = Date.now();
-  for (let i = 0; i < frames; i++) {
-    await page.evaluate((t) => window.__seek(t), (i / FPS) * 1000);
-    const buf = await page.screenshot({ type: 'jpeg', quality: 90 });
-    if (!enc.stdin.write(buf)) await once(enc.stdin, 'drain');
-    if (i % (FPS * 5) === 0) process.stdout.write(`    ${Math.round((i / frames) * 100)} %\r`);
-  }
-  enc.stdin.end();
-  const [code] = await done;
-  await ctx.close();
-  if (code !== 0) throw new Error(`encodage ${path.basename(out)} (code ${code})`);
-  console.log(`  ✓ ${path.basename(out)} — ${total.toFixed(1)} s, rendu en ${Math.round((Date.now() - t0) / 1000)} s`);
-}
-
-async function main() {
-  await mkdir(OUT, { recursive: true });
+/** Rend une liste de vidéos (voix, musique, sous-titres) dans `outDir`, aux formats 9:16 et 16:9. */
+export async function renderVideos(videos, { outDir = OUT, only = ONLY, onlyFormat = ONLY_FORMAT, css = '' } = {}) {
+  await mkdir(outDir, { recursive: true });
   await mkdir(VWORK, { recursive: true });
   await prepareBrandAssets();
   QR = await qrSvg();
   const browser = await launchBrowser();
 
-  for (const video of VIDEOS) {
-    if (ONLY && !ONLY.includes(video.id)) continue;
+  for (const video of videos) {
+    if (only && !only.includes(video.id)) continue;
     console.log(`\n🎬 ${video.id}`);
     const clips = [];
-    for (const sc of video.scenes) clips.push(await voiceClip(sc.say));
+    for (const sc of video.scenes) clips.push(await voiceClip(sc.say, path.join(VWORK, 'tts')));
     const durs = video.scenes.map((sc, i) => Math.max(sc.type === 'cta' ? 5 : 2.8, LEAD + clips[i].dur + 0.7));
     const starts = [];
     let total = 0;
@@ -480,30 +282,35 @@ async function main() {
       starts.push(total);
       total += d;
     }
-    const audio = await buildAudio(video, clips, durs, total);
+    const audio = await buildAudio(path.join(VWORK, video.id), clips, durs, { lead: LEAD });
 
     for (const [fk, f] of Object.entries(VFORMATS)) {
-      if (ONLY_FORMAT && ONLY_FORMAT !== fk) continue;
-      const cues = captionTimeline(video.scenes, starts, clips, f.V ? 34 : 64);
-      const html = buildHtml(video, f, starts, durs, cues);
-      const out = path.join(OUT, `${video.id}-${fk}.mp4`);
-      await renderVideo(browser, html, f, total, audio, out);
-      await writeFile(
-        out.replace(/\.mp4$/, '.srt'),
-        cues.map((c, i) => `${i + 1}\n${srtTime(c.start)} --> ${srtTime(c.end)}\n${c.text}\n`).join('\n'),
-        'utf8'
-      );
+      if (onlyFormat && onlyFormat !== fk) continue;
+      const cues = captionTimeline(video.scenes.map((sc) => sc.caption), starts, clips, f.V ? 34 : 64, LEAD);
+      const out = path.join(outDir, `${video.id}-${fk}.mp4`);
+      await renderHtmlVideo(browser, {
+        html: buildHtml(video, f, starts, durs, cues, css),
+        htmlFile: path.join(VWORK, `${video.id}-${fk}.html`),
+        W: f.W,
+        H: f.H,
+        total,
+        audio,
+        out,
+      });
+      await writeFile(out.replace(/\.mp4$/, '.srt'), toSrt(cues), 'utf8');
     }
   }
 
   await Promise.race([browser.close(), new Promise((r) => setTimeout(r, 5000))]);
-  console.log('\n✅ Vidéos :', OUT);
+  console.log('\n✅ Vidéos :', outDir);
 }
 
-main().then(
-  () => process.exit(0),
-  (e) => {
-    console.error('❌', e);
-    process.exit(1);
-  }
-);
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  renderVideos(VIDEOS).then(
+    () => process.exit(0),
+    (e) => {
+      console.error('❌', e);
+      process.exit(1);
+    }
+  );
+}

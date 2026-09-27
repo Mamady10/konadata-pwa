@@ -1,0 +1,23 @@
+1
+00:00:05,470 --> 00:00:10,990
+Utilisateurs → Codes d’accès
+
+2
+00:00:11,790 --> 00:00:16,760
+Rôle, e-mail et libellé
+
+3
+00:00:20,040 --> 00:00:25,560
+Générer le code
+
+4
+00:00:26,360 --> 00:00:31,780
+Copiez le code et envoyez-le
+
+5
+00:00:32,580 --> 00:00:41,680
+Le collaborateur rejoint avec le code
+
+6
+00:00:42,480 --> 00:00:49,850
+Membres : bloquer ou réactiver un accès

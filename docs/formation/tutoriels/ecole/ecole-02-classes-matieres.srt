@@ -1,0 +1,23 @@
+1
+00:00:06,070 --> 00:00:12,020
+Formations : classes, matières, enseignants
+
+2
+00:00:12,820 --> 00:00:22,490
+Palier, nom et niveau
+
+3
+00:00:23,290 --> 00:00:27,850
+Filière et frais de scolarité
+
+4
+00:00:28,650 --> 00:00:36,090
+La classe est créée
+
+5
+00:00:36,890 --> 00:00:44,040
+Matières : une par palier
+
+6
+00:00:45,160 --> 00:00:50,800
+Prête pour les notes et les bulletins

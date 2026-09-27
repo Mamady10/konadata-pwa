@@ -1,0 +1,23 @@
+1
+00:00:04,820 --> 00:00:09,463
+Résultats → Grille :
+
+2
+00:00:09,463 --> 00:00:13,410
+matière et classe
+
+3
+00:00:14,210 --> 00:00:20,380
+Type d’évaluation et trimestre
+
+4
+00:00:21,180 --> 00:00:26,720
+Barème sur 20, coefficient 2
+
+5
+00:00:27,520 --> 00:00:33,470
+Une note par élève
+
+6
+00:00:36,575 --> 00:00:41,995
+Notes enregistrées

@@ -1,0 +1,31 @@
+1
+00:00:05,660 --> 00:00:12,360
+Total crédité, encaissé, restant dû
+
+2
+00:00:13,160 --> 00:00:16,045
+Nouvelle dette :
+
+3
+00:00:16,045 --> 00:00:18,750
+client et motif
+
+4
+00:00:19,860 --> 00:00:25,430
+Montant dû et échéance
+
+5
+00:00:27,075 --> 00:00:30,125
+Nouvelle dette : « À payer »
+
+6
+00:00:30,925 --> 00:00:36,395
+Saisir un paiement reçu
+
+7
+00:00:37,195 --> 00:00:40,726
+Remboursement partiel :
+
+8
+00:00:40,726 --> 00:00:43,335
+badge « Partiel »

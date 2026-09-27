@@ -1,0 +1,19 @@
+1
+00:00:06,770 --> 00:00:15,270
+Rapports → Rapport IA
+
+2
+00:00:16,070 --> 00:00:23,010
+Projet et type de rapport
+
+3
+00:00:23,810 --> 00:00:29,640
+Générer et archiver
+
+4
+00:00:30,440 --> 00:00:35,960
+Archivé dans l’historique
+
+5
+00:00:36,760 --> 00:00:41,970
+Le rapport en PDF

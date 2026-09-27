@@ -1,0 +1,19 @@
+1
+00:00:07,150 --> 00:00:10,440
+Stocks → Nouvel article
+
+2
+00:00:11,240 --> 00:00:17,100
+Nom, boutique, code, unité et prix
+
+3
+00:00:21,090 --> 00:00:28,290
+Quantité en stock et seuil d’alerte
+
+4
+00:00:29,090 --> 00:00:34,970
+Badge « Stock bas » sous le seuil
+
+5
+00:00:35,770 --> 00:00:43,020
+L’alerte remonte au tableau de bord

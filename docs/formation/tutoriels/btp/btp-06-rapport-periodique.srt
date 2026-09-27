@@ -1,0 +1,35 @@
+1
+00:00:06,600 --> 00:00:13,990
+Rapports → Rapport périodique chantier
+
+2
+00:00:14,790 --> 00:00:20,120
+Chantier et période
+
+3
+00:00:20,920 --> 00:00:26,010
+Planning de référence
+
+4
+00:00:26,810 --> 00:00:33,000
+Avec ou sans données financières
+
+5
+00:00:33,800 --> 00:00:41,650
+Commentaire, photos et logo intégrés
+
+6
+00:00:42,450 --> 00:00:45,070
+Compiler le rapport
+
+7
+00:00:45,870 --> 00:00:51,296
+Le rapport PDF,
+
+8
+00:00:51,296 --> 00:00:56,360
+prêt à envoyer
+
+9
+00:01:02,220 --> 00:01:07,000
+Aussi en PowerPoint

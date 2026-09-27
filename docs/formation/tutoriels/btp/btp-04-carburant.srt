@@ -1,0 +1,19 @@
+1
+00:00:06,340 --> 00:00:09,410
+Carburant → Relevé
+
+2
+00:00:10,210 --> 00:00:12,440
+Choisir le chantier
+
+3
+00:00:13,760 --> 00:00:16,950
+Litres, coût et note
+
+4
+00:00:19,710 --> 00:00:25,950
+Signaler une anomalie
+
+5
+00:00:26,750 --> 00:00:32,390
+Enregistré dans l’historique

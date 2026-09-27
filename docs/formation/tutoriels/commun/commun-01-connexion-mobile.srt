@@ -1,0 +1,27 @@
+1
+00:00:06,020 --> 00:00:13,920
+Connexion par WhatsApp ou e-mail
+
+2
+00:00:14,720 --> 00:00:18,970
+Adresse e-mail et mot de passe
+
+3
+00:00:21,055 --> 00:00:25,515
+Vous arrivez sur votre espace
+
+4
+00:00:26,315 --> 00:00:29,666
+Mot de passe oublié :
+
+5
+00:00:29,666 --> 00:00:33,975
+code par WhatsApp ou e-mail
+
+6
+00:00:34,775 --> 00:00:43,098
+Installer KonaData sur l’écran
+
+7
+00:00:43,098 --> 00:00:45,595
+d’accueil

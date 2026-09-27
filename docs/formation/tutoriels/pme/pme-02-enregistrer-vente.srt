@@ -1,0 +1,19 @@
+1
+00:00:05,520 --> 00:00:08,740
+Ventes → Nouvelle vente
+
+2
+00:00:09,540 --> 00:00:16,190
+Montant et client
+
+3
+00:00:16,990 --> 00:00:22,220
+Boutique et paiement
+
+4
+00:00:23,020 --> 00:00:26,480
+Le détail des articles dans les notes
+
+5
+00:00:27,280 --> 00:00:32,820
+Enregistrée en tête de liste

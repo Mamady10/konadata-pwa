@@ -1,0 +1,35 @@
+1
+00:00:06,100 --> 00:00:09,320
+Sondages → Programmer
+
+2
+00:00:10,120 --> 00:00:13,978
+Titre, projet, région,
+
+3
+00:00:13,978 --> 00:00:16,960
+dates et objectif
+
+4
+00:00:22,375 --> 00:00:26,881
+Statut « En cours »,
+
+5
+00:00:26,881 --> 00:00:30,035
+mode « Mixte »
+
+6
+00:00:30,835 --> 00:00:34,385
+La question et ses trois réponses
+
+7
+00:00:40,720 --> 00:00:45,640
+Enregistré : le sondage est en cours
+
+8
+00:00:46,440 --> 00:00:53,860
+Suivi → Partager le sondage
+
+9
+00:00:54,660 --> 00:01:00,900
+Télécharger le QR ou copier le lien

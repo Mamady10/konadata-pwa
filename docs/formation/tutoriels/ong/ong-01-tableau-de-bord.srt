@@ -1,0 +1,19 @@
+1
+00:00:05,140 --> 00:00:13,080
+Les indicateurs clés de tous vos projets
+
+2
+00:00:13,880 --> 00:00:18,320
+Budget prévu et réalisé
+
+3
+00:00:19,120 --> 00:00:24,860
+Les bénéficiaires par région
+
+4
+00:00:25,660 --> 00:00:31,780
+KonaAI signale les points d’attention
+
+5
+00:00:32,580 --> 00:00:39,230
+Projets actifs et localités couvertes

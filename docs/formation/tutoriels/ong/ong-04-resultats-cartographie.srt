@@ -1,0 +1,27 @@
+1
+00:00:06,890 --> 00:00:12,266
+Réponses, objectif,
+
+2
+00:00:12,266 --> 00:00:16,510
+GPS et doublons
+
+3
+00:00:17,310 --> 00:00:23,240
+Répartition des réponses et localités
+
+4
+00:00:24,040 --> 00:00:31,190
+Chaque réponse sur la carte
+
+5
+00:00:31,990 --> 00:00:35,760
+Détail d’une réponse
+
+6
+00:00:36,560 --> 00:00:45,680
+Nettoyer les doublons en un clic
+
+7
+00:00:46,480 --> 00:00:52,960
+KonaAI rédige le rapport du sondage

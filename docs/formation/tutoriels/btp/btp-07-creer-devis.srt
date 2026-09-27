@@ -1,0 +1,35 @@
+1
+00:00:05,300 --> 00:00:08,470
+Devis → Nouveau devis
+
+2
+00:00:09,270 --> 00:00:13,780
+Projet, client, lieu
+
+3
+00:00:16,525 --> 00:00:22,985
+Structure de départ : lots types
+
+4
+00:00:23,785 --> 00:00:29,855
+Numéro attribué automatiquement
+
+5
+00:00:30,655 --> 00:00:38,285
+Les prix viennent du catalogue
+
+6
+00:00:39,270 --> 00:00:47,190
+Rubriques et sous-totaux par lot
+
+7
+00:00:47,990 --> 00:00:50,883
+Récapitulatif,
+
+8
+00:00:50,883 --> 00:00:56,050
+TVA et montant en lettres
+
+9
+00:00:56,850 --> 00:01:04,150
+Enregistrer, exporter, suivre

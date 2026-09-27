@@ -1,0 +1,23 @@
+1
+00:00:05,620 --> 00:00:14,690
+Inscriptions et encaissements en un coup d’œil
+
+2
+00:00:15,490 --> 00:00:19,055
+Enseignants, classes,
+
+3
+00:00:19,055 --> 00:00:22,450
+paiements en attente
+
+4
+00:00:23,250 --> 00:00:28,600
+Inscriptions et paiements, mois par mois
+
+5
+00:00:29,400 --> 00:00:39,740
+KonaAI signale les priorités du jour
+
+6
+00:00:40,540 --> 00:00:46,800
+Inscriptions, paiements et élèves en attente

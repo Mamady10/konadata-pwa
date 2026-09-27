@@ -1,0 +1,27 @@
+1
+00:00:05,780 --> 00:00:13,170
+Paiements → Enregistrer un paiement
+
+2
+00:00:13,970 --> 00:00:20,090
+L’élève et son solde
+
+3
+00:00:20,890 --> 00:00:27,490
+Montant, mode de paiement, référence
+
+4
+00:00:28,290 --> 00:00:33,860
+Enregistré, avec son numéro de reçu
+
+5
+00:00:34,660 --> 00:00:38,195
+Le reçu officiel,
+
+6
+00:00:38,195 --> 00:00:42,770
+vérifiable par QR code
+
+7
+00:00:43,570 --> 00:00:47,820
+Le reçu en PDF

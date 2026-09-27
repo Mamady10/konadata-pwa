@@ -1,0 +1,31 @@
+1
+00:00:05,540 --> 00:00:09,000
+Avancement → Saisir
+
+2
+00:00:09,800 --> 00:00:12,150
+Choisir le chantier
+
+3
+00:00:13,350 --> 00:00:17,135
+Réalisé par tâche,
+
+4
+00:00:17,135 --> 00:00:20,500
+comparé au prévu
+
+5
+00:00:21,300 --> 00:00:24,450
+Avancement global calculé
+
+6
+00:00:24,450 --> 00:00:26,340
+automatiquement
+
+7
+00:00:27,140 --> 00:00:31,150
+Effectif, météo, observations
+
+8
+00:00:33,450 --> 00:00:40,990
+Enregistré : la direction est informée
