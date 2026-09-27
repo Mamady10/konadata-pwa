@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { hashOtpCode } from '@/lib/survey/security-hash';
+import { PLATFORM_ONLINE_PAYMENTS_ENABLED, PAYMENTS_UNAVAILABLE_MESSAGE } from '@/lib/billing/payments-availability';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
+  if (!PLATFORM_ONLINE_PAYMENTS_ENABLED) {
+    return NextResponse.json({ error: PAYMENTS_UNAVAILABLE_MESSAGE }, { status: 503 });
+  }
   try {
     const body = await request.json();
     const challengeId = String(body.challengeId ?? '').trim();

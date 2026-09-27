@@ -13,6 +13,7 @@ import {
 } from '@/lib/school/student-payments';
 import { CreditCard } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { PLATFORM_ONLINE_PAYMENTS_ENABLED } from '@/lib/billing/payments-availability';
 
 interface Props {
   studentId: string;
@@ -43,7 +44,7 @@ export function StudentPaymentButton({
   const [showAmount, setShowAmount] = useState(false);
   const [customAmount, setCustomAmount] = useState('');
 
-  if (!settings.enabled) return null;
+  if (!PLATFORM_ONLINE_PAYMENTS_ENABLED || !settings.enabled) return null;
 
   const minAmount = settings.min_payment_gnf ?? 100_000;
   const defaultAmount =

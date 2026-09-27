@@ -16,6 +16,8 @@ import { parseTuitionBalance } from '@/lib/school/student-payments';
 import { reportCardPeriodLabel } from '@/lib/school/grading-period-settings';
 import { GraduationCap, ArrowLeft, Download, CreditCard } from 'lucide-react';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
+import { PaymentsUnavailableNotice } from '@/components/billing/payments-unavailable';
+import { PLATFORM_ONLINE_PAYMENTS_ENABLED } from '@/lib/billing/payments-availability';
 import { KonaDataLogo } from '@/components/brand/konadata-logo';
 import {
   GUARDIAN_OTP_INTRO,
@@ -356,12 +358,16 @@ export function SuiviScolariteClient({ schools }: Props) {
                 </div>
               )}
 
-              <Button asChild className="w-full" variant="outline">
-                <Link href={LANDING_LINKS.payerScolarite}>
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Payer la scolarité en ligne
-                </Link>
-              </Button>
+              {PLATFORM_ONLINE_PAYMENTS_ENABLED ? (
+                <Button asChild className="w-full" variant="outline">
+                  <Link href={LANDING_LINKS.payerScolarite}>
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Payer la scolarité en ligne
+                  </Link>
+                </Button>
+              ) : (
+                <PaymentsUnavailableNotice compact />
+              )}
 
               <Button variant="ghost" className="w-full text-xs" onClick={resetFlow}>
                 Nouvelle consultation

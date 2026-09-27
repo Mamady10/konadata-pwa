@@ -1,4 +1,5 @@
 import { sendWhatsAppNotification } from '@/lib/integrations/whatsapp';
+import { PLATFORM_ONLINE_PAYMENTS_ENABLED } from '@/lib/billing/payments-availability';
 import { formatCurrency } from '@/lib/utils';
 
 export interface TuitionReminderPayload {
@@ -37,7 +38,9 @@ export function buildTuitionReminderWhatsAppMessage(p: TuitionReminderPayload): 
     `${who} — KonaData / ${p.orgName}\n` +
     `Rappel scolarité (${p.studentName}) : tranche « ${p.installmentLabel} » due demain (${formatDueDate(p.dueDate)}).\n` +
     `Solde restant : ${formatCurrency(p.remainingGnf)}.\n` +
-    `Payer : ${appBaseUrl()}/payer-scolarite\n` +
+    (PLATFORM_ONLINE_PAYMENTS_ENABLED
+      ? `Payer : ${appBaseUrl()}/payer-scolarite\n`
+      : `Paiement en ligne indisponible — réglez à la caisse de l'établissement.\n`) +
     `Suivi : ${appBaseUrl()}/suivi-scolarite`
   );
 }

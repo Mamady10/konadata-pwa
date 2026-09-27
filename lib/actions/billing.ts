@@ -6,6 +6,7 @@ import { getSession } from '@/lib/actions/auth';
 import { revalidatePath } from 'next/cache';
 import type { OrganizationBillingStatus } from '@/lib/billing/types';
 import { canOrganizationDirectorPay } from '@/lib/billing/offer-payment';
+import { onlinePaymentsUnavailableError } from '@/lib/billing/payments-availability';
 import {
   sanitizeBillingOfferForDirector,
   sanitizeBillingStatusForDirector,
@@ -92,6 +93,8 @@ export async function refreshSchoolPlatformInvoice() {
 }
 
 export async function recordSubscriptionRenewal(months = 1, reference?: string) {
+  const blocked = onlinePaymentsUnavailableError();
+  if (blocked) return blocked;
   const session = await getSession();
   if (!canManageBilling(session?.profile?.role)) {
     return { error: 'Non autorisé' };
@@ -286,6 +289,8 @@ async function sendPaymentOfferWhatsApp(ctx: {
 }
 
 export async function platformSendPaymentOfferEmail(orgId: string) {
+  const blocked = onlinePaymentsUnavailableError();
+  if (blocked) return blocked;
   const session = await getSession();
   if (session?.profile?.role !== 'platform_admin') {
     return { error: 'Non autorisé' };
@@ -509,6 +514,8 @@ export async function prepareSchoolRenewalBilling(orgId: string, months = 1) {
 }
 
 export async function recordOfferActivationPayment(orgId: string, reference?: string) {
+  const blocked = onlinePaymentsUnavailableError();
+  if (blocked) return blocked;
   const session = await getSession();
   const role = session?.profile?.role;
   const isPlatform = role === 'platform_admin';

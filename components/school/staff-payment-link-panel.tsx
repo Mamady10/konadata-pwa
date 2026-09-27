@@ -18,6 +18,8 @@ import {
 } from '@/lib/school/student-payments';
 import { formatCurrency } from '@/lib/utils';
 import { Link2, Copy, Check } from 'lucide-react';
+import { PLATFORM_ONLINE_PAYMENTS_ENABLED } from '@/lib/billing/payments-availability';
+import { PaymentsUnavailableNotice } from '@/components/billing/payments-unavailable';
 
 interface Props {
   students: Array<{ id: string; full_name: string; matricule?: string }>;
@@ -151,6 +153,10 @@ export function StaffPaymentLinkPanel({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
+        {!PLATFORM_ONLINE_PAYMENTS_ENABLED ? (
+          <PaymentsUnavailableNotice compact />
+        ) : (
+        <>
         <p className="text-xs text-muted-foreground">
           Générez un lien à envoyer par WhatsApp/SMS — scolarité, inscription ou réinscription.
         </p>
@@ -266,6 +272,8 @@ export function StaffPaymentLinkPanel({
               {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
             </Button>
           </div>
+        )}
+        </>
         )}
       </CardContent>
     </Card>

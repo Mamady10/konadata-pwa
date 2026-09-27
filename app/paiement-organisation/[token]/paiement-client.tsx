@@ -12,6 +12,8 @@ import { formatCurrency } from '@/lib/utils';
 import { ORG_TYPE_LABELS, type OrganizationType } from '@/types/database';
 import { CreditCard, CheckCircle2, Clock } from 'lucide-react';
 import { sectorHomeFromOrgType } from '@/lib/sector/post-login';
+import { PaymentsUnavailableNotice } from '@/components/billing/payments-unavailable';
+import { PLATFORM_ONLINE_PAYMENTS_ENABLED } from '@/lib/billing/payments-availability';
 
 interface Props {
   token: string;
@@ -41,6 +43,7 @@ export function PaiementOrganisationClient({
   const monthlyBase = Number(offer.monthly_base_gnf ?? 0);
   const showPricingBreakdown = isPlatformAdmin;
   const canPay =
+    PLATFORM_ONLINE_PAYMENTS_ENABLED &&
     offerStatus !== 'paid' &&
     (isPlatformAdmin || (isOrgAdmin && offerStatus === 'awaiting_payment'));
 
@@ -71,6 +74,16 @@ export function PaiementOrganisationClient({
             </Button>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  if (!PLATFORM_ONLINE_PAYMENTS_ENABLED) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-[#F8FAFC]">
+        <div className="max-w-lg w-full">
+          <PaymentsUnavailableNotice />
+        </div>
       </div>
     );
   }

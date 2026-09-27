@@ -10,10 +10,14 @@ import {
 } from '@/lib/survey/security-hash';
 import { sendGuardianPortalOtp } from '@/lib/auth/guardian-otp';
 import { studentPhoneAuthorized } from '@/lib/school/public-payment-otp';
+import { PLATFORM_ONLINE_PAYMENTS_ENABLED, PAYMENTS_UNAVAILABLE_MESSAGE } from '@/lib/billing/payments-availability';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
+  if (!PLATFORM_ONLINE_PAYMENTS_ENABLED) {
+    return NextResponse.json({ error: PAYMENTS_UNAVAILABLE_MESSAGE }, { status: 503 });
+  }
   try {
     const body = await request.json();
     const orgId = String(body.organizationId ?? '').trim();

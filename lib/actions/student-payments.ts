@@ -16,6 +16,10 @@ import {
 import { parsePaymentReceipt, type PaymentReceipt } from '@/lib/school/payment-receipt';
 import { getSessionEtablissementCapabilities } from '@/lib/school/session-capabilities';
 import { getLinkedSchoolStudentIds } from '@/lib/actions/school';
+import {
+  PLATFORM_ONLINE_PAYMENTS_ENABLED,
+  onlinePaymentsUnavailableError,
+} from '@/lib/billing/payments-availability';
 
 async function canConfigureStudentPayments(role: string | undefined): Promise<boolean> {
   if (role === 'platform_admin') return true;
@@ -119,6 +123,9 @@ export async function updateStudentPaymentOperationalSettings(
   const next: StudentPaymentSettings = {
     ...current,
     ...patch,
+    ...(PLATFORM_ONLINE_PAYMENTS_ENABLED
+      ? {}
+      : { enabled: false, orange_money_enabled: false }),
   };
 
   const { error } = await supabase.rpc('update_school_student_payment_settings', {
@@ -198,6 +205,8 @@ export async function createStudentPaymentLink(
   enrollmentId?: string | null,
   amountGnf?: number | null
 ) {
+  const blocked = onlinePaymentsUnavailableError();
+  if (blocked) return blocked;
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('create_school_student_payment_link', {
     p_student_id: studentId,
@@ -234,6 +243,8 @@ export async function getStudentPaymentByToken(token: string) {
 }
 
 export async function recordStudentPaymentByToken(token: string, reference?: string) {
+  const blocked = onlinePaymentsUnavailableError();
+  if (blocked) return blocked;
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('record_school_student_payment_by_token', {
     p_token: token,
@@ -250,6 +261,8 @@ export async function recordStudentPaymentByToken(token: string, reference?: str
 }
 
 export async function prepareOrangeMoneyPayment(token: string) {
+  const blocked = onlinePaymentsUnavailableError();
+  if (blocked) return blocked;
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('prepare_school_payment_orange_money', {
     p_token: token,

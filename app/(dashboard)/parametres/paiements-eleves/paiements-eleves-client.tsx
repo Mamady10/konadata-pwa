@@ -17,6 +17,8 @@ import {
   type StudentPaymentSettings,
 } from '@/lib/school/student-payments';
 import { formatCurrency } from '@/lib/utils';
+import { PLATFORM_ONLINE_PAYMENTS_ENABLED } from '@/lib/billing/payments-availability';
+import { PaymentsUnavailableNotice } from '@/components/billing/payments-unavailable';
 
 interface Props {
   initialSettings: StudentPaymentSettings;
@@ -160,10 +162,16 @@ export function PaiementsElevesClient({
             <div>
               <p className="font-medium">Autoriser les paiements en ligne</p>
               <p className="text-sm text-muted-foreground">
-                Désactivé = les familles paient à la caisse uniquement.
+                {PLATFORM_ONLINE_PAYMENTS_ENABLED
+                  ? 'Désactivé = les familles paient à la caisse uniquement.'
+                  : 'Le paiement en ligne KonaData n’est pas encore ouvert. Les familles paient à la caisse.'}
               </p>
             </div>
-            <Switch checked={settings.enabled} onCheckedChange={(v) => patch({ enabled: v })} />
+            <Switch
+              checked={PLATFORM_ONLINE_PAYMENTS_ENABLED && settings.enabled}
+              onCheckedChange={(v) => patch({ enabled: v })}
+              disabled={!PLATFORM_ONLINE_PAYMENTS_ENABLED}
+            />
           </div>
 
           <div className="space-y-3 rounded-lg border border-orange-200/60 p-4">
@@ -175,9 +183,9 @@ export function PaiementsElevesClient({
                 </p>
               </div>
               <Switch
-                checked={settings.orange_money_enabled}
+                checked={PLATFORM_ONLINE_PAYMENTS_ENABLED && settings.orange_money_enabled}
                 onCheckedChange={(v) => patch({ orange_money_enabled: v })}
-                disabled={!settings.enabled}
+                disabled={!PLATFORM_ONLINE_PAYMENTS_ENABLED || !settings.enabled}
               />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -249,7 +257,7 @@ export function PaiementsElevesClient({
             ))}
           </div>
 
-          {settings.enabled && (
+          {PLATFORM_ONLINE_PAYMENTS_ENABLED && settings.enabled && (
             <p className="text-xs text-muted-foreground">
               Portails famille :{' '}
               <Link href="/payer-scolarite" className="text-primary underline">

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, Circle, ListChecks } from 'lucide-react';
 import type { SchoolOnboardingStatus } from '@/lib/actions/school-onboarding';
 import { canOrganizationDirectorPay } from '@/lib/billing/offer-payment';
+import { PLATFORM_ONLINE_PAYMENTS_ENABLED } from '@/lib/billing/payments-availability';
 
 const ACTOR_LABELS = {
   ceo: 'CEO KonaData',
@@ -24,6 +25,7 @@ function showStepLink(
   if (accessAllowed) return true;
   if (step.id === 'ceo_offer') return true;
   if (step.id === 'director_pay') {
+    if (!PLATFORM_ONLINE_PAYMENTS_ENABLED) return step.href.startsWith('/parametres');
     return canOrganizationDirectorPay(offerStatus) || step.href.startsWith('/parametres');
   }
   if (
@@ -87,14 +89,18 @@ export function SchoolOnboardingChecklist({ onboarding, compact }: Props) {
                 {showStepLink(step, onboarding.accessAllowed, onboarding.offerStatus) && (
                   <Button variant="link" className="h-auto p-0 text-[#2563EB]" asChild>
                     <Link href={step.href}>
-                      {step.id === 'director_pay' && step.href.includes('paiement-organisation')
+                      {step.id === 'director_pay' &&
+                      PLATFORM_ONLINE_PAYMENTS_ENABLED &&
+                      step.href.includes('paiement-organisation')
                         ? 'Payer / ouvrir le lien →'
                         : step.id === 'director_pay'
-                          ? 'Voir facturation (en attente CEO) →'
+                          ? 'Voir facturation (offre gratuite ou attente) →'
                           : step.id === 'fees_year'
                             ? 'Configurer tarifs & année →'
                             : step.id === 'payments_online'
-                              ? 'Activer paiements familles →'
+                              ? PLATFORM_ONLINE_PAYMENTS_ENABLED
+                                ? 'Activer paiements familles →'
+                                : 'Voir réglages caisse →'
                               : 'Ouvrir →'}
                     </Link>
                   </Button>

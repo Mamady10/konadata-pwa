@@ -18,6 +18,8 @@ import {
   isOfferAwaitingCeoValidation,
 } from '@/lib/billing/offer-payment';
 import { formatCurrency } from '@/lib/utils';
+import { PaymentsUnavailableNotice } from '@/components/billing/payments-unavailable';
+import { PLATFORM_ONLINE_PAYMENTS_ENABLED } from '@/lib/billing/payments-availability';
 import {
   CreditCard,
   AlertTriangle,
@@ -92,6 +94,7 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
     status.subscription?.monthly_price_gnf ??
     0;
   const canPayNow =
+    PLATFORM_ONLINE_PAYMENTS_ENABLED &&
     hasPaymentLink &&
     canOrganizationDirectorPay(offerStatus) &&
     Number(status.offer?.activation_amount_gnf ?? 0) > 0 &&
@@ -102,6 +105,7 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
       status.billing_status === 'pending_renewal') &&
     isOfferAwaitingCeoValidation(offerStatus);
   const canRenewWhileActive =
+    PLATFORM_ONLINE_PAYMENTS_ENABLED &&
     status.access_allowed &&
     status.billing_status === 'active' &&
     (isSchool ? monthlyPrice > 0 : Boolean(status.subscription));
@@ -345,6 +349,12 @@ export function FacturationClient({ status, blocked, orgName }: Props) {
           </CardContent>
         </Card>
       )}
+
+      {!PLATFORM_ONLINE_PAYMENTS_ENABLED &&
+        (status.billing_status === 'pending_payment' ||
+          status.billing_status === 'pending_renewal') && (
+          <PaymentsUnavailableNotice />
+        )}
 
       {canPayNow && (
         <Card className="border-primary shadow-sm">

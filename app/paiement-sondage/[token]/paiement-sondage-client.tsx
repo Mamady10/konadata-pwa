@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { recordNgoSurveyPayment } from '@/lib/actions/ngo-survey-billing';
 import { formatCurrency } from '@/lib/utils';
 import { CheckCircle2, ClipboardList, CreditCard } from 'lucide-react';
+import { PaymentsUnavailableNotice } from '@/components/billing/payments-unavailable';
+import { PLATFORM_ONLINE_PAYMENTS_ENABLED } from '@/lib/billing/payments-availability';
 
 interface Props {
   token: string;
@@ -35,6 +37,7 @@ export function PaiementSondageClient({
   const breakdown = (charge.breakdown ?? {}) as Record<string, unknown>;
   const surveyId = charge.survey_id as string;
   const canPay =
+    PLATFORM_ONLINE_PAYMENTS_ENABLED &&
     status === 'awaiting_payment' &&
     (isPlatformAdmin || (isOrgAdmin && orgId === charge.organization_id));
 
@@ -68,6 +71,16 @@ export function PaiementSondageClient({
             </Button>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  if (!PLATFORM_ONLINE_PAYMENTS_ENABLED) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-[#F8FAFC]">
+        <div className="max-w-lg w-full">
+          <PaymentsUnavailableNotice />
+        </div>
       </div>
     );
   }

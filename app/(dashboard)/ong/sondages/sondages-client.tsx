@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { createNgoSurvey, updateNgoSurveyStatus } from '@/lib/actions/ngo-surveys';
 import { formatCurrency } from '@/lib/utils';
+import { PLATFORM_ONLINE_PAYMENTS_ENABLED } from '@/lib/billing/payments-availability';
 import { SURVEY_CHARGE_STATUS_LABELS } from '@/lib/ngo/survey-billing';
 import { ClipboardList, Plus, Search, Play, Square, Settings, Eye, CreditCard } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -331,7 +332,8 @@ export function SondagesClient({
                             <Link href={`/ong/sondages/${item.id}/collecter`}>Collecter</Link>
                           </Button>
                         )}
-                        {isDirector &&
+                        {PLATFORM_ONLINE_PAYMENTS_ENABLED &&
+                          isDirector &&
                           item.paymentToken &&
                           item.chargeStatus === 'awaiting_payment' && (
                             <Button size="sm" variant="outline" className="h-7 text-xs" asChild>

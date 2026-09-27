@@ -4,6 +4,7 @@ import {
   parseOrangeMoneyWebhookPayload,
   verifyBillingWebhookSignature,
 } from '@/lib/billing/webhook-verify';
+import { PLATFORM_ONLINE_PAYMENTS_ENABLED, PAYMENTS_UNAVAILABLE_MESSAGE } from '@/lib/billing/payments-availability';
 
 export const runtime = 'nodejs';
 
@@ -13,6 +14,9 @@ export const runtime = 'nodejs';
  * Le payload doit inclure payment_token (lien KonaData) dans metadata.
  */
 export async function POST(request: NextRequest) {
+  if (!PLATFORM_ONLINE_PAYMENTS_ENABLED) {
+    return NextResponse.json({ success: false, error: PAYMENTS_UNAVAILABLE_MESSAGE }, { status: 503 });
+  }
   const secret =
     process.env.SCHOOL_ORANGE_MONEY_WEBHOOK_SECRET?.trim() ||
     process.env.ORANGE_MONEY_WEBHOOK_SECRET?.trim() ||

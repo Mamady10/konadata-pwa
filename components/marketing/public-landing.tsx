@@ -20,6 +20,7 @@ import {
   LANDING_LAUNCH_OFFER,
 } from '@/lib/marketing/landing-content';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
+import { PLATFORM_ONLINE_PAYMENTS_ENABLED } from '@/lib/billing/payments-availability';
 import { KonaDataWordmark } from '@/components/brand/konadata-logo';
 import { KONADATA_CONTACT, whatsAppUrl } from '@/lib/marketing/contact';
 import {
@@ -480,9 +481,11 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
                   <Button variant="outline" size="sm" asChild>
                     <Link href={LANDING_LINKS.suiviScolarite}>Suivi scolarité (parents)</Link>
                   </Button>
+                  {PLATFORM_ONLINE_PAYMENTS_ENABLED && (
                   <Button variant="outline" size="sm" asChild>
                     <Link href={LANDING_LINKS.payerScolarite}>Payer scolarité</Link>
                   </Button>
+                  )}
                   <Button variant="outline" size="sm" asChild>
                     <Link href={LANDING_LINKS.loginLearner}>Connexion</Link>
                   </Button>
@@ -627,9 +630,11 @@ export function PublicLanding({ showLoggedInHint = false }: PublicLandingProps) 
                 <Link href={LANDING_LINKS.suiviScolarite} className="hover:text-[#2563EB]">
                   Suivi scolarité
                 </Link>
+                {PLATFORM_ONLINE_PAYMENTS_ENABLED && (
                 <Link href={LANDING_LINKS.payerScolarite} className="hover:text-[#2563EB]">
                   Payer scolarité
                 </Link>
+                )}
                 <Link href={LANDING_LINKS.registerJoin} className="hover:text-[#2563EB]">
                   Compte staff
                 </Link>

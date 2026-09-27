@@ -10,6 +10,10 @@ import { sendSurveyCeoRequestEmail } from '@/lib/email/send-survey-ceo-request';
 import { getResendConfig } from '@/lib/email/resend-client';
 import type { SurveyChargeCeoRow } from '@/lib/ngo/survey-billing';
 import { parseSurveyQuestions } from '@/lib/ngo/survey-questions';
+import {
+  PLATFORM_ONLINE_PAYMENTS_ENABLED,
+  onlinePaymentsUnavailableError,
+} from '@/lib/billing/payments-availability';
 
 async function resolveDirectorEmail(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -99,6 +103,8 @@ export async function sendNgoSurveyPaymentEmailByChargeId(
   chargeId: string,
   options?: { isRevision?: boolean; previousAmountGnf?: number }
 ) {
+  const blocked = onlinePaymentsUnavailableError();
+  if (blocked) return blocked;
   const session = await getSession();
   if (session?.profile?.role !== 'platform_admin') {
     return { error: 'Non autorisé' };
@@ -143,6 +149,8 @@ export async function sendNgoSurveyPaymentEmailByChargeId(
 }
 
 export async function sendNgoSurveyPaymentEmail(surveyId: string) {
+  const blocked = onlinePaymentsUnavailableError();
+  if (blocked) return blocked;
   const session = await getSession();
   if (!isOngDirector(session?.profile?.role) && session?.profile?.role !== 'platform_admin') {
     return { error: 'Non autorisé' };
@@ -243,6 +251,7 @@ export async function trySendSurveyPaymentEmailAfterCreate(params: {
   directorName?: string | null;
   directorEmail?: string | null;
 }) {
+  if (!PLATFORM_ONLINE_PAYMENTS_ENABLED) return;
   if (!getResendConfig().apiKey) {
     return { emailSent: false, emailWarning: 'RESEND_API_KEY non configurée' };
   }
@@ -387,6 +396,8 @@ export async function getNgoSurveyChargeByToken(token: string) {
 }
 
 export async function recordNgoSurveyPayment(chargeId: string, reference?: string) {
+  const blocked = onlinePaymentsUnavailableError();
+  if (blocked) return blocked;
   const session = await getSession();
   if (!isOngDirector(session?.profile?.role) && session?.profile?.role !== 'platform_admin') {
     return { error: 'Non autorisé' };

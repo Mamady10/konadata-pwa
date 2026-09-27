@@ -26,6 +26,7 @@ import { formatCurrency } from '@/lib/utils';
 import { SURVEY_CHARGE_STATUS_LABELS } from '@/lib/ngo/survey-billing';
 import type { NgoSurveyQuestion } from '@/lib/ngo/survey-questions';
 import { ParticipationQrCode } from './participation-qr-code';
+import { PLATFORM_ONLINE_PAYMENTS_ENABLED } from '@/lib/billing/payments-availability';
 
 interface Props {
   survey: {
@@ -259,11 +260,19 @@ export function SondageDetailClient({
             )}
             {charge.status === 'awaiting_payment' && charge.paymentToken && (
               <div className="flex flex-wrap gap-2">
+                {PLATFORM_ONLINE_PAYMENTS_ENABLED ? (
                 <Button asChild className="bg-[#2563EB]">
                   <Link href={`/paiement-sondage/${charge.paymentToken}`}>
                     Payer la campagne
                   </Link>
                 </Button>
+                ) : (
+                  <p className="text-sm text-amber-800">
+                    Le paiement en ligne n&apos;est pas encore disponible. La campagne ne peut pas
+                    être réglée pour le moment.
+                  </p>
+                )}
+                {PLATFORM_ONLINE_PAYMENTS_ENABLED && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -287,6 +296,7 @@ export function SondageDetailClient({
                   <Mail className="h-3 w-3 mr-1" />
                   {paymentEmailSending ? 'Envoi…' : 'Envoyer lien par email'}
                 </Button>
+                )}
               </div>
             )}
             {paymentEmailStatus && (

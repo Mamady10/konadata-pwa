@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { getSession } from '@/lib/actions/auth';
 import { canOrganizationDirectorPay } from '@/lib/billing/offer-payment';
+import { PLATFORM_ONLINE_PAYMENTS_ENABLED } from '@/lib/billing/payments-availability';
 import { isSchoolStaffRole } from '@/lib/school/etablissement-access';
 import { parseSchoolOrgSettings } from '@/lib/school/school-org-settings';
 import type { AppRole } from '@/types/database';
@@ -140,7 +141,9 @@ export async function getSchoolOnboardingStatus(): Promise<{
       id: 'ceo_offer',
       title: '1. Tarif validé par KonaData',
       description: offerReady
-        ? 'Offre prête — le directeur peut payer.'
+        ? PLATFORM_ONLINE_PAYMENTS_ENABLED
+          ? 'Offre prête — le directeur peut payer.'
+          : 'Tarif enregistré. Le paiement en ligne n’est pas encore ouvert — l’offre de lancement gratuite reste disponible.'
         : 'En attente : le CEO fixe le montant annuel sur Organisations.',
       href: role === 'platform_admin' ? '/organisations' : '/parametres/facturation',
       done: offerReady || paid,
@@ -151,11 +154,13 @@ export async function getSchoolOnboardingStatus(): Promise<{
       title: '2. Paiement annuel (activation)',
       description: paid
         ? 'Abonnement actif — accès complet ouvert.'
-        : offerReady
-          ? 'Tarif validé par KonaData — réglez via Facturation ou le lien de paiement.'
-          : 'Bloqué tant que KonaData n’a pas validé le tarif (étape 1).',
+        : !PLATFORM_ONLINE_PAYMENTS_ENABLED
+          ? 'Le paiement en ligne n’est pas encore ouvert. Utilisez l’offre de lancement gratuite dans Facturation, ou attendez l’activation du service.'
+          : offerReady
+            ? 'Tarif validé par KonaData — réglez via Facturation ou le lien de paiement.'
+            : 'Bloqué tant que KonaData n’a pas validé le tarif (étape 1).',
       href:
-        offerReady && offer?.payment_token
+        PLATFORM_ONLINE_PAYMENTS_ENABLED && offerReady && offer?.payment_token
           ? `/paiement-organisation/${offer.payment_token}`
           : '/parametres/facturation',
       done: paid,
@@ -187,9 +192,11 @@ export async function getSchoolOnboardingStatus(): Promise<{
       id: 'payments_online',
       title: '5. Paiements familles en ligne',
       description: paid
-        ? paymentsEnabled
-          ? 'Les familles peuvent payer inscription, réinscription ou scolarité en ligne.'
-          : 'Activer les paiements et choisir les types autorisés (Candidatures / liens staff).'
+        ? !PLATFORM_ONLINE_PAYMENTS_ENABLED
+          ? 'Paiement en ligne indisponible. Les familles règlent à la caisse ; le journal d’encaissements reste utilisable.'
+          : paymentsEnabled
+            ? 'Les familles peuvent payer inscription, réinscription ou scolarité en ligne.'
+            : 'Activer les paiements et choisir les types autorisés (Candidatures / liens staff).'
         : 'Préparez les réglages pendant l’attente de l’abonnement KonaData.',
       href: '/parametres/paiements-eleves',
       done: paid && paymentsEnabled,

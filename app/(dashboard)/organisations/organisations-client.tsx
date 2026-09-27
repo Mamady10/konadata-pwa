@@ -21,6 +21,7 @@ import {
 import { getSchoolBillingQuoteForCeo } from '@/lib/actions/school-onboarding';
 import { ORG_TYPE_LABELS, ORG_TYPE_STARTING_PRICE_GNF, type OrganizationType } from '@/types/database';
 import { formatCurrency } from '@/lib/utils';
+import { PLATFORM_ONLINE_PAYMENTS_ENABLED } from '@/lib/billing/payments-availability';
 import {
   Building2,
   Users,
@@ -536,7 +537,9 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
                     <Button size="sm" variant="outline" onClick={() => startEdit(org)}>
                       Fixer le tarif
                     </Button>
-                    {org.payment_token && org.offer_status === 'awaiting_payment' && (
+                    {PLATFORM_ONLINE_PAYMENTS_ENABLED &&
+                      org.payment_token &&
+                      org.offer_status === 'awaiting_payment' && (
                       <>
                         <Button size="sm" variant="outline" asChild>
                           <Link href={`/paiement-organisation/${org.payment_token}`} target="_blank">
@@ -576,7 +579,8 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
                         Activer essai 30 jours (sans paiement)
                       </Button>
                     )}
-                    {org.billing_status === 'pending_payment' && (
+                    {PLATFORM_ONLINE_PAYMENTS_ENABLED &&
+                      org.billing_status === 'pending_payment' && (
                       <Button size="sm" onClick={() => markPaid(org.id)}>
                         Activer (paiement reçu)
                       </Button>
