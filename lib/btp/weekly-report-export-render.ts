@@ -369,6 +369,19 @@ export function comparisonMetricsTableRows(
 export function milestoneTableRows(
   c: NonNullable<WeeklyReportExportStructured['comparison']>
 ): string[][] {
+  const taskRows = c.taskRows ?? [];
+  if (taskRows.length > 0) {
+    return [
+      ['Tache', 'Fin prevue', 'Poids', 'Prevu / Realise', 'Retard (j)'],
+      ...taskRows.map((t) => [
+        t.name,
+        t.finishDate,
+        `${t.weightPct} %`,
+        `${t.plannedPct} % / ${t.actualPct != null ? `${t.actualPct} %` : 'non saisi'}`,
+        t.delayDays != null ? String(t.delayDays) : '-',
+      ]),
+    ];
+  }
   if (c.milestoneRows.length === 0) return [];
   return [
     ['Jalon', 'Prevu', 'Cible', 'Realise', 'Ecart (j)'],

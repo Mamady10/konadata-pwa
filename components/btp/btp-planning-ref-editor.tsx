@@ -17,6 +17,12 @@ import { PLANNING_SOURCE_LABELS } from '@/lib/btp/planning-ref';
 import type { BtpSitePlanningRef } from '@/lib/btp/planning-ref';
 import type { BtpSiteMilestoneInput, PlanningRefSlot, PlanningSourceType } from '@/lib/btp/site-baseline-types';
 import { CalendarRange, FileUp, Loader2, Plus, Star, Trash2 } from 'lucide-react';
+import {
+  BtpTaskPlanningEditor,
+  defaultPlanningTasks,
+  filledPlanningTasks,
+} from '@/components/btp/btp-task-planning-editor';
+import { scheduleToPlanningTasks, type BtpPlanningTaskInput } from '@/lib/btp/planning-tasks';
 
 const EMPTY_MILESTONE: BtpSiteMilestoneInput = {
   label: '',
@@ -53,6 +59,11 @@ export function BtpPlanningRefEditor({
       ? refData.milestones
       : [{ ...EMPTY_MILESTONE, label: 'Phase 1', targetPhysicalPct: 30 }]
   );
+  const [planningTasks, setPlanningTasks] = useState<BtpPlanningTaskInput[]>(() =>
+    refData?.sourceType === 'tasks' && refData.tasks.length > 0
+      ? scheduleToPlanningTasks(refData.tasks)
+      : defaultPlanningTasks()
+  );
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [xmlPreview, setXmlPreview] = useState<string | null>(null);
 
@@ -78,6 +89,9 @@ export function BtpPlanningRefEditor({
         'milestones_json',
         JSON.stringify(milestones.filter((m) => m.label.trim() && m.plannedDate))
       );
+    }
+    if (sourceType === 'tasks') {
+      fd.set('tasks_json', JSON.stringify(filledPlanningTasks(planningTasks)));
     }
     const result = await saveBtpPlanningRefConfig(fd);
     setLoading(false);
@@ -140,7 +154,9 @@ export function BtpPlanningRefEditor({
   const summary = refData
     ? refData.sourceType === 'ms_project'
       ? `MS Project · ${refData.tasks.length} tâches`
-      : refData.sourceType === 'milestones'
+      : refData.sourceType === 'tasks'
+        ? `${refData.tasks.length} tâche(s)`
+        : refData.sourceType === 'milestones'
         ? `${refData.milestones.length} jalon(s)`
         : 'Dates début / fin'
     : 'Non configuré';
@@ -189,12 +205,21 @@ export function BtpPlanningRefEditor({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="tasks">{PLANNING_SOURCE_LABELS.tasks}</SelectItem>
             <SelectItem value="linear">{PLANNING_SOURCE_LABELS.linear}</SelectItem>
-            <SelectItem value="milestones">{PLANNING_SOURCE_LABELS.milestones}</SelectItem>
+            {(refData?.sourceType === 'milestones' || sourceType === 'milestones') && (
+              <SelectItem value="milestones">{PLANNING_SOURCE_LABELS.milestones}</SelectItem>
+            )}
             <SelectItem value="ms_project">{PLANNING_SOURCE_LABELS.ms_project}</SelectItem>
           </SelectContent>
         </Select>
       </div>
+
+      {sourceType === 'tasks' && (
+        <div className="rounded border bg-background p-2">
+          <BtpTaskPlanningEditor tasks={planningTasks} onChange={setPlanningTasks} />
+        </div>
+      )}
 
       {sourceType === 'milestones' && (
         <div className="space-y-2 rounded border bg-background p-2">

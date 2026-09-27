@@ -11,10 +11,22 @@ import {
   buildWeeklyComparisonMetrics,
   mapSiteRowToBaseline,
 } from '@/lib/btp/site-baseline';
-import type { BtpSiteMilestoneRow, PlanningRefSlot } from '@/lib/btp/site-baseline-types';
+import type {
+  BtpSiteMilestoneRow,
+  PlanningRefSlot,
+  PlanningSourceType,
+} from '@/lib/btp/site-baseline-types';
 import { kpiStatusLabel } from '@/lib/btp/site-baseline';
 import { sumLaborEntryAmount, type ExpenseCategory } from '@/lib/btp/site-financial';
 import { mapPlanningRefRow, resolvePlanningRef } from '@/lib/btp/planning-ref';
+import { parseTaskProgress } from '@/lib/btp/planning-tasks';
+
+const PLANNED_SOURCE_REPORT_LABELS: Record<PlanningSourceType, string> = {
+  ms_project: 'MS Project',
+  tasks: 'Tâches',
+  milestones: 'Jalons',
+  linear: 'Dates contractuelles',
+};
 
 export const BTP_WEEKLY_SITE_REPORT_TYPE = 'weekly_site';
 export const BTP_WEEKLY_SITE_REPORT_LABEL = 'Rapport de chantier périodique';
@@ -178,7 +190,7 @@ export async function compileBtpWeeklySiteReport(
       .eq('site_id', input.siteId),
     supabase
       .from('btp_daily_progress')
-      .select('progress_date, physical_pct, workers_count')
+      .select('progress_date, physical_pct, workers_count, task_progress')
       .eq('organization_id', input.orgId)
       .eq('site_id', input.siteId)
       .order('progress_date', { ascending: true }),
@@ -213,7 +225,21 @@ export async function compileBtpWeeklySiteReport(
 
   const daily = dailyRes.data ?? [];
   const fuel = fuelRes.data ?? [];
-  const allDaily = allDailyRes.data ?? [];
+  let allDaily: Array<Record<string, unknown>> = allDailyRes.data ?? [];
+  if (allDailyRes.error) {
+    // Migration 120 (task_progress) pas encore appliquée.
+    const retry = await supabase
+      .from('btp_daily_progress')
+      .select('progress_date, physical_pct, workers_count')
+      .eq('organization_id', input.orgId)
+      .eq('site_id', input.siteId)
+      .order('progress_date', { ascending: true });
+    allDaily = retry.data ?? [];
+  }
+  const taskProgressAll = allDaily.map((d) => ({
+    date: String(d.progress_date).slice(0, 10),
+    tasks: parseTaskProgress(d.task_progress),
+  }));
   const allFuel = allFuelRes.data ?? [];
   const allNotesRaw = allNotesRes.data ?? [];
   const notes = (notesRes.data ?? []).filter((n) => {
@@ -292,6 +318,7 @@ export async function compileBtpWeeklySiteReport(
     fuelLitersWeek: fuel.reduce((s, l) => s + Number(l.liters ?? 0), 0),
     avgWorkersWeek,
     delayDays: Number(site.delay_days ?? 0),
+    taskProgressAll,
   });
 
   const spent = comparison.budgetConsumedCumulative;
@@ -316,7 +343,7 @@ export async function compileBtpWeeklySiteReport(
 
   const comparisonLines: string[] = [];
   comparisonLines.push(
-    `Référence comparative : ${comparison.plannedRefLabel} (${comparison.plannedSource === 'ms_project' ? 'MS Project' : comparison.plannedSource === 'milestones' ? 'Jalons' : 'Dates contractuelles'}).`
+    `Référence comparative : ${comparison.plannedRefLabel} (${PLANNED_SOURCE_REPORT_LABELS[comparison.plannedSource]}).`
   );
   if (comparison.plannedPhysicalPct != null) {
     comparisonLines.push(
@@ -339,7 +366,16 @@ export async function compileBtpWeeklySiteReport(
   comparisonLines.push(
     `KPI synthèse : Planning ${kpiStatusLabel(comparison.kpis.planning)} · Budget ${kpiStatusLabel(comparison.kpis.budget)} · Délais ${kpiStatusLabel(comparison.kpis.schedule)} · Global ${kpiStatusLabel(comparison.kpis.overall)}`
   );
-  if (comparison.milestoneRows.length > 0) {
+  if (comparison.taskRows.length > 0) {
+    comparisonLines.push('Tâches (poids = durée) :');
+    for (const t of comparison.taskRows) {
+      const actual = t.actualPct != null ? `${t.actualPct} %` : 'non saisi';
+      const delay = t.delayDays != null ? ` — retard ${t.delayDays} j` : '';
+      comparisonLines.push(
+        `• ${t.name} (${t.weightPct} %, ${t.startDate} → ${t.finishDate}) — prévu ${t.plannedPct} % — réalisé ${actual}${delay}`
+      );
+    }
+  } else if (comparison.milestoneRows.length > 0) {
     comparisonLines.push('Jalons :');
     for (const m of comparison.milestoneRows) {
       const actual = m.actualDate

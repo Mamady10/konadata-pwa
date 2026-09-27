@@ -1,6 +1,11 @@
 import type { ResolvedPlanningRef } from '@/lib/btp/planning-ref';
 import { plannedPhysicalPctFromResolvedRef } from '@/lib/btp/planning-ref';
 import {
+  plannedTaskPctAt,
+  taskProgressStatus,
+  taskWeightPcts,
+} from '@/lib/btp/planning-tasks';
+import {
   computeSiteFinancialTotals,
   compareBudgetByPoste,
   type ExpenseCategory,
@@ -10,11 +15,58 @@ import type {
   BtpScheduleTask,
   BtpSiteBaseline,
   BtpSiteMilestoneRow,
+  BtpTaskComparisonRow,
+  BtpTaskProgressEntry,
   BtpWeeklyComparisonMetrics,
   BtpPlannedProgressSnapshot,
   KpiTrafficStatus,
   PlanningRefSlot,
 } from '@/lib/btp/site-baseline-types';
+
+/** Au-delà, un planning MS Project est trop détaillé pour un tableau par tâche dans le rapport. */
+const MAX_TASK_ROWS_MS_PROJECT = 30;
+
+export function buildTaskComparisonRows(params: {
+  tasks: BtpScheduleTask[];
+  asOfDate: string;
+  taskProgressAll: Array<{ date: string; tasks: BtpTaskProgressEntry[] }>;
+}): BtpTaskComparisonRow[] {
+  const { tasks, asOfDate, taskProgressAll } = params;
+  const asOf = asOfDate.slice(0, 10);
+  const weights = taskWeightPcts(tasks);
+  const history = [...taskProgressAll]
+    .filter((r) => r.date <= asOf && r.tasks.length > 0)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  return tasks.map((t) => {
+    let actualPct: number | null = null;
+    for (let i = history.length - 1; i >= 0; i--) {
+      const hit = history[i].tasks.find((e) => e.uid === t.uid);
+      if (hit) {
+        actualPct = hit.pct;
+        break;
+      }
+    }
+    const plannedPct = plannedTaskPctAt(t, asOf);
+    const finish = t.finishDate.slice(0, 10);
+    const delayDays =
+      asOf > finish && (actualPct ?? 0) < 100
+        ? daysBetween(parseDate(finish)!, parseDate(asOf)!)
+        : null;
+    return {
+      uid: t.uid,
+      name: t.name,
+      startDate: t.startDate.slice(0, 10),
+      finishDate: finish,
+      durationDays: t.durationDays,
+      weightPct: weights[t.uid] ?? 0,
+      plannedPct,
+      actualPct,
+      delayDays,
+      status: taskProgressStatus(plannedPct, actualPct, finish, asOf),
+    };
+  });
+}
 
 const MS_PER_DAY = 86_400_000;
 
@@ -276,6 +328,7 @@ export function buildWeeklyComparisonMetrics(params: {
   fuelLitersWeek: number;
   avgWorkersWeek: number | null;
   delayDays: number;
+  taskProgressAll?: Array<{ date: string; tasks: BtpTaskProgressEntry[] }>;
 }): BtpWeeklyComparisonMetrics {
   const {
     siteBaseline,
@@ -293,6 +346,7 @@ export function buildWeeklyComparisonMetrics(params: {
     fuelLitersWeek,
     avgWorkersWeek,
     delayDays,
+    taskProgressAll = [],
   } = params;
 
   const baseline = {
@@ -363,6 +417,13 @@ export function buildWeeklyComparisonMetrics(params: {
       status: milestoneStatus(m.plannedDate, m.targetPhysicalPct, reached?.physicalPct ?? actualPhysicalPct, asOfDate),
     };
   });
+
+  const scheduleTasks = resolvedRef.scheduleTasks;
+  const taskRows =
+    scheduleTasks &&
+    (resolvedRef.sourceType === 'tasks' || scheduleTasks.length <= MAX_TASK_ROWS_MS_PROJECT)
+      ? buildTaskComparisonRows({ tasks: scheduleTasks, asOfDate, taskProgressAll })
+      : [];
 
   let planningStatus: KpiTrafficStatus = 'neutral';
   if (plannedPhysical != null) {
@@ -435,6 +496,7 @@ export function buildWeeklyComparisonMetrics(params: {
     financialPctAuto,
     physicalVsFinancialGapPts,
     milestoneRows,
+    taskRows,
     kpis: {
       planning: planningStatus,
       budget: budgetStatus,

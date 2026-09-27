@@ -20,10 +20,12 @@ import {
 } from '@/lib/btp/planning-ref';
 import type {
   BtpPlannedProgressSnapshot,
+  BtpScheduleTask,
   BtpSiteMilestoneInput,
   PlanningRefSlot,
   PlanningSourceType,
 } from '@/lib/btp/site-baseline-types';
+import { normalizePlanningTasks, planningTasksToSchedule } from '@/lib/btp/planning-tasks';
 
 function parseSlot(raw: unknown): PlanningRefSlot {
   const n = Number(raw);
@@ -73,16 +75,22 @@ export async function ensureBtpSitePlanningRefs(params: {
   siteId: string;
   startDate: string | null;
   endDate: string | null;
-  ref1?: { sourceType: PlanningSourceType; milestones?: BtpSiteMilestoneInput[]; label?: string };
-}): Promise<void> {
+  ref1?: {
+    sourceType: PlanningSourceType;
+    milestones?: BtpSiteMilestoneInput[];
+    tasks?: BtpScheduleTask[];
+    label?: string;
+  };
+}): Promise<{ error: string } | null> {
   const supabase = await createClient();
   const { orgId, siteId, startDate, endDate, ref1 } = params;
 
   const ref1Type = ref1?.sourceType ?? 'linear';
   const ref1Milestones =
     ref1Type === 'milestones' && ref1?.milestones?.length ? ref1.milestones : [];
+  const ref1Tasks = ref1Type === 'tasks' && ref1?.tasks?.length ? ref1.tasks : [];
 
-  await supabase.from('btp_site_planning_refs').upsert(
+  const { error: ref1Err } = await supabase.from('btp_site_planning_refs').upsert(
     {
       organization_id: orgId,
       site_id: siteId,
@@ -92,11 +100,12 @@ export async function ensureBtpSitePlanningRefs(params: {
       start_date: startDate,
       end_date: endDate,
       milestones: ref1Milestones,
-      tasks: [],
+      tasks: ref1Tasks,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'site_id,slot' }
   );
+  if (ref1Err) return { error: planningRefSaveError(ref1Err.message) };
 
   await supabase.from('btp_site_planning_refs').upsert(
     {
@@ -113,6 +122,14 @@ export async function ensureBtpSitePlanningRefs(params: {
     },
     { onConflict: 'site_id,slot' }
   );
+  return null;
+}
+
+function planningRefSaveError(message: string): string {
+  if (message.includes('source_type_check')) {
+    return 'Base de données à mettre à jour (migration 120 — planning par tâches). Contactez le support KonaData.';
+  }
+  return message;
 }
 
 export async function saveBtpPlanningRefConfig(formData: FormData): Promise<{ success: true } | { error: string }> {
@@ -127,7 +144,7 @@ export async function saveBtpPlanningRefConfig(formData: FormData): Promise<{ su
   const sourceType = (formData.get('source_type') as PlanningSourceType) || 'linear';
 
   if (!siteId) return { error: 'Chantier requis.' };
-  if (!['linear', 'milestones', 'ms_project'].includes(sourceType)) {
+  if (!['linear', 'milestones', 'ms_project', 'tasks'].includes(sourceType)) {
     return { error: 'Type de référence invalide.' };
   }
 
@@ -162,6 +179,22 @@ export async function saveBtpPlanningRefConfig(formData: FormData): Promise<{ su
     }
   }
 
+  let tasks: BtpScheduleTask[] = [];
+  if (sourceType === 'tasks') {
+    let parsedTasks: unknown;
+    try {
+      parsedTasks = JSON.parse((formData.get('tasks_json') as string) || '[]');
+    } catch {
+      return { error: 'Format des tâches invalide.' };
+    }
+    const normalized = normalizePlanningTasks(parsedTasks);
+    if ('error' in normalized) return { error: normalized.error };
+    if (normalized.tasks.length === 0) {
+      return { error: 'Ajoutez au moins une tâche avec ses dates de début et de fin.' };
+    }
+    tasks = planningTasksToSchedule(normalized.tasks);
+  }
+
   const { data: existing } = await supabase
     .from('btp_site_planning_refs')
     .select('tasks, source_filename, project_title')
@@ -189,7 +222,7 @@ export async function saveBtpPlanningRefConfig(formData: FormData): Promise<{ su
       return { error: 'Importez d\'abord un fichier XML MS Project pour cette référence.' };
     }
   } else {
-    patch.tasks = [];
+    patch.tasks = tasks;
     patch.source_filename = null;
     patch.project_title = null;
   }
@@ -197,7 +230,7 @@ export async function saveBtpPlanningRefConfig(formData: FormData): Promise<{ su
   const { error } = await supabase.from('btp_site_planning_refs').upsert(patch, {
     onConflict: 'site_id,slot',
   });
-  if (error) return { error: error.message };
+  if (error) return { error: planningRefSaveError(error.message) };
 
   revalidatePlanningPaths();
   return { success: true };
@@ -347,6 +380,7 @@ export async function getBtpPlannedProgressPreview(
   const plannedPct = plannedPhysicalPctFromResolvedRef(resolved, progressDate.slice(0, 10));
 
   return comparePlannedVsActual(
+    plannedPct,
     actualPct,
     resolved.sourceType,
     planningRefSummary(ref),

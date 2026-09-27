@@ -8,10 +8,15 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { createBtpSite } from '@/lib/actions/btp';
-import { HardHat, Plus, Search, ChevronRight, Trash2 } from 'lucide-react';
+import { HardHat, Plus, Search, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import type { BtpSiteMilestoneInput } from '@/lib/btp/site-baseline-types';
+import {
+  BtpTaskPlanningEditor,
+  defaultPlanningTasks,
+  filledPlanningTasks,
+} from '@/components/btp/btp-task-planning-editor';
+import type { BtpPlanningTaskInput } from '@/lib/btp/planning-tasks';
 
 interface SiteRow {
   id: string;
@@ -28,40 +33,32 @@ interface Props {
   canCreate: boolean;
 }
 
-const EMPTY_MILESTONE: BtpSiteMilestoneInput = {
-  label: '',
-  targetPhysicalPct: 25,
-  plannedDate: '',
-};
-
 export function ChantiersClient({ items: initialItems, description, canCreate }: Props) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [milestones, setMilestones] = useState<BtpSiteMilestoneInput[]>([
-    { ...EMPTY_MILESTONE, label: 'Fondations', targetPhysicalPct: 15 },
-    { ...EMPTY_MILESTONE, label: 'Gros oeuvre', targetPhysicalPct: 50 },
-    { ...EMPTY_MILESTONE, label: 'Finitions', targetPhysicalPct: 100 },
-  ]);
+  const [ref1Mode, setRef1Mode] = useState<'tasks' | 'linear'>('tasks');
+  const [tasks, setTasks] = useState<BtpPlanningTaskInput[]>(defaultPlanningTasks);
+  const [siteStartDate, setSiteStartDate] = useState('');
+  const [siteEndDate, setSiteEndDate] = useState('');
 
   async function handleCreate(formData: FormData) {
     setError(null);
-    formData.set(
-      'milestones_json',
-      JSON.stringify(milestones.filter((m) => m.label.trim() && m.plannedDate))
-    );
+    formData.set('ref1_mode', ref1Mode);
+    if (ref1Mode === 'tasks') {
+      formData.set('tasks_json', JSON.stringify(filledPlanningTasks(tasks)));
+    }
     const result = await createBtpSite(formData);
     if ('error' in result) {
       setError(result.error ?? 'Enregistrement impossible.');
       return;
     }
     setShowForm(false);
-    setMilestones([
-      { ...EMPTY_MILESTONE, label: 'Fondations', targetPhysicalPct: 15 },
-      { ...EMPTY_MILESTONE, label: 'Gros oeuvre', targetPhysicalPct: 50 },
-      { ...EMPTY_MILESTONE, label: 'Finitions', targetPhysicalPct: 100 },
-    ]);
+    setRef1Mode('tasks');
+    setTasks(defaultPlanningTasks());
+    setSiteStartDate('');
+    setSiteEndDate('');
     router.refresh();
   }
 
@@ -125,11 +122,29 @@ export function ChantiersClient({ items: initialItems, description, canCreate }:
                   </div>
                   <div className="space-y-2">
                     <Label>Date de début *</Label>
-                    <Input name="start_date" type="date" required />
+                    <Input
+                      name="start_date"
+                      type="date"
+                      required
+                      onChange={(e) => {
+                        const start = e.target.value;
+                        setSiteStartDate(start);
+                        setTasks((list) =>
+                          list.length > 0 && !list[0].startDate
+                            ? [{ ...list[0], startDate: start }, ...list.slice(1)]
+                            : list
+                        );
+                      }}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Date de fin prévue *</Label>
-                    <Input name="end_date" type="date" required />
+                    <Input
+                      name="end_date"
+                      type="date"
+                      required
+                      onChange={(e) => setSiteEndDate(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Budget total (GNF) *</Label>
@@ -142,83 +157,31 @@ export function ChantiersClient({ items: initialItems, description, canCreate }:
                 </div>
 
                 <div className="space-y-2 rounded-lg border bg-muted/30 p-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-semibold">Jalons du planning</Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setMilestones((m) => [...m, { ...EMPTY_MILESTONE }])}
-                    >
-                      <Plus className="h-3.5 w-3.5" /> Jalon
-                    </Button>
-                  </div>
+                  <Label className="text-sm font-semibold">Planning des travaux</Label>
                   <p className="text-xs text-muted-foreground">
-                    Choisissez le mode de la référence 1 : dates seules (linéaire), jalons détaillés, ou
-                    import MS Project après création (réf. 1 ou 2).
+                    Saisissez les tâches avec leurs dates : KonaData calcule la durée, le poids de chaque
+                    tâche et l&apos;avancement prévu. Un planning MS Project peut aussi être importé après
+                    création (réf. 1 ou 2).
                   </p>
                   <div className="space-y-2">
                     <Label className="text-xs">Mode référence 1 à la création</Label>
                     <select
-                      name="ref1_mode"
                       className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                      defaultValue={milestones.length > 1 ? 'milestones' : 'linear'}
-                      onChange={(e) => {
-                        if (e.target.value === 'linear') {
-                          setMilestones([{ ...EMPTY_MILESTONE }]);
-                        }
-                      }}
+                      value={ref1Mode}
+                      onChange={(e) => setRef1Mode(e.target.value === 'linear' ? 'linear' : 'tasks')}
                     >
-                      <option value="linear">Dates début / fin uniquement</option>
-                      <option value="milestones">Jalons KonaData (ci-dessous)</option>
+                      <option value="tasks">Tâches (début, fin, durée)</option>
+                      <option value="linear">Dates début / fin du chantier uniquement</option>
                     </select>
                   </div>
-                  <div className="space-y-2">
-                    {milestones.map((m, i) => (
-                      <div key={i} className="grid gap-2 sm:grid-cols-[1fr_100px_140px_auto] items-end">
-                        <Input
-                          placeholder="Phase (ex. Fondations)"
-                          value={m.label}
-                          onChange={(e) => {
-                            const next = [...milestones];
-                            next[i] = { ...next[i], label: e.target.value };
-                            setMilestones(next);
-                          }}
-                        />
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          placeholder="%"
-                          value={m.targetPhysicalPct}
-                          onChange={(e) => {
-                            const next = [...milestones];
-                            next[i] = { ...next[i], targetPhysicalPct: Number(e.target.value) };
-                            setMilestones(next);
-                          }}
-                        />
-                        <Input
-                          type="date"
-                          value={m.plannedDate}
-                          onChange={(e) => {
-                            const next = [...milestones];
-                            next[i] = { ...next[i], plannedDate: e.target.value };
-                            setMilestones(next);
-                          }}
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="text-muted-foreground"
-                          onClick={() => setMilestones((list) => list.filter((_, j) => j !== i))}
-                          disabled={milestones.length <= 1}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
+                  {ref1Mode === 'tasks' && (
+                    <BtpTaskPlanningEditor
+                      tasks={tasks}
+                      onChange={setTasks}
+                      siteStartDate={siteStartDate || undefined}
+                      siteEndDate={siteEndDate || undefined}
+                    />
+                  )}
                 </div>
               </div>
 

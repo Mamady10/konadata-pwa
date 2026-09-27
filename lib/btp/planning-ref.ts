@@ -57,6 +57,8 @@ export function planningRefSummary(ref: BtpSitePlanningRef): string {
   switch (ref.sourceType) {
     case 'ms_project':
       return `${ref.label} · MS Project (${ref.tasks.length} tâches)`;
+    case 'tasks':
+      return `${ref.label} · ${ref.tasks.length} tâche(s)`;
     case 'milestones':
       return `${ref.label} · ${ref.milestones.length} jalon(s)`;
     default:
@@ -88,16 +90,20 @@ export function resolvePlanningRef(
       endDate,
       milestones: ref.sourceType === 'milestones' ? milestoneRows : [],
     },
-    scheduleTasks:
-      ref.sourceType === 'ms_project' && ref.tasks.length > 0 ? ref.tasks : null,
+    scheduleTasks: isTaskBasedSource(ref.sourceType) && ref.tasks.length > 0 ? ref.tasks : null,
   };
+}
+
+/** Référence dont l'avancement prévu vient de tâches pondérées par leur durée. */
+export function isTaskBasedSource(sourceType: PlanningSourceType): boolean {
+  return sourceType === 'ms_project' || sourceType === 'tasks';
 }
 
 export function plannedPhysicalPctFromResolvedRef(
   resolved: ResolvedPlanningRef,
   asOf: string
 ): number | null {
-  if (resolved.sourceType === 'ms_project' && resolved.scheduleTasks) {
+  if (isTaskBasedSource(resolved.sourceType) && resolved.scheduleTasks) {
     return plannedPhysicalPctFromSchedule(resolved.scheduleTasks, asOf);
   }
   return plannedPhysicalPctAt(resolved.baseline, asOf, null);
@@ -110,6 +116,7 @@ export const PLANNING_REF_SLOT_LABELS: Record<PlanningRefSlot, string> = {
 
 export const PLANNING_SOURCE_LABELS: Record<PlanningSourceType, string> = {
   linear: 'Dates début / fin uniquement',
-  milestones: 'Jalons KonaData',
+  tasks: 'Tâches (début, fin, durée)',
+  milestones: 'Jalons en % cumulé (ancien mode)',
   ms_project: 'Import MS Project (XML)',
 };

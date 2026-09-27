@@ -92,7 +92,31 @@ export interface BtpSiteBaseline {
 
 export type PlanningRefSlot = 1 | 2;
 
-export type PlanningSourceType = 'linear' | 'milestones' | 'ms_project';
+export type PlanningSourceType = 'linear' | 'milestones' | 'ms_project' | 'tasks';
+
+/** Avancement d'une tâche au jour d'un relevé (btp_daily_progress.task_progress). */
+export interface BtpTaskProgressEntry {
+  uid: string;
+  name: string;
+  pct: number;
+  /** Poids de la tâche en % du chantier au moment du relevé. */
+  weight?: number;
+}
+
+export interface BtpTaskComparisonRow {
+  uid: string;
+  name: string;
+  startDate: string;
+  finishDate: string;
+  durationDays: number;
+  /** Poids en % du chantier (durée / somme des durées). */
+  weightPct: number;
+  plannedPct: number;
+  actualPct: number | null;
+  /** Jours de retard si la fin prévue est dépassée et la tâche non terminée. */
+  delayDays: number | null;
+  status: KpiTrafficStatus;
+}
 
 export interface BtpMilestoneComparisonRow {
   label: string;
@@ -120,6 +144,8 @@ export interface BtpWeeklyComparisonMetrics {
   financialPctAuto: number | null;
   physicalVsFinancialGapPts: number | null;
   milestoneRows: BtpMilestoneComparisonRow[];
+  /** Référence par tâches : prévu vs réalisé par tâche. */
+  taskRows: BtpTaskComparisonRow[];
   kpis: {
     planning: KpiTrafficStatus;
     budget: KpiTrafficStatus;

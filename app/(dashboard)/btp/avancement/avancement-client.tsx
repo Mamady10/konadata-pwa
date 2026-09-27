@@ -13,7 +13,13 @@ import { recordBtpSiteProgress, updateBtpDailyProgress, deleteBtpDailyProgress }
 import type { BtpDailyProgressRow, BtpSiteProgressRow } from '@/lib/actions/btp';
 import type { BtpPlannedProgressSnapshot } from '@/lib/btp/site-baseline-types';
 import { kpiStatusLabel } from '@/lib/btp/site-baseline';
-import { TrendingUp, Plus, Search, Pencil, Trash2 } from 'lucide-react';
+import {
+  globalPctFromTasks,
+  plannedTaskPctAt,
+  taskProgressStatus,
+  taskWeightPcts,
+} from '@/lib/btp/planning-tasks';
+import { TrendingUp, Plus, Search, Pencil, Trash2, RotateCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface Props {
@@ -35,7 +41,9 @@ export function AvancementClient({
   const [query, setQuery] = useState('');
   const [siteId, setSiteId] = useState('');
   const [progressDate, setProgressDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [physicalPct, setPhysicalPct] = useState(0);
+  const [manualPct, setManualPct] = useState(0);
+  const [globalOverride, setGlobalOverride] = useState(true);
+  const [taskPcts, setTaskPcts] = useState<Record<string, number>>({});
   const [planningRefSlot, setPlanningRefSlot] = useState<1 | 2>(1);
   const [lastSavedComparison, setLastSavedComparison] = useState<BtpPlannedProgressSnapshot | null>(null);
   const [editingHistory, setEditingHistory] = useState<BtpDailyProgressRow | null>(null);
@@ -45,12 +53,45 @@ export function AvancementClient({
     [sites, siteId]
   );
 
+  const taskRef = useMemo(
+    () => selectedSite?.taskPlanningRefs.find((r) => r.slot === planningRefSlot) ?? null,
+    [selectedSite, planningRefSlot]
+  );
+  const taskWeights = useMemo(() => (taskRef ? taskWeightPcts(taskRef.tasks) : {}), [taskRef]);
+  const computedPct = taskRef ? globalPctFromTasks(taskRef.tasks, taskPcts) : null;
+  const physicalPct = computedPct != null && !globalOverride ? computedPct : manualPct;
+
   useEffect(() => {
     if (selectedSite) {
-      setPhysicalPct(selectedSite.physicalProgress);
+      setManualPct(selectedSite.physicalProgress);
       setPlanningRefSlot(selectedSite.defaultPlanningRefSlot);
     }
   }, [selectedSite]);
+
+  useEffect(() => {
+    if (!selectedSite || !taskRef) {
+      setTaskPcts({});
+      setGlobalOverride(true);
+      return;
+    }
+    const last = selectedSite.lastTaskProgress;
+    const initial: Record<string, number> = {};
+    let hasPrior = false;
+    for (const t of taskRef.tasks) {
+      if (t.uid in last) hasPrior = true;
+      initial[t.uid] = last[t.uid] ?? 0;
+    }
+    setTaskPcts(initial);
+    // Sans relevé par tâche antérieur, on garde l'avancement global existant jusqu'à la première saisie.
+    setGlobalOverride(!hasPrior && selectedSite.physicalProgress > 0);
+  }, [selectedSite, taskRef]);
+
+  function setTaskPct(uid: string, raw: string) {
+    const n = Number(raw);
+    const pct = Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0;
+    setTaskPcts((prev) => ({ ...prev, [uid]: pct }));
+    setGlobalOverride(false);
+  }
 
   async function handleSubmit(formData: FormData) {
     setError(null);
@@ -59,6 +100,14 @@ export function AvancementClient({
       return;
     }
     formData.set('site_id', siteId);
+    formData.set('planning_ref_slot', String(planningRefSlot));
+    formData.set('physical_pct', String(physicalPct));
+    if (taskRef) {
+      formData.set(
+        'task_progress_json',
+        JSON.stringify(taskRef.tasks.map((t) => ({ uid: t.uid, pct: taskPcts[t.uid] ?? 0 })))
+      );
+    }
     const result = await recordBtpSiteProgress(formData);
     if ('error' in result) {
       setError(result.error ?? 'Enregistrement impossible.');
@@ -157,20 +206,6 @@ export function AvancementClient({
               </div>
 
               <div className="space-y-2">
-                <Label>Avancement physique (%) *</Label>
-                <Input
-                  name="physical_pct"
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={1}
-                  required
-                  value={physicalPct}
-                  onChange={(e) => setPhysicalPct(Number(e.target.value) || 0)}
-                />
-              </div>
-
-              <div className="space-y-2 sm:col-span-2">
                 <Label>Référence planning</Label>
                 <Select
                   value={String(planningRefSlot)}
@@ -184,6 +219,91 @@ export function AvancementClient({
                     <SelectItem value="2">Référence 2</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              {taskRef && (
+                <div className="space-y-2 sm:col-span-2 rounded-lg border bg-muted/20 p-3">
+                  <Label className="text-sm font-semibold">Avancement par tâche</Label>
+                  <div className="hidden sm:grid grid-cols-[1fr_70px_90px_110px] gap-2 text-[11px] font-medium text-muted-foreground px-1">
+                    <span>Tâche</span>
+                    <span>Poids</span>
+                    <span>Prévu</span>
+                    <span>Réalisé (%)</span>
+                  </div>
+                  {taskRef.tasks.map((t) => {
+                    const planned = plannedTaskPctAt(t, progressDate);
+                    const actual = taskPcts[t.uid] ?? 0;
+                    const status = taskProgressStatus(planned, actual, t.finishDate, progressDate);
+                    return (
+                      <div
+                        key={t.uid}
+                        className="grid grid-cols-[1fr_70px_90px_110px] gap-2 items-center text-sm"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{t.name}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {new Date(t.startDate).toLocaleDateString('fr-FR')} →{' '}
+                            {new Date(t.finishDate).toLocaleDateString('fr-FR')} · {t.durationDays} j
+                          </p>
+                        </div>
+                        <span className="tabular-nums text-muted-foreground">{taskWeights[t.uid] ?? 0} %</span>
+                        <span className="tabular-nums text-muted-foreground">{planned} %</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={0.1}
+                          aria-label={`Avancement réalisé — ${t.name}`}
+                          value={actual}
+                          onChange={(e) => setTaskPct(t.uid, e.target.value)}
+                          className={
+                            status === 'red'
+                              ? 'border-red-300'
+                              : status === 'amber'
+                                ? 'border-amber-300'
+                                : undefined
+                          }
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Avancement physique global (%) *</Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    required
+                    className="max-w-[160px]"
+                    value={physicalPct}
+                    onChange={(e) => {
+                      setManualPct(Number(e.target.value) || 0);
+                      setGlobalOverride(true);
+                    }}
+                  />
+                  {computedPct != null && globalOverride && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setGlobalOverride(false)}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" /> Recalculer depuis les tâches ({computedPct} %)
+                    </Button>
+                  )}
+                </div>
+                {computedPct != null && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {globalOverride
+                      ? 'Valeur saisie manuellement.'
+                      : 'Calculé automatiquement : somme des (poids × % réalisé) des tâches. Modifiable si besoin.'}
+                  </p>
+                )}
               </div>
 
               <BtpPlannedVsActualPanel
@@ -325,6 +445,11 @@ export function AvancementClient({
                     {' · '}
                     {h.physicalPct}%
                   </span>
+                  {h.taskProgress.length > 0 && (
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {h.taskProgress.map((t) => `${t.name} ${t.pct} %`).join(' · ')}
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-1">
                   <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingHistory(h)}>

@@ -94,6 +94,8 @@ export function BtpPlannedVsActualPanel({ siteId, progressDate, physicalPct, ref
       <p className="text-xs text-muted-foreground">
         {snapshot.source === 'ms_project'
           ? 'Référence calculée depuis le planning MS Project importé (pondération par durée des tâches).'
+          : snapshot.source === 'tasks'
+            ? 'Référence calculée depuis les tâches du planning (poids = durée de chaque tâche).'
           : snapshot.source === 'milestones'
             ? 'Référence calculée depuis les jalons du chantier.'
             : 'Référence linéaire entre les dates de début et fin du chantier.'}

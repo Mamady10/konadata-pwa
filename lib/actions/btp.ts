@@ -11,7 +11,21 @@ import type { PersonalDashboardLink } from '@/lib/sector/personal-dashboard-type
 import { getBtpPlannedProgressPreview } from '@/lib/actions/btp-planning-ref';
 import { ensureBtpSitePlanningRefs } from '@/lib/actions/btp-planning-ref';
 import { normalizeBudgetBreakdownInput } from '@/lib/btp/site-baseline';
-import type { BtpSiteMilestoneInput } from '@/lib/btp/site-baseline-types';
+import type {
+  BtpScheduleTask,
+  BtpSiteMilestoneInput,
+  BtpTaskProgressEntry,
+  PlanningSourceType,
+} from '@/lib/btp/site-baseline-types';
+import {
+  globalPctFromTasks,
+  normalizePlanningTasks,
+  parseTaskProgress,
+  planningTasksToSchedule,
+  taskWeightPcts,
+  type BtpPlanningTaskInput,
+} from '@/lib/btp/planning-tasks';
+import { isTaskBasedSource, mapPlanningRefRow } from '@/lib/btp/planning-ref';
 import { loadBtpDashboard } from '@/lib/btp/load-btp-dashboard';
 
 export type { BtpDashboardData } from '@/lib/btp/dashboard-types';
@@ -233,6 +247,17 @@ export interface BtpSiteProgressRow {
   delayDays: number;
   hasMsProjectSchedule: boolean;
   defaultPlanningRefSlot: 1 | 2;
+  /** Références planning par tâches (saisie de l'avancement par tâche). */
+  taskPlanningRefs: BtpProgressPlanningRef[];
+  /** Dernier % saisi par tâche (uid → %). */
+  lastTaskProgress: Record<string, number>;
+}
+
+export interface BtpProgressPlanningRef {
+  slot: 1 | 2;
+  label: string;
+  sourceType: PlanningSourceType;
+  tasks: BtpScheduleTask[];
 }
 
 export interface BtpDailyProgressRow {
@@ -245,22 +270,53 @@ export interface BtpDailyProgressRow {
   notes: string | null;
   weather: string | null;
   createdAt: string;
+  taskProgress: BtpTaskProgressEntry[];
+}
+
+async function loadLastTaskProgressBySite(
+  orgId: string
+): Promise<Map<string, Record<string, number>>> {
+  const supabase = await createClient();
+  const out = new Map<string, Record<string, number>>();
+  const { data, error } = await supabase
+    .from('btp_daily_progress')
+    .select('site_id, task_progress, progress_date, created_at')
+    .eq('organization_id', orgId)
+    .order('progress_date', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(1000);
+  if (error || !data) return out;
+  for (const row of data) {
+    const siteId = row.site_id as string;
+    if (out.has(siteId)) continue;
+    const entries = parseTaskProgress(row.task_progress);
+    if (entries.length === 0) continue;
+    out.set(siteId, Object.fromEntries(entries.map((e) => [e.uid, e.pct])));
+  }
+  return out;
 }
 
 export async function getBtpSitesForProgress(orgId: string): Promise<BtpSiteProgressRow[]> {
   const supabase = await createClient();
-  const [sites, refsRes] = await Promise.all([
+  const [sites, refsRes, lastTaskProgressBySite] = await Promise.all([
     getBtpSites(orgId),
     supabase
       .from('btp_site_planning_refs')
-      .select('site_id, slot, source_type')
+      .select('*')
       .eq('organization_id', orgId),
+    loadLastTaskProgressBySite(orgId),
   ]);
+  const refs = (refsRes.data ?? []).map((r) => mapPlanningRefRow(r));
   const msProjectSites = new Set(
-    (refsRes.data ?? [])
-      .filter((r) => r.source_type === 'ms_project')
-      .map((r) => r.site_id as string)
+    refs.filter((r) => r.sourceType === 'ms_project').map((r) => r.siteId)
   );
+  const taskRefsBySite = new Map<string, BtpProgressPlanningRef[]>();
+  for (const r of refs) {
+    if (!isTaskBasedSource(r.sourceType) || r.tasks.length === 0) continue;
+    const list = taskRefsBySite.get(r.siteId) ?? [];
+    list.push({ slot: r.slot, label: r.label, sourceType: r.sourceType, tasks: r.tasks });
+    taskRefsBySite.set(r.siteId, list);
+  }
   const defaultRefBySite = new Map<string, number>();
   const sitesWithDefault = await supabase
     .from('btp_sites')
@@ -281,17 +337,33 @@ export async function getBtpSitesForProgress(orgId: string): Promise<BtpSiteProg
     delayDays: Number(s.delay_days ?? 0),
     hasMsProjectSchedule: msProjectSites.has(s.id as string),
     defaultPlanningRefSlot: (defaultRefBySite.get(s.id as string) === 2 ? 2 : 1) as 1 | 2,
+    taskPlanningRefs: taskRefsBySite.get(s.id as string) ?? [],
+    lastTaskProgress: lastTaskProgressBySite.get(s.id as string) ?? {},
   }));
 }
 
 export async function getBtpDailyProgress(orgId: string, limit = 25): Promise<BtpDailyProgressRow[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('btp_daily_progress')
-    .select('id, site_id, progress_date, physical_pct, workers_count, notes, weather, created_at, btp_sites(name)')
-    .eq('organization_id', orgId)
-    .order('created_at', { ascending: false })
-    .limit(limit);
+  const baseColumns =
+    'id, site_id, progress_date, physical_pct, workers_count, notes, weather, created_at, btp_sites(name)';
+  const query = async (columns: string) => {
+    const res = await supabase
+      .from('btp_daily_progress')
+      .select(columns)
+      .eq('organization_id', orgId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    return {
+      data: (res.data ?? []) as unknown as Array<Record<string, unknown> & { site_id?: string | null }>,
+      error: res.error,
+    };
+  };
+
+  let { data, error } = await query(`${baseColumns}, task_progress`);
+  if (error) {
+    // Migration 120 (task_progress) pas encore appliquée.
+    ({ data, error } = await query(baseColumns));
+  }
 
   if (error) throw new Error(error.message);
 
@@ -308,6 +380,7 @@ export async function getBtpDailyProgress(orgId: string, limit = 25): Promise<Bt
     notes: (r.notes as string) || null,
     weather: (r.weather as string) || null,
     createdAt: r.created_at as string,
+    taskProgress: parseTaskProgress(r.task_progress),
   }));
 }
 
@@ -330,7 +403,19 @@ export async function recordBtpSiteProgress(formData: FormData) {
   const access = await assertCanEditBtpSite(siteId);
   if ('error' in access) return access;
 
-  const physicalPct = Number(formData.get('physical_pct'));
+  const planningRefSlot = Number(formData.get('planning_ref_slot')) === 2 ? 2 : 1;
+  const taskProgressResult = await resolveTaskProgressInput(
+    orgId,
+    siteId,
+    planningRefSlot,
+    formData.get('task_progress_json') as string | null
+  );
+  if ('error' in taskProgressResult) return taskProgressResult;
+  const { entries: taskProgress, computedGlobal } = taskProgressResult;
+
+  const physicalRaw = ((formData.get('physical_pct') as string) ?? '').trim();
+  const physicalPct =
+    physicalRaw === '' && computedGlobal != null ? computedGlobal : Number(physicalRaw);
   if (Number.isNaN(physicalPct) || physicalPct < 0 || physicalPct > 100) {
     return { error: 'Avancement physique invalide (0 à 100 %).' };
   }
@@ -358,9 +443,18 @@ export async function recordBtpSiteProgress(formData: FormData) {
     notes,
     weather,
     created_by: user?.id ?? null,
+    ...(taskProgress.length > 0 ? { task_progress: taskProgress } : {}),
   });
 
-  if (insertErr) return { error: insertErr.message };
+  if (insertErr) {
+    if (insertErr.message.includes('task_progress')) {
+      return {
+        error:
+          'Base de données à mettre à jour (migration 120 — avancement par tâche). Contactez le support KonaData.',
+      };
+    }
+    return { error: insertErr.message };
+  }
 
   const canManage = await canManageAssignments();
   if (canManage) {
@@ -389,8 +483,67 @@ export async function recordBtpSiteProgress(formData: FormData) {
 
   revalidateBtpDashboardCache(orgId, ['/btp/avancement', '/btp/chantiers', '/btp/rapports']);
 
-  const comparison = await getBtpPlannedProgressPreview(siteId, progressDate, physicalPct);
+  const comparison = await getBtpPlannedProgressPreview(
+    siteId,
+    progressDate,
+    physicalPct,
+    planningRefSlot
+  );
   return { success: true, comparison };
+}
+
+/** Valide les % par tâche saisis et calcule l'avancement global pondéré par la durée. */
+async function resolveTaskProgressInput(
+  orgId: string,
+  siteId: string,
+  slot: 1 | 2,
+  raw: string | null
+): Promise<{ entries: BtpTaskProgressEntry[]; computedGlobal: number | null } | { error: string }> {
+  if (!raw?.trim()) return { entries: [], computedGlobal: null };
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { error: 'Format de l\'avancement par tâche invalide.' };
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) return { entries: [], computedGlobal: null };
+
+  const supabase = await createClient();
+  const { data: refRow } = await supabase
+    .from('btp_site_planning_refs')
+    .select('*')
+    .eq('organization_id', orgId)
+    .eq('site_id', siteId)
+    .eq('slot', slot)
+    .maybeSingle();
+  if (!refRow) return { entries: [], computedGlobal: null };
+
+  const ref = mapPlanningRefRow(refRow);
+  if (!isTaskBasedSource(ref.sourceType) || ref.tasks.length === 0) {
+    return { entries: [], computedGlobal: null };
+  }
+
+  const pctByUid: Record<string, number> = {};
+  for (const item of parsed) {
+    if (!item || typeof item !== 'object') continue;
+    const o = item as Record<string, unknown>;
+    const uid = String(o.uid ?? '');
+    const pct = Number(o.pct);
+    if (!uid) continue;
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+      const task = ref.tasks.find((t) => t.uid === uid);
+      return { error: `Avancement invalide pour « ${task?.name ?? uid} » (0 à 100 %).` };
+    }
+    pctByUid[uid] = pct;
+  }
+
+  const weights = taskWeightPcts(ref.tasks);
+  const entries: BtpTaskProgressEntry[] = ref.tasks
+    .filter((t) => t.uid in pctByUid)
+    .map((t) => ({ uid: t.uid, name: t.name, pct: pctByUid[t.uid], weight: weights[t.uid] }));
+
+  return { entries, computedGlobal: globalPctFromTasks(ref.tasks, pctByUid) };
 }
 
 export async function updateBtpDailyProgress(formData: FormData) {
@@ -491,6 +644,26 @@ export async function createBtpSite(formData: FormData) {
 
   let milestones: BtpSiteMilestoneInput[] = [];
   const ref1Mode = (formData.get('ref1_mode') as string)?.trim() || 'milestones';
+
+  let planningTasks: BtpPlanningTaskInput[] = [];
+  if (ref1Mode === 'tasks') {
+    let parsedTasks: unknown;
+    try {
+      parsedTasks = JSON.parse((formData.get('tasks_json') as string) || '[]');
+    } catch {
+      return { error: 'Format des tâches invalide.' };
+    }
+    const normalized = normalizePlanningTasks(parsedTasks);
+    if ('error' in normalized) return { error: normalized.error };
+    if (normalized.tasks.length === 0) {
+      return {
+        error:
+          'Ajoutez au moins une tâche avec ses dates, ou choisissez « Dates début / fin uniquement ».',
+      };
+    }
+    planningTasks = normalized.tasks;
+  }
+
   const milestonesRaw = (formData.get('milestones_json') as string)?.trim();
   if (ref1Mode === 'milestones' && milestonesRaw) {
     try {
@@ -559,17 +732,35 @@ export async function createBtpSite(formData: FormData) {
   }
 
   if (site?.id) {
-    await ensureBtpSitePlanningRefs({
+    const ref1 =
+      planningTasks.length > 0
+        ? {
+            sourceType: 'tasks' as const,
+            tasks: planningTasksToSchedule(planningTasks),
+            label: 'Référence 1 — Tâches',
+          }
+        : {
+            sourceType:
+              ref1Mode === 'milestones' && milestones.length > 0
+                ? ('milestones' as const)
+                : ('linear' as const),
+            milestones,
+            label:
+              milestones.length > 0 ? 'Référence 1 — Jalons' : 'Référence 1 — Dates contractuelles',
+          };
+    const refErr = await ensureBtpSitePlanningRefs({
       orgId,
       siteId: site.id,
       startDate,
       endDate,
-      ref1: {
-        sourceType: ref1Mode === 'milestones' && milestones.length > 0 ? 'milestones' : 'linear',
-        milestones,
-        label: milestones.length > 0 ? 'Référence 1 — Jalons' : 'Référence 1 — Dates contractuelles',
-      },
+      ref1,
     });
+    if (refErr) {
+      revalidateBtpDashboardCache(orgId, ['/btp/chantiers', '/btp/rapports']);
+      return {
+        error: `Chantier créé, mais le planning n'a pas pu être enregistré : ${refErr.error}`,
+      };
+    }
     const { syncBtpSiteSpent } = await import('@/lib/actions/btp-financial');
     await syncBtpSiteSpent(orgId, site.id as string);
   }
