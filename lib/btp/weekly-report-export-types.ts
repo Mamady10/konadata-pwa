@@ -53,6 +53,48 @@ export interface WeeklyReportDeliveryRow {
   dateLabel: string;
 }
 
+export interface WeeklyReportImage {
+  base64: string;
+  format: 'PNG' | 'JPEG';
+  width: number;
+  height: number;
+}
+
+export interface WeeklyReportPhoto extends WeeklyReportImage {
+  caption: string;
+  dateLabel: string;
+}
+
+export type WeeklyReportUpcomingEvent = 'start' | 'finish' | 'ongoing';
+
+export interface WeeklyReportUpcomingTask {
+  name: string;
+  startDate: string;
+  finishDate: string;
+  event: WeeklyReportUpcomingEvent;
+  /** % prévu de la tâche à la fin de la période suivante. */
+  plannedPctAtEnd: number;
+  actualPct: number | null;
+}
+
+export interface WeeklyReportUpcoming {
+  label: string;
+  from: string;
+  to: string;
+  tasks: WeeklyReportUpcomingTask[];
+}
+
+export interface WeeklyReportSignatories {
+  preparedBy: string | null;
+  moa: string | null;
+}
+
+export const UPCOMING_EVENT_LABELS: Record<WeeklyReportUpcomingEvent, string> = {
+  start: 'Démarrage',
+  finish: 'Fin prévue',
+  ongoing: 'En cours',
+};
+
 export interface WeeklyReportExportStructured {
   identification: WeeklyReportIdentification;
   synthesis: WeeklyReportSynthesis;
@@ -78,6 +120,10 @@ export interface WeeklyReportExportStructured {
   comment: string | null;
   comparison: BtpWeeklyComparisonMetrics | null;
   budgetBreakdown: BtpBudgetBreakdown;
+  logo?: WeeklyReportImage | null;
+  photos?: WeeklyReportPhoto[];
+  upcoming?: WeeklyReportUpcoming | null;
+  signatories?: WeeklyReportSignatories;
 }
 
 /** Données structurées pour export PDF / PPTX du rapport hebdo chantier. */

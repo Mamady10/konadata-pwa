@@ -1,14 +1,37 @@
 import 'server-only';
 
 import PptxGenJS from 'pptxgenjs';
-import type { WeeklyReportExportPayload } from '@/lib/btp/weekly-report-export-types';
-import { displayOrgName } from '@/lib/btp/weekly-report-export-types';
+import type {
+  WeeklyReportExportPayload,
+  WeeklyReportImage,
+} from '@/lib/btp/weekly-report-export-types';
+import { displayOrgName, UPCOMING_EVENT_LABELS } from '@/lib/btp/weekly-report-export-types';
 import { formatCurrency } from '@/lib/utils';
 import { kpiStatusLabel } from '@/lib/btp/site-baseline';
 import {
   comparisonMetricsTableRows,
+  fitImage,
   milestoneTableRows,
+  summaryCards,
 } from '@/lib/btp/weekly-report-export-render';
+
+const STATUS_HEX: Record<string, string> = {
+  green: '10B981',
+  amber: 'F59E0B',
+  red: 'EF4444',
+  neutral: '94A3B8',
+};
+
+const TASKS_PER_CHART_SLIDE = 14;
+const PHOTOS_PER_SLIDE = 2;
+
+function imageData(img: WeeklyReportImage): string {
+  return `image/${img.format === 'JPEG' ? 'jpeg' : 'png'};base64,${img.base64}`;
+}
+
+function frDate(iso: string): string {
+  return iso.slice(0, 10).split('-').reverse().join('/');
+}
 
 const COLORS = {
   bg: 'F8FAFC',
@@ -24,7 +47,35 @@ const COLORS = {
 
 type PptxSlide = ReturnType<PptxGenJS['addSlide']>;
 
-function addHeaderBar(slide: PptxSlide, title: string) {
+interface HeaderContext {
+  orgName: string;
+  scopeLabel: string;
+  periodLabel: string;
+  logo: WeeklyReportImage | null;
+}
+
+function addLogo(slide: PptxSlide, logo: WeeklyReportImage, x: number, y: number, box: number) {
+  slide.addShape('roundRect', {
+    x,
+    y,
+    w: box,
+    h: box,
+    fill: { color: 'FFFFFF' },
+    line: { color: 'FFFFFF', width: 0 },
+    rectRadius: 0.06,
+  });
+  const pad = box * 0.08;
+  const fit = fitImage(logo.width, logo.height, box - pad * 2, box - pad * 2);
+  slide.addImage({
+    data: imageData(logo),
+    x: x + pad + fit.dx,
+    y: y + pad + fit.dy,
+    w: fit.w,
+    h: fit.h,
+  });
+}
+
+function drawHeaderBar(slide: PptxSlide, title: string, ctx: HeaderContext) {
   slide.addShape('rect', {
     x: 0,
     y: 0,
@@ -32,16 +83,48 @@ function addHeaderBar(slide: PptxSlide, title: string) {
     h: 0.82,
     fill: { color: COLORS.headerBar },
   });
+  slide.addShape('rect', {
+    x: 0,
+    y: 0.82,
+    w: 10,
+    h: 0.04,
+    fill: { color: COLORS.primary },
+  });
   slide.addText(title, {
     x: 0.35,
     y: 0.14,
-    w: 9.2,
+    w: 5.5,
     h: 0.52,
     fontSize: 18,
     bold: true,
     color: 'FFFFFF',
     fontFace: 'Segoe UI',
+    fit: 'shrink',
   });
+  slide.addText(
+    [
+      {
+        text: ctx.orgName.toUpperCase(),
+        options: { bold: true, fontSize: 10, color: 'FFFFFF', breakLine: true },
+      },
+      {
+        text: `${ctx.scopeLabel} · ${ctx.periodLabel}`,
+        options: { fontSize: 8.5, color: 'CBD5E1' },
+      },
+    ],
+    {
+      x: 5.95,
+      y: 0.1,
+      w: ctx.logo ? 3.1 : 3.75,
+      h: 0.62,
+      align: 'right',
+      valign: 'middle',
+      fontFace: 'Segoe UI',
+      fit: 'shrink',
+    }
+  );
+  if (ctx.logo) addLogo(slide, ctx.logo, 9.14, 0.12, 0.58);
+  slide.slideNumber = { x: 9.25, y: 5.3, w: 0.5, h: 0.25, fontSize: 9, color: '94A3B8', align: 'right' };
 }
 
 function tableHeaderCell(text: string) {
@@ -104,6 +187,15 @@ export async function buildWeeklyReportPptxBuffer(
   pptx.subject = `Rapport périodique — ${payload.scopeLabel}`;
   pptx.layout = 'LAYOUT_16x9';
 
+  const headerCtx: HeaderContext = {
+    orgName,
+    scopeLabel: payload.scopeLabel,
+    periodLabel: payload.periodLabel,
+    logo: s.logo ?? null,
+  };
+  const addHeaderBar = (slide: PptxSlide, title: string) => drawHeaderBar(slide, title, headerCtx);
+  const logoOffset = s.logo ? 0.5 : 0;
+
   const titleSlide = pptx.addSlide();
   titleSlide.background = { color: COLORS.dark };
   titleSlide.addShape('rect', {
@@ -113,9 +205,10 @@ export async function buildWeeklyReportPptxBuffer(
     h: 0.1,
     fill: { color: COLORS.primary },
   });
+  if (s.logo) addLogo(titleSlide, s.logo, 4.45, 0.2, 1.1);
   titleSlide.addText(orgName.toUpperCase(), {
     x: 0.45,
-    y: 0.65,
+    y: 0.65 + logoOffset + 0.1,
     w: 9.1,
     h: 0.75,
     fontSize: 26,
@@ -126,7 +219,7 @@ export async function buildWeeklyReportPptxBuffer(
   });
   titleSlide.addText('Rapport de chantier périodique', {
     x: 0.45,
-    y: 1.45,
+    y: 1.45 + logoOffset,
     w: 9.1,
     h: 0.4,
     fontSize: 14,
@@ -136,7 +229,7 @@ export async function buildWeeklyReportPptxBuffer(
   });
   titleSlide.addText(payload.scopeLabel, {
     x: 0.45,
-    y: 2.05,
+    y: 2.05 + logoOffset,
     w: 9.1,
     h: 0.55,
     fontSize: 22,
@@ -147,7 +240,7 @@ export async function buildWeeklyReportPptxBuffer(
   });
   titleSlide.addText(payload.subtitle, {
     x: 0.45,
-    y: 2.75,
+    y: 2.75 + logoOffset,
     w: 9.1,
     h: 0.45,
     fontSize: 13,
@@ -164,6 +257,53 @@ export async function buildWeeklyReportPptxBuffer(
     color: '94A3B8',
     align: 'center',
     fontFace: 'Segoe UI',
+  });
+
+  const summarySlide = pptx.addSlide();
+  summarySlide.background = { color: COLORS.bg };
+  addHeaderBar(summarySlide, 'Résumé');
+  summaryCards(s).forEach((card, i) => {
+    const x = 0.45 + (i % 2) * 4.65;
+    const y = 1.15 + Math.floor(i / 2) * 2.1;
+    const color = STATUS_HEX[card.status] ?? STATUS_HEX.neutral;
+    summarySlide.addShape('roundRect', {
+      x,
+      y,
+      w: 4.45,
+      h: 1.85,
+      fill: { color: 'FFFFFF' },
+      line: { color: 'E2E8F0', width: 1 },
+      rectRadius: 0.08,
+    });
+    summarySlide.addShape('rect', { x, y, w: 4.45, h: 0.09, fill: { color } });
+    summarySlide.addText(card.label.toUpperCase(), {
+      x: x + 0.25,
+      y: y + 0.2,
+      w: 4,
+      h: 0.35,
+      fontSize: 11,
+      color: COLORS.muted,
+      fontFace: 'Segoe UI',
+    });
+    summarySlide.addText(card.value, {
+      x: x + 0.25,
+      y: y + 0.55,
+      w: 4,
+      h: 0.7,
+      fontSize: card.value.length > 12 ? 22 : 30,
+      bold: true,
+      color,
+      fontFace: 'Segoe UI',
+    });
+    summarySlide.addText(card.sub, {
+      x: x + 0.25,
+      y: y + 1.25,
+      w: 4,
+      h: 0.45,
+      fontSize: 11,
+      color: COLORS.text,
+      fontFace: 'Segoe UI',
+    });
   });
 
   const idSlide = pptx.addSlide();
@@ -220,7 +360,7 @@ export async function buildWeeklyReportPptxBuffer(
         }
       );
     }
-    const mRows = milestoneTableRows(cmp);
+    const mRows = (cmp.taskRows ?? []).length > 0 ? [] : milestoneTableRows(cmp);
     if (mRows.length > 0) {
       cmpSlide.addTable(
         [
@@ -237,6 +377,46 @@ export async function buildWeeklyReportPptxBuffer(
         }
       );
     }
+  }
+
+  const taskRows = cmp?.taskRows ?? [];
+  for (let i = 0; i < taskRows.length; i += TASKS_PER_CHART_SLIDE) {
+    const chunk = taskRows.slice(i, i + TASKS_PER_CHART_SLIDE);
+    const taskSlide = pptx.addSlide();
+    taskSlide.background = { color: COLORS.bg };
+    addHeaderBar(
+      taskSlide,
+      taskRows.length > TASKS_PER_CHART_SLIDE
+        ? `Avancement par tâche (${Math.floor(i / TASKS_PER_CHART_SLIDE) + 1})`
+        : 'Avancement par tâche'
+    );
+    // Les barres horizontales se dessinent de bas en haut : on inverse pour lire la 1re tâche en haut.
+    const ordered = [...chunk].reverse();
+    const labels = ordered.map((t) => (t.name.length > 34 ? `${t.name.slice(0, 32)}…` : t.name));
+    taskSlide.addChart(
+      pptx.ChartType.bar,
+      [
+        { name: 'Prévu', labels, values: ordered.map((t) => t.plannedPct) },
+        { name: 'Réalisé', labels, values: ordered.map((t) => t.actualPct ?? 0) },
+      ],
+      {
+        x: 0.35,
+        y: 1.0,
+        w: 9.3,
+        h: 4.3,
+        barDir: 'bar',
+        barGrouping: 'clustered',
+        valAxisMaxVal: 100,
+        valAxisMinVal: 0,
+        chartColors: ['CBD5E1', COLORS.primary],
+        showLegend: true,
+        legendPos: 'b',
+        showValue: true,
+        dataLabelFontSize: 8,
+        catAxisLabelFontSize: 9,
+        valAxisLabelFontSize: 8,
+      }
+    );
   }
 
   const compareChartSlide = cmp ? pptx.addSlide() : null;
@@ -346,6 +526,44 @@ export async function buildWeeklyReportPptxBuffer(
         }
       );
     }
+  }
+
+  if (s.upcoming && s.upcoming.tasks.length > 0) {
+    const upcomingSlide = pptx.addSlide();
+    upcomingSlide.background = { color: COLORS.bg };
+    addHeaderBar(upcomingSlide, 'Prévisions');
+    upcomingSlide.addText(s.upcoming.label, {
+      x: 0.35,
+      y: 0.98,
+      w: 9.3,
+      h: 0.4,
+      fontSize: 13,
+      bold: true,
+      color: COLORS.text,
+      fontFace: 'Segoe UI',
+    });
+    upcomingSlide.addTable(
+      [
+        ['Tâche', 'Période', 'Événement', 'Prévu fin', 'Actuel'].map((h) => tableHeaderCell(h)),
+        ...s.upcoming.tasks.map((t) =>
+          [
+            t.name,
+            `${frDate(t.startDate)} → ${frDate(t.finishDate)}`,
+            UPCOMING_EVENT_LABELS[t.event],
+            `${t.plannedPctAtEnd} %`,
+            t.actualPct != null ? `${t.actualPct} %` : '—',
+          ].map((c) => tableCell(c))
+        ),
+      ],
+      {
+        x: 0.35,
+        y: 1.45,
+        w: 9.3,
+        colW: [3.3, 2.4, 1.4, 1.1, 1.1],
+        fontSize: 9,
+        border: { type: 'solid', color: 'E2E8F0', pt: 0.5 },
+      }
+    );
   }
 
   const kpiSlide = pptx.addSlide();
@@ -630,8 +848,53 @@ export async function buildWeeklyReportPptxBuffer(
   addKeyValueTable(hseSlide, [
     ['Mentions sécurité', `${s.hse.mentions} dans les fiches journalières`],
     ['Documents déposés', `${s.hse.docsCount} (HSE / photos)`],
-    ...s.hse.noteSnippets.map((n, i) => [`Note ${i + 1}`, n]),
+    ...s.hse.noteSnippets.map((n, i): [string, string] => [`Note ${i + 1}`, n]),
   ]);
+
+  const photos = s.photos ?? [];
+  for (let i = 0; i < photos.length; i += PHOTOS_PER_SLIDE) {
+    const photoSlide = pptx.addSlide();
+    photoSlide.background = { color: COLORS.bg };
+    addHeaderBar(photoSlide, 'Photos du chantier');
+    photos.slice(i, i + PHOTOS_PER_SLIDE).forEach((photo, j) => {
+      const boxX = 0.4 + j * 4.7;
+      const boxY = 1.05;
+      const boxW = 4.5;
+      const boxH = 3.75;
+      photoSlide.addShape('roundRect', {
+        x: boxX,
+        y: boxY,
+        w: boxW,
+        h: boxH + 0.5,
+        fill: { color: 'FFFFFF' },
+        line: { color: 'E2E8F0', width: 1 },
+        rectRadius: 0.05,
+      });
+      const fit = fitImage(photo.width, photo.height, boxW - 0.2, boxH - 0.2);
+      photoSlide.addImage({
+        data: imageData(photo),
+        x: boxX + 0.1 + fit.dx,
+        y: boxY + 0.1 + fit.dy,
+        w: fit.w,
+        h: fit.h,
+      });
+      photoSlide.addText(
+        [
+          { text: photo.caption, options: { bold: true, color: COLORS.text } },
+          { text: `  ·  ${photo.dateLabel}`, options: { color: COLORS.muted } },
+        ],
+        {
+          x: boxX + 0.1,
+          y: boxY + boxH,
+          w: boxW - 0.2,
+          h: 0.45,
+          fontSize: 10,
+          fontFace: 'Segoe UI',
+          fit: 'shrink',
+        }
+      );
+    });
+  }
 
   if (s.comment) {
     const commentSlide = pptx.addSlide();
@@ -649,8 +912,50 @@ export async function buildWeeklyReportPptxBuffer(
     });
   }
 
+  const signSlide = pptx.addSlide();
+  signSlide.background = { color: COLORS.bg };
+  addHeaderBar(signSlide, 'Validation');
+  const signatories = s.signatories ?? { preparedBy: null, moa: s.identification.moaRecipient ?? null };
+  [
+    { title: 'Établi par (chef de chantier)', name: signatories.preparedBy },
+    { title: "Visa du maître d'ouvrage", name: signatories.moa },
+  ].forEach((b, i) => {
+    const x = 0.45 + i * 4.65;
+    signSlide.addShape('roundRect', {
+      x,
+      y: 1.2,
+      w: 4.45,
+      h: 3.6,
+      fill: { color: 'FFFFFF' },
+      line: { color: 'CBD5E1', width: 1 },
+      rectRadius: 0.06,
+    });
+    signSlide.addText(
+      [
+        { text: b.title, options: { bold: true, color: COLORS.primary, fontSize: 14, breakLine: true } },
+        { text: ' ', options: { breakLine: true } },
+        { text: `Nom : ${b.name ?? ''}`, options: { breakLine: true } },
+        { text: ' ', options: { breakLine: true } },
+        { text: 'Date : ____________________', options: { breakLine: true } },
+        { text: ' ', options: { breakLine: true } },
+        { text: 'Signature :' },
+      ],
+      {
+        x: x + 0.25,
+        y: 1.35,
+        w: 4,
+        h: 3.3,
+        valign: 'top',
+        fontSize: 12,
+        color: COLORS.text,
+        fontFace: 'Segoe UI',
+      }
+    );
+  });
+
   const closing = pptx.addSlide();
   closing.background = { color: COLORS.dark };
+  if (s.logo) addLogo(closing, s.logo, 4.45, 0.55, 1.1);
   closing.addText(orgName, {
     x: 0.5,
     y: 2.0,

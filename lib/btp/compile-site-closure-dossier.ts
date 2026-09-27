@@ -57,6 +57,7 @@ export async function compileBtpSiteClosureDossier(params: {
     weeklyComment: params.closureComment ?? null,
     orgName: params.orgName ?? null,
     planningRefSlot: params.planningRefSlot ?? 1,
+    includeMedia: false,
   });
 
   const { data: docLinks } = await supabase

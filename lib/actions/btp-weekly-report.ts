@@ -108,6 +108,7 @@ export async function compileBtpWeeklySiteReportAction(
     const orgId = await requireOrgId();
     const session = await getSession();
     const org = session?.profile?.organizations as { name?: string } | null;
+    const preparedBy = (session?.profile as { full_name?: string | null } | undefined)?.full_name ?? null;
 
     const compiled = await compileBtpWeeklySiteReport({
       orgId,
@@ -117,6 +118,7 @@ export async function compileBtpWeeklySiteReportAction(
       weeklyComment: weeklyComment || null,
       orgName: org?.name ?? null,
       planningRefSlot,
+      preparedBy,
     });
 
     const isDirector = await canManageAssignments();

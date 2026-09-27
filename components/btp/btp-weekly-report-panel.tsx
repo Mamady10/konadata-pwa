@@ -10,10 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { BtpWeeklyReportExport } from '@/components/btp/btp-weekly-report-export';
 import { compileBtpWeeklySiteReportAction } from '@/lib/actions/btp-weekly-report';
 import { getBtpPlanningRefOptionsForSite } from '@/lib/actions/btp-planning-ref';
+import { getBulletinBrandingStatus, uploadBulletinLogo } from '@/lib/actions/bulletin-branding';
 import { getDefaultPeriodValue, type ReportPeriodType } from '@/lib/btp/report-period';
 import type { WeeklyReportExportPayload } from '@/lib/btp/weekly-report-export-types';
 import type { PlanningRefSlot } from '@/lib/btp/site-baseline-types';
-import { CalendarRange, FileStack, Loader2, CheckCircle2 } from 'lucide-react';
+import { CalendarRange, FileStack, Loader2, CheckCircle2, ImageUp } from 'lucide-react';
 
 interface SiteOption {
   id: string;
@@ -40,6 +41,35 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
   const [archiveId, setArchiveId] = useState<string | null>(null);
   const [archived, setArchived] = useState(false);
   const [exportPayload, setExportPayload] = useState<WeeklyReportExportPayload | null>(null);
+  const [hasLogo, setHasLogo] = useState<boolean | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoMessage, setLogoMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isDirector) return;
+    getBulletinBrandingStatus()
+      .then((status) => setHasLogo(status.hasLogo))
+      .catch(() => setHasLogo(null));
+  }, [isDirector]);
+
+  async function handleLogoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setLogoUploading(true);
+    setLogoMessage(null);
+    const fd = new FormData();
+    fd.set('file', file);
+    const result = await uploadBulletinLogo(fd);
+    setLogoUploading(false);
+    if ('error' in result && result.error) {
+      setLogoMessage(result.error);
+      return;
+    }
+    setHasLogo(true);
+    setLogoMessage('Logo enregistré : il apparaîtra sur les prochains rapports compilés.');
+  }
+
   useEffect(() => {
     if (periodType !== 'quarter') {
       setPeriodValue(getDefaultPeriodValue(periodType));
@@ -267,6 +297,29 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
               className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
             />
           </div>
+          {isDirector && (
+            <div className="sm:col-span-2 flex flex-wrap items-center gap-3 rounded-lg border bg-background/60 p-3 text-sm">
+              <ImageUp className="h-4 w-4 text-muted-foreground" />
+              <span className="flex-1 min-w-[200px]">
+                Logo de l&apos;entreprise (en-tête du rapport) :{' '}
+                <strong>{hasLogo == null ? '…' : hasLogo ? 'enregistré' : 'aucun'}</strong>
+              </span>
+              <label className="inline-flex">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={handleLogoFile}
+                  disabled={logoUploading}
+                />
+                <span className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border px-3 text-xs font-medium hover:bg-muted">
+                  {logoUploading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {hasLogo ? 'Changer le logo' : 'Ajouter le logo'}
+                </span>
+              </label>
+              {logoMessage && <p className="w-full text-xs text-muted-foreground">{logoMessage}</p>}
+            </div>
+          )}
           <div className="sm:col-span-2">
             <Button
               type="submit"
@@ -298,7 +351,8 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
           <p className="text-xs text-muted-foreground">
             Sources : {exportPayload.stats.dailyEntries} fiche(s) journalière(s) ·{' '}
             {exportPayload.stats.fuelLogs} relevé(s) carburant ·{' '}
-            {exportPayload.stats.deliveryNotes} bon(s) de livraison
+            {exportPayload.stats.deliveryNotes} bon(s) de livraison ·{' '}
+            {exportPayload.structured.photos?.length ?? 0} photo(s) du chantier
           </p>
         )}
 

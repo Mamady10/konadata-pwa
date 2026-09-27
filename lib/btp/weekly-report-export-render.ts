@@ -1,7 +1,7 @@
 import type { jsPDF } from 'jspdf';
 import type { WeeklyReportExportStructured } from '@/lib/btp/weekly-report-export-types';
 import { kpiStatusLabel } from '@/lib/btp/site-baseline';
-import type { KpiTrafficStatus } from '@/lib/btp/site-baseline-types';
+import type { BtpTaskComparisonRow, KpiTrafficStatus } from '@/lib/btp/site-baseline-types';
 
 export const EXPORT_COLORS = {
   navy: [10, 25, 47] as [number, number, number],
@@ -55,6 +55,9 @@ export function drawSectionTitle(doc: jsPDF, y: number, title: string, margin: n
   return y + 10;
 }
 
+const TABLE_LINE_H = 3.6;
+const TABLE_MAX_LINES = 4;
+
 export function drawTable(
   doc: jsPDF,
   startY: number,
@@ -62,14 +65,35 @@ export function drawTable(
   contentW: number,
   colWidths: number[],
   rows: string[][],
-  options?: { headerRows?: number }
+  options?: {
+    headerRows?: number;
+    /** Bas de la zone utile ; au-delà, on passe à la page suivante. */
+    pageBottom?: number;
+    /** Ajoute une page et renvoie le Y de départ du contenu. */
+    newPage?: () => number;
+  }
 ): number {
   const headerRows = options?.headerRows ?? 1;
-  const rowH = 7;
-  let y = startY;
+  const pageBottom = options?.pageBottom ?? 278;
 
-  for (let r = 0; r < rows.length; r++) {
+  const layoutRow = (r: number) => {
     const isHeader = r < headerRows;
+    doc.setFont('helvetica', isHeader ? 'bold' : 'normal');
+    doc.setFontSize(isHeader ? 8.5 : 8);
+    const cells = rows[r].map((raw, c) => {
+      const w = colWidths[c] ?? contentW / rows[r].length;
+      const lines = doc.splitTextToSize(sanitizePdfText(raw ?? ''), w - 3) as string[];
+      if (lines.length <= TABLE_MAX_LINES) return lines;
+      const kept = lines.slice(0, TABLE_MAX_LINES);
+      kept[TABLE_MAX_LINES - 1] = `${kept[TABLE_MAX_LINES - 1].slice(0, -3).trimEnd()}...`;
+      return kept;
+    });
+    const lineCount = Math.max(1, ...cells.map((l) => l.length));
+    return { isHeader, cells, height: 7 + (lineCount - 1) * TABLE_LINE_H };
+  };
+
+  const drawRow = (r: number, y: number, layout: ReturnType<typeof layoutRow>) => {
+    const { isHeader, cells, height } = layout;
     if (isHeader) {
       doc.setFillColor(...EXPORT_COLORS.headerBg);
     } else if (r % 2 === 0) {
@@ -77,24 +101,40 @@ export function drawTable(
     } else {
       doc.setFillColor(255, 255, 255);
     }
-    doc.rect(margin, y, contentW, rowH, 'F');
+    doc.rect(margin, y, contentW, height, 'F');
     doc.setDrawColor(226, 232, 240);
     doc.setLineWidth(0.2);
-    doc.rect(margin, y, contentW, rowH, 'S');
+    doc.rect(margin, y, contentW, height, 'S');
 
     let x = margin;
-    for (let c = 0; c < rows[r].length; c++) {
-      const w = colWidths[c] ?? contentW / rows[r].length;
-      if (c > 0) doc.line(x, y, x, y + rowH);
+    for (let c = 0; c < cells.length; c++) {
+      const w = colWidths[c] ?? contentW / cells.length;
+      if (c > 0) doc.line(x, y, x, y + height);
       doc.setFont('helvetica', isHeader ? 'bold' : 'normal');
       doc.setFontSize(isHeader ? 8.5 : 8);
       doc.setTextColor(...(isHeader ? EXPORT_COLORS.blue : EXPORT_COLORS.text));
-      const cell = sanitizePdfText(rows[r][c] ?? '');
-      const lines = doc.splitTextToSize(cell, w - 3) as string[];
-      doc.text(lines[0] ?? '', x + 2, y + 4.8);
+      cells[c].forEach((line, i) => doc.text(line, x + 2, y + 4.8 + i * TABLE_LINE_H));
       x += w;
     }
-    y += rowH;
+  };
+
+  const headerLayouts = rows.slice(0, headerRows).map((_, r) => layoutRow(r));
+  const headerHeight = headerLayouts.reduce((s, l) => s + l.height, 0);
+  let y = startY;
+
+  if (options?.newPage && y + headerHeight + 7 > pageBottom) y = options.newPage();
+
+  for (let r = 0; r < rows.length; r++) {
+    const layout = r < headerRows ? headerLayouts[r] : layoutRow(r);
+    if (r >= headerRows && options?.newPage && y + layout.height > pageBottom) {
+      y = options.newPage();
+      headerLayouts.forEach((hl, h) => {
+        drawRow(h, y, hl);
+        y += hl.height;
+      });
+    }
+    drawRow(r, y, layout);
+    y += layout.height;
   }
   return y + 4;
 }
@@ -290,12 +330,200 @@ export function identificationTableRows(
   return rows;
 }
 
-const KPI_COLORS: Record<string, [number, number, number]> = {
+export const KPI_COLORS: Record<string, [number, number, number]> = {
   green: [16, 185, 129],
   amber: [245, 158, 11],
   red: [239, 68, 68],
   neutral: [148, 163, 184],
 };
+
+/** Dimensions d'une image contenue dans une boîte, proportions conservées. */
+export function fitImage(
+  imgW: number,
+  imgH: number,
+  boxW: number,
+  boxH: number
+): { w: number; h: number; dx: number; dy: number } {
+  if (imgW <= 0 || imgH <= 0) return { w: boxW, h: boxH, dx: 0, dy: 0 };
+  const scale = Math.min(boxW / imgW, boxH / imgH);
+  const w = imgW * scale;
+  const h = imgH * scale;
+  return { w, h, dx: (boxW - w) / 2, dy: (boxH - h) / 2 };
+}
+
+export interface SummaryCard {
+  label: string;
+  value: string;
+  sub: string;
+  status: KpiTrafficStatus;
+}
+
+/** Les 4 indicateurs clés affichés en tête de rapport. */
+export function summaryCards(s: WeeklyReportExportStructured): SummaryCard[] {
+  const c = s.comparison;
+  const actual = c?.actualPhysicalPct ?? s.synthesis.physicalEnd;
+  const delta = s.synthesis.physicalEnd - s.synthesis.physicalStart;
+  const gap = c?.physicalGapPts;
+  const budgetPct =
+    c?.budgetExecutionPct ??
+    (s.synthesis.budget > 0 ? Math.round((s.synthesis.spent / s.synthesis.budget) * 100) : null);
+
+  return [
+    {
+      label: 'Avancement réel',
+      value: `${actual} %`,
+      sub:
+        c?.plannedPhysicalPct != null && gap != null
+          ? `Prévu ${c.plannedPhysicalPct} % (écart ${gap >= 0 ? '+' : ''}${gap} pt)`
+          : `${delta >= 0 ? '+' : ''}${Math.round(delta)} pt sur la période`,
+      status: c?.kpis.planning ?? 'neutral',
+    },
+    {
+      label: 'Délais',
+      value: s.synthesis.delayDays > 0 ? `${s.synthesis.delayDays} j de retard` : 'Dans les délais',
+      sub: c?.timeElapsedPct != null ? `Temps écoulé : ${c.timeElapsedPct} %` : '',
+      status: c?.kpis.schedule ?? (s.synthesis.delayDays > 0 ? 'amber' : 'neutral'),
+    },
+    {
+      label: 'Budget consommé',
+      value: budgetPct != null ? `${budgetPct} %` : '-',
+      sub: `${formatGnfPdf(s.synthesis.spent)} / ${formatGnfPdf(s.synthesis.budget)}`,
+      status: c?.kpis.budget ?? 'neutral',
+    },
+    {
+      label: 'État global',
+      value: kpiStatusLabel(c?.kpis.overall ?? 'neutral'),
+      sub: `${s.synthesis.dailyCount} fiche(s) · ${s.photos?.length ?? 0} photo(s)`,
+      status: c?.kpis.overall ?? 'neutral',
+    },
+  ];
+}
+
+export function drawSummaryCards(
+  doc: jsPDF,
+  y: number,
+  margin: number,
+  contentW: number,
+  cards: SummaryCard[]
+): number {
+  const gap = 4;
+  const w = (contentW - gap * (cards.length - 1)) / cards.length;
+  const h = 26;
+  cards.forEach((card, i) => {
+    const x = margin + i * (w + gap);
+    const color = KPI_COLORS[card.status] ?? KPI_COLORS.neutral;
+    doc.setFillColor(...EXPORT_COLORS.rowAlt);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(x, y, w, h, 1.5, 1.5, 'FD');
+    doc.setFillColor(...color);
+    doc.rect(x, y, w, 1.6, 'F');
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...EXPORT_COLORS.muted);
+    doc.text(sanitizePdfText(card.label.toUpperCase()), x + 3, y + 7);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(card.value.length > 12 ? 10.5 : 14);
+    doc.setTextColor(...color);
+    const value = doc.splitTextToSize(sanitizePdfText(card.value), w - 6) as string[];
+    doc.text(value[0] ?? '', x + 3, y + 15);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.8);
+    doc.setTextColor(...EXPORT_COLORS.text);
+    const sub = doc.splitTextToSize(sanitizePdfText(card.sub), w - 6) as string[];
+    sub.slice(0, 2).forEach((line, li) => doc.text(line, x + 3, y + 20 + li * 3));
+  });
+  return y + h + 6;
+}
+
+/** Barres prévu / réalisé par tâche (mini-planning). */
+export function drawTaskProgressBars(
+  doc: jsPDF,
+  startY: number,
+  margin: number,
+  contentW: number,
+  rows: BtpTaskComparisonRow[],
+  options: { pageBottom: number; newPage: () => number }
+): number {
+  const nameW = 60;
+  const valuesW = 34;
+  const trackX = margin + nameW;
+  const trackW = contentW - nameW - valuesW;
+  const rowH = 10;
+  let y = startY;
+
+  const drawLegend = () => {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...EXPORT_COLORS.muted);
+    doc.setFillColor(203, 213, 225);
+    doc.rect(trackX, y - 2.2, 6, 1.8, 'F');
+    doc.text(sanitizePdfText('Prévu'), trackX + 8, y - 0.6);
+    doc.setFillColor(...EXPORT_COLORS.bar);
+    doc.rect(trackX + 24, y - 2.6, 6, 2.6, 'F');
+    doc.text(sanitizePdfText('Réalisé (couleur = état)'), trackX + 32, y - 0.6);
+    y += 3;
+  };
+
+  if (y + rowH + 4 > options.pageBottom) y = options.newPage();
+  drawLegend();
+
+  for (const t of rows) {
+    if (y + rowH > options.pageBottom) {
+      y = options.newPage();
+      drawLegend();
+    }
+    const color = KPI_COLORS[t.status] ?? KPI_COLORS.neutral;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...EXPORT_COLORS.text);
+    const name = doc.splitTextToSize(sanitizePdfText(t.name), nameW - 3) as string[];
+    doc.text(name.length > 1 ? `${name[0].slice(0, -3)}...` : (name[0] ?? ''), margin, y + 4);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...EXPORT_COLORS.muted);
+    doc.text(
+      sanitizePdfText(`Fin ${t.finishDate.split('-').reverse().slice(0, 2).join('/')} - poids ${t.weightPct} %`),
+      margin,
+      y + 7.8
+    );
+
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(trackX, y + 1.5, trackW, 6.5, 1, 1, 'F');
+    const planned = Math.min(100, Math.max(0, t.plannedPct));
+    if (planned > 0) {
+      doc.setFillColor(203, 213, 225);
+      doc.rect(trackX, y + 2.2, (trackW * planned) / 100, 2, 'F');
+    }
+    const actual = Math.min(100, Math.max(0, t.actualPct ?? 0));
+    if (actual > 0) {
+      doc.setFillColor(...color);
+      doc.rect(trackX, y + 4.6, (trackW * actual) / 100, 2.8, 'F');
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...EXPORT_COLORS.text);
+    doc.text(
+      sanitizePdfText(`${t.actualPct != null ? `${t.actualPct} %` : 'non saisi'} / ${t.plannedPct} %`),
+      margin + contentW,
+      y + 4,
+      { align: 'right' }
+    );
+    if (t.delayDays != null && t.delayDays > 0) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...KPI_COLORS.red);
+      doc.text(`Retard ${t.delayDays} j`, margin + contentW, y + 7.8, { align: 'right' });
+    }
+    y += rowH;
+  }
+  return y + 4;
+}
 
 export function drawKpiRow(
   doc: jsPDF,

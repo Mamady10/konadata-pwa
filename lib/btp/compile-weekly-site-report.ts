@@ -5,7 +5,14 @@ import {
   dateInRange,
   timestampInRange,
 } from '@/lib/btp/week-period';
-import type { WeeklyReportExportStructured } from '@/lib/btp/weekly-report-export-types';
+import type {
+  WeeklyReportExportStructured,
+  WeeklyReportUpcoming,
+  WeeklyReportUpcomingTask,
+} from '@/lib/btp/weekly-report-export-types';
+import { UPCOMING_EVENT_LABELS } from '@/lib/btp/weekly-report-export-types';
+import { loadOrgLogoForReport, loadSitePhotosForReport } from '@/lib/btp/weekly-report-media';
+import type { ResolvedPlanningRef } from '@/lib/btp/planning-ref';
 import { resolveReportPeriod, type ReportPeriodType } from '@/lib/btp/report-period';
 import {
   buildWeeklyComparisonMetrics,
@@ -19,7 +26,65 @@ import type {
 import { kpiStatusLabel } from '@/lib/btp/site-baseline';
 import { sumLaborEntryAmount, type ExpenseCategory } from '@/lib/btp/site-financial';
 import { mapPlanningRefRow, resolvePlanningRef } from '@/lib/btp/planning-ref';
-import { parseTaskProgress } from '@/lib/btp/planning-tasks';
+import { addDaysIso, parseTaskProgress, plannedTaskPctAt } from '@/lib/btp/planning-tasks';
+
+const MAX_UPCOMING_TASKS = 12;
+
+function formatShortDate(iso: string): string {
+  return new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
+/** Tâches (ou jalons) actives sur la période qui suit le rapport. */
+function buildUpcoming(params: {
+  resolvedRef: ResolvedPlanningRef;
+  periodType: ReportPeriodType;
+  periodTo: string;
+  lastTaskPct: Record<string, number>;
+}): WeeklyReportUpcoming | null {
+  const days = params.periodType === 'week' ? 7 : 30;
+  const from = addDaysIso(params.periodTo, 1);
+  const to = addDaysIso(params.periodTo, days);
+  if (!from || !to) return null;
+  const label = `${params.periodType === 'week' ? 'Semaine suivante' : `${days} prochains jours`} (${formatShortDate(from)} - ${formatShortDate(to)})`;
+
+  const tasks: WeeklyReportUpcomingTask[] = [];
+  const schedule = params.resolvedRef.scheduleTasks ?? [];
+  if (schedule.length > 0) {
+    for (const t of schedule) {
+      const start = t.startDate.slice(0, 10);
+      const finish = t.finishDate.slice(0, 10);
+      if (start > to || finish < from) continue;
+      const actualPct = params.lastTaskPct[t.uid] ?? null;
+      if (actualPct != null && actualPct >= 100) continue;
+      tasks.push({
+        name: t.name,
+        startDate: start,
+        finishDate: finish,
+        event: start >= from ? 'start' : finish <= to ? 'finish' : 'ongoing',
+        plannedPctAtEnd: plannedTaskPctAt(t, to),
+        actualPct,
+      });
+    }
+  } else {
+    for (const m of params.resolvedRef.baseline.milestones) {
+      if (m.plannedDate < from || m.plannedDate > to) continue;
+      tasks.push({
+        name: `${m.label} (jalon ${m.targetPhysicalPct} %)`,
+        startDate: m.plannedDate,
+        finishDate: m.plannedDate,
+        event: 'finish',
+        plannedPctAtEnd: 100,
+        actualPct: null,
+      });
+    }
+  }
+
+  tasks.sort((a, b) => a.startDate.localeCompare(b.startDate));
+  return { label, from, to, tasks: tasks.slice(0, MAX_UPCOMING_TASKS) };
+}
 
 const PLANNED_SOURCE_REPORT_LABELS: Record<PlanningSourceType, string> = {
   ms_project: 'MS Project',
@@ -43,6 +108,10 @@ export interface BtpWeeklyCompileInput {
   weeklyComment?: string | null;
   orgName?: string | null;
   planningRefSlot?: 1 | 2;
+  /** Nom de la personne qui établit le rapport (bloc signatures). */
+  preparedBy?: string | null;
+  /** Logo et photos (désactivable pour les compilations sans export). */
+  includeMedia?: boolean;
 }
 
 export interface BtpWeeklyCompileResult {
@@ -185,7 +254,7 @@ export async function compileBtpWeeklySiteReport(
       .order('delivery_date', { ascending: true }),
     supabase
       .from('btp_site_documents')
-      .select('doc_type, created_at, documents(file_name, created_at)')
+      .select('doc_type, created_at, documents(file_name, file_path, mime_type, created_at)')
       .eq('organization_id', input.orgId)
       .eq('site_id', input.siteId),
     supabase
@@ -256,6 +325,31 @@ export async function compileBtpWeeklySiteReport(
     return t === 'safety_sheet' || t === 'site_photo';
   });
 
+  const photoSources = hseDocs.flatMap((row) => {
+    const doc = row.documents as {
+      file_name?: string;
+      file_path?: string;
+      mime_type?: string;
+      created_at?: string;
+    } | null;
+    if (row.doc_type !== 'site_photo' || !doc?.file_path) return [];
+    const isImage =
+      (doc.mime_type ?? '').startsWith('image/') || /\.(jpe?g|png|webp)$/i.test(doc.file_path);
+    if (!isImage) return [];
+    return [
+      {
+        filePath: doc.file_path,
+        fileName: doc.file_name ?? 'photo',
+        createdAt: doc.created_at ?? (row.created_at as string),
+      },
+    ];
+  });
+  const includeMedia = input.includeMedia !== false;
+  const mediaPromise = Promise.all([
+    includeMedia ? loadOrgLogoForReport(supabase, input.orgId) : Promise.resolve(null),
+    includeMedia ? loadSitePhotosForReport(supabase, photoSources) : Promise.resolve([]),
+  ]);
+
   const sections: ReportSection[] = [];
 
   const orgLine = input.orgName ? `Organisation : ${input.orgName}` : '';
@@ -320,6 +414,13 @@ export async function compileBtpWeeklySiteReport(
     delayDays: Number(site.delay_days ?? 0),
     taskProgressAll,
   });
+
+  const lastTaskPct: Record<string, number> = {};
+  for (const entry of taskProgressAll) {
+    if (entry.date > to) continue;
+    for (const t of entry.tasks) lastTaskPct[t.uid] = t.pct;
+  }
+  const upcoming = buildUpcoming({ resolvedRef, periodType, periodTo: to, lastTaskPct });
 
   const spent = comparison.budgetConsumedCumulative;
   const financialPct =
@@ -404,6 +505,16 @@ export async function compileBtpWeeklySiteReport(
   }
   if (comparisonLines.length > 0) {
     sections.push({ heading: 'Analyse planifié vs réel', lines: comparisonLines });
+  }
+
+  if (upcoming && upcoming.tasks.length > 0) {
+    sections.push({
+      heading: `Prévisions — ${upcoming.label}`,
+      lines: upcoming.tasks.map(
+        (t) =>
+          `• ${t.name} — ${UPCOMING_EVENT_LABELS[t.event]} (${t.startDate} → ${t.finishDate}) — prévu ${t.plannedPctAtEnd} % en fin de période${t.actualPct != null ? ` (actuel ${t.actualPct} %)` : ''}`
+      ),
+    });
   }
 
   sections.push({
@@ -551,6 +662,8 @@ export async function compileBtpWeeklySiteReport(
       ? Math.round(workersVals.reduce((a, b) => a + Number(b), 0) / workersVals.length)
       : null;
 
+  const [logo, photos] = await mediaPromise;
+
   const structured: WeeklyReportExportStructured = {
     identification: {
       chantier: siteName,
@@ -607,6 +720,13 @@ export async function compileBtpWeeklySiteReport(
       ),
     },
     comment: input.weeklyComment?.trim() || null,
+    logo,
+    photos,
+    upcoming,
+    signatories: {
+      preparedBy: input.preparedBy?.trim() || null,
+      moa: baseline.moaRecipient || baseline.client || null,
+    },
   };
 
   return {
