@@ -16,7 +16,7 @@ async function resolvePostLoginPath(userId: string): Promise<string> {
   const supabase = await createClient();
   const { data: profile } = await supabase
     .from('profiles')
-    .select('organization_id, organizations(type, billing_status)')
+    .select('organization_id, organizations!profiles_organization_id_fkey(type, billing_status)')
     .eq('id', userId)
     .single();
 
@@ -50,7 +50,7 @@ export async function signIn(formData: FormData) {
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('organization_id, role, onboarding_path, is_active, organizations(type, billing_status)')
+      .select('organization_id, role, onboarding_path, is_active, organizations!profiles_organization_id_fkey(type, billing_status)')
       .eq('id', user.id)
       .single();
 

@@ -6,8 +6,10 @@
 
 -- ─── Accès délégués (le directeur autorise d'autres membres) ─────
 
+-- Pas de clé étrangère vers organizations : avec profile_id dans la clé primaire,
+-- l'API y verrait un 2e lien profiles <-> organizations (erreur PGRST201 à la connexion).
 CREATE TABLE IF NOT EXISTS btp_quote_access (
-  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  organization_id UUID NOT NULL,
   profile_id      UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   granted_by      UUID REFERENCES profiles(id) ON DELETE SET NULL,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),

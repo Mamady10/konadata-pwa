@@ -172,7 +172,7 @@ async function sendCodeEmailForRow(
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, organizations(name, type)')
+    .select('full_name, organizations!profiles_organization_id_fkey(name, type)')
     .eq('id', user.id)
     .single();
 
@@ -279,7 +279,7 @@ export async function getAccessCodesIssueStatus(): Promise<AccessCodesIssueStatu
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, organization_id, is_active, organizations(name, type)')
+    .select('role, organization_id, is_active, organizations!profiles_organization_id_fkey(name, type)')
     .eq('id', user.id)
     .single();
 

@@ -123,7 +123,7 @@ export default function LoginForm({
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('organization_id, role, onboarding_path, is_active, organizations(type)')
+          .select('organization_id, role, onboarding_path, is_active, organizations!profiles_organization_id_fkey(type)')
           .eq('id', user.id)
           .single();
 
@@ -192,7 +192,7 @@ export default function LoginForm({
     if (user) {
       let { data: profile } = await supabase
         .from('profiles')
-        .select('organization_id, role, onboarding_path, is_active, organizations(type)')
+        .select('organization_id, role, onboarding_path, is_active, organizations!profiles_organization_id_fkey(type)')
         .eq('id', user.id)
         .single();
 

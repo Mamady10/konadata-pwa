@@ -18,7 +18,7 @@ export async function redirectAfterPhoneAuth(redirectParam = ''): Promise<string
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('organization_id, role, onboarding_path, organizations(type)')
+    .select('organization_id, role, onboarding_path, organizations!profiles_organization_id_fkey(type)')
     .eq('id', user.id)
     .single();
 

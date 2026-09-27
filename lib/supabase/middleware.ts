@@ -148,7 +148,7 @@ export async function updateSession(request: NextRequest) {
       const { data: profile } = await supabase
         .from('profiles')
         .select(
-          'organization_id, role, onboarding_path, is_active, organizations(type, settings, billing_status)'
+          'organization_id, role, onboarding_path, is_active, organizations!profiles_organization_id_fkey(type, settings, billing_status)'
         )
         .eq('id', user.id)
         .single();
