@@ -89,15 +89,6 @@ export async function captureTutorial(browser, tut, { work, baseUrl, login, serv
     timezoneId: 'Africa/Conakry',
     storageState: tut.anonymous ? undefined : await login(tut.account, tut.device || 'desktop', retry),
   });
-  // Les exemples de saisie ne doivent pas citer de vrais projets clients.
-  await ctx.addInitScript(() => {
-    const scrub = () => {
-      for (const el of document.querySelectorAll('[placeholder]')) {
-        if (/kakand/i.test(el.getAttribute('placeholder'))) el.setAttribute('placeholder', 'Ex. : Résidence Les Palmiers');
-      }
-    };
-    new MutationObserver(scrub).observe(document, { subtree: true, childList: true });
-  });
   const page = await ctx.newPage();
   page.setDefaultTimeout(20000);
 

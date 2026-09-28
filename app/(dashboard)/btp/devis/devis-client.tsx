@@ -109,7 +109,7 @@ export function DevisClient({ quotes, catalog, members, isDirector }: Props) {
                   </div>
                   <div className="space-y-2">
                     <Label>Sous-titre</Label>
-                    <Input name="subtitle" placeholder="Le Kakandé" />
+                    <Input name="subtitle" placeholder="Ex. : Résidence Les Palmiers" />
                   </div>
                   <div className="space-y-2">
                     <Label>Client / maître d&apos;ouvrage</Label>
