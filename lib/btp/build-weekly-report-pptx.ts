@@ -549,7 +549,7 @@ export async function buildWeeklyReportPptxBuffer(
           title:
             cmp.sCurve.length >= 2
               ? 'Courbe S avancement planifié vs réalisé'
-              : 'Avancement planifié vs réalisé (semaine)',
+              : 'Avancement planifié vs réalisé (période)',
           valAxisMaxVal: 100,
         }
       );
@@ -682,7 +682,7 @@ export async function buildWeeklyReportPptxBuffer(
     [
       {
         name: 'Avancement (%)',
-        labels: s.hideFinancials ? ['Début semaine', 'Fin semaine'] : ['Début semaine', 'Fin semaine', 'Financier'],
+        labels: s.hideFinancials ? ['Début de période', 'Fin de période'] : ['Début de période', 'Fin de période', 'Financier'],
         values: s.hideFinancials
           ? [s.synthesis.physicalStart, s.synthesis.physicalEnd]
           : [s.synthesis.physicalStart, s.synthesis.physicalEnd, s.synthesis.financialPct],

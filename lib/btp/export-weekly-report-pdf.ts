@@ -227,10 +227,18 @@ function drawPageFooter(doc: jsPDF, orgName: string) {
   }
 }
 
+const PERIOD_NOUNS: Record<WeeklyReportExportPayload['periodType'], { of: string; short: string }> = {
+  week: { of: 'de la semaine', short: 'semaine' },
+  month: { of: 'du mois', short: 'mois' },
+  quarter: { of: 'du trimestre', short: 'trimestre' },
+  year: { of: "de l'année", short: 'année' },
+};
+
 export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const orgName = displayOrgName(payload.orgName);
   const { structured: s } = payload;
+  const periodNoun = PERIOD_NOUNS[payload.periodType] ?? PERIOD_NOUNS.week;
   const generatedAt = sanitizePdfText(formatReportGeneratedAt(payload.generatedAt));
   const newPage = () => {
     doc.addPage();
@@ -298,7 +306,7 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
   const cmp = s.comparison;
   if (cmp) {
     y = ensureSpace(doc, y, 70);
-    y = drawSectionTitle(doc, y, 'Analyse planifie vs reel', MARGIN);
+    y = drawSectionTitle(doc, y, 'Analyse planifié vs réel', MARGIN);
     if (comparisonMetricsTableRows(cmp).length > 1) {
       y = table(y, [42, 38, 38, CONTENT_W - 118], comparisonMetricsTableRows(cmp));
     }
@@ -336,8 +344,8 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
         MARGIN,
         CONTENT_W,
         cmp.sCurve.length >= 2
-          ? `${cmp.plannedRefLabel} — Courbe S planifie vs realise`
-          : 'Courbe avancement planifie vs realise (semaine)',
+          ? `${cmp.plannedRefLabel} — Courbe S planifié vs réalisé`
+          : `Courbe avancement planifié vs réalisé (${periodNoun.short})`,
         curve
       );
     }
@@ -348,7 +356,7 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
         y,
         MARGIN,
         CONTENT_W,
-        'Temps ecoule vs avancement physique (%)',
+        'Temps écoulé vs avancement physique (%)',
         [
           { label: 'Temps', value: cmp.timeElapsedPct, color: EXPORT_COLORS.muted },
           { label: 'Travaux', value: cmp.actualPhysicalPct, color: EXPORT_COLORS.bar },
@@ -363,15 +371,15 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
         y,
         MARGIN,
         CONTENT_W,
-        'Budget cumule planifie vs consomme (GNF)',
+        'Budget cumulé planifié vs consommé (GNF)',
         [
           {
-            label: 'Planifie',
+            label: 'Planifié',
             value: Math.round(cmp.budgetPlannedCumulative / 1_000_000),
             color: EXPORT_COLORS.muted,
           },
           {
-            label: 'Consomme',
+            label: 'Consommé',
             value: Math.round(cmp.budgetConsumedCumulative / 1_000_000),
             color: EXPORT_COLORS.barSecondary,
           },
@@ -397,7 +405,7 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
   }
 
   y = ensureSpace(doc, y, 55);
-  y = drawSectionTitle(doc, y, 'Synthese de la semaine', MARGIN);
+  y = drawSectionTitle(doc, y, `Synthèse ${periodNoun.of}`, MARGIN);
   y = table(y, [58, CONTENT_W - 58], synthesisTableRows(s.synthesis, s.hideFinancials));
 
   y = ensureSpace(doc, y, 50);
@@ -408,7 +416,7 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
     CONTENT_W,
     'Avancement physique (%)',
     [
-      { label: 'Debut', value: s.synthesis.physicalStart, color: EXPORT_COLORS.muted },
+      { label: 'Début', value: s.synthesis.physicalStart, color: EXPORT_COLORS.muted },
       { label: 'Fin', value: s.synthesis.physicalEnd, color: EXPORT_COLORS.bar },
       ...(s.hideFinancials
         ? []
@@ -423,7 +431,7 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
     y,
     MARGIN,
     CONTENT_W,
-    'Activite de la semaine',
+    `Activité ${periodNoun.of}`,
     [
       { label: 'Fiches', value: payload.stats.dailyEntries, color: EXPORT_COLORS.bar },
       { label: 'Carburant', value: payload.stats.fuelLogs, color: [13, 148, 136] },
@@ -433,16 +441,16 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
   );
 
   y = ensureSpace(doc, y, 30);
-  y = drawSectionTitle(doc, y, 'Fiches journalieres', MARGIN);
+  y = drawSectionTitle(doc, y, 'Fiches journalières', MARGIN);
   if (s.dailyRows.length === 0) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(...EXPORT_COLORS.text);
-    doc.text('Aucune saisie quotidienne sur cette semaine.', MARGIN, y);
+    doc.text(sanitizePdfText('Aucune saisie quotidienne sur cette période.'), MARGIN, y);
     y += 8;
   } else {
     const dailyTable: string[][] = [
-      ['Date', 'Avanc.', 'Eff.', 'Meteo', 'Travaux / notes'],
+      ['Date', 'Avanc.', 'Eff.', 'Météo', 'Travaux / notes'],
       ...s.dailyRows.map((r) => [
         r.dateLabel,
         `${r.progressPct} %`,
@@ -460,7 +468,7 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
         y,
         MARGIN,
         CONTENT_W,
-        'Evolution avancement journalier (%)',
+        "Évolution de l'avancement journalier (%)",
         s.dailyRows.map((r) => ({
           label: r.dateLabel.split(' ').slice(0, 2).join(' '),
           value: r.progressPct,
@@ -473,7 +481,7 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
       y = ensureSpace(doc, y, 8);
       doc.setFontSize(8);
       doc.setTextColor(...EXPORT_COLORS.muted);
-      doc.text(`Effectif moyen : ${s.avgWorkers} ouvrier(s) / jour`, MARGIN, y);
+      doc.text(sanitizePdfText(`Effectif moyen : ${s.avgWorkers} ouvrier(s) / jour`), MARGIN, y);
       y += 6;
     }
   }
@@ -483,14 +491,14 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
   if (s.fuel.count === 0) {
     doc.setFontSize(9);
     doc.setTextColor(...EXPORT_COLORS.text);
-    doc.text('Aucun releve carburant sur la periode.', MARGIN, y);
+    doc.text(sanitizePdfText('Aucun relevé carburant sur la période.'), MARGIN, y);
     y += 8;
   } else {
     y = table(y, [58, CONTENT_W - 58], [
       ['Indicateur', 'Valeur'],
       ['Total litres', `${formatPdfNumber(s.fuel.totalLiters)} L`],
-      ...(s.hideFinancials ? [] : [['Cout total', formatGnfPdf(s.fuel.totalCost)]]),
-      ['Releves / anomalies', `${s.fuel.count} / ${s.fuel.anomalies}`],
+      ...(s.hideFinancials ? [] : [['Coût total', formatGnfPdf(s.fuel.totalCost)]]),
+      ['Relevés / anomalies', `${s.fuel.count} / ${s.fuel.anomalies}`],
     ]);
     if (s.fuel.rows.length > 0) {
       y = ensureSpace(doc, y, 20);
@@ -514,11 +522,11 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
   if (s.deliveries.count === 0) {
     doc.setFontSize(9);
     doc.setTextColor(...EXPORT_COLORS.text);
-    doc.text('Aucun bon de livraison sur la periode.', MARGIN, y);
+    doc.text(sanitizePdfText('Aucun bon de livraison sur la période.'), MARGIN, y);
     y += 8;
   } else {
     y = table(y, [58, CONTENT_W - 58], [
-      ['Resume', 'Valeur'],
+      ['Résumé', 'Valeur'],
       ['Nombre de bons', String(s.deliveries.count)],
       ...(s.hideFinancials ? [] : [['Montant total', formatGnfPdf(s.deliveries.totalAmount)]]),
     ]);
@@ -528,7 +536,7 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
           y,
           [40, 50, CONTENT_W - 90],
           [
-            ['Reference', 'Fournisseur', 'Date'],
+            ['Référence', 'Fournisseur', 'Date'],
             ...s.deliveries.rows.map((r) => [r.reference, r.supplier, r.dateLabel]),
           ]
         )
@@ -536,7 +544,7 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
           y,
           [32, 38, 38, CONTENT_W - 108],
           [
-            ['Reference', 'Fournisseur', 'Montant', 'Date'],
+            ['Référence', 'Fournisseur', 'Montant', 'Date'],
             ...s.deliveries.rows.map((r) => [
               r.reference,
               r.supplier,
@@ -548,11 +556,11 @@ export function buildWeeklyReportPdf(payload: WeeklyReportExportPayload): jsPDF 
   }
 
   y = ensureSpace(doc, y, 30);
-  y = drawSectionTitle(doc, y, 'HSE et pieces jointes', MARGIN);
+  y = drawSectionTitle(doc, y, 'HSE et pièces jointes', MARGIN);
   y = table(y, [58, CONTENT_W - 58], [
-    ['Element', 'Detail'],
-    ['Mentions securite', `${s.hse.mentions} dans les fiches`],
-    ['Documents deposes', `${s.hse.docsCount} (HSE / photos)`],
+    ['Élément', 'Détail'],
+    ['Mentions sécurité', `${s.hse.mentions} dans les fiches`],
+    ['Documents déposés', `${s.hse.docsCount} (HSE / photos)`],
     ...s.hse.noteSnippets.map((n, i) => [`Note ${i + 1}`, n]),
   ]);
 

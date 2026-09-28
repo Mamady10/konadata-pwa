@@ -108,7 +108,7 @@ export async function gatherBtpReport(
     }
 
     if (reportType === 'progress' || reportType === 'general') {
-      const progress = (await getBtpDailyProgress(orgId, 30)).filter((p) =>
+      const progress = (await getBtpDailyProgress(orgId, 30, allSites ? undefined : siteId)).filter((p) =>
         allSites ? true : p.siteId === siteId
       );
       const progLines =

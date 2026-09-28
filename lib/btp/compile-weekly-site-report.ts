@@ -155,7 +155,7 @@ export async function compileBtpWeeklySiteReport(
   const { data: site, error: siteErr } = await supabase
     .from('btp_sites')
     .select(
-      'id, name, location, client, contract_ref, budget, spent, status, physical_progress, financial_progress, delay_days, start_date, end_date, description, moa_recipient, planned_avg_workers, planned_monthly_fuel_liters, budget_alert_pct, budget_breakdown'
+      'id, name, location, client, contract_ref, budget, spent, opening_spent, status, physical_progress, financial_progress, delay_days, start_date, end_date, description, moa_recipient, planned_avg_workers, planned_monthly_fuel_liters, budget_alert_pct, budget_breakdown'
     )
     .eq('organization_id', input.orgId)
     .eq('id', input.siteId)
@@ -397,10 +397,12 @@ export async function compileBtpWeeklySiteReport(
     expensesByCategory[cat] = (expensesByCategory[cat] ?? 0) + Number(e.amount ?? 0);
   }
 
+  // Période en cours (mois, trimestre, année) : le prévu se compare au réalisé connu à ce jour.
+  const todayIso = new Date().toISOString().slice(0, 10);
   const comparison = buildWeeklyComparisonMetrics({
     siteBaseline: baseline,
     resolvedRef,
-    asOfDate: to,
+    asOfDate: to < todayIso ? to : todayIso,
     periodFrom: from,
     periodTo: to,
     actualPhysicalPct: Math.round(physEnd),
@@ -645,7 +647,6 @@ export async function compileBtpWeeklySiteReport(
     lines: [
       'Chef de chantier : compléter les fiches journalières manquantes.',
       'Directeur : valider ce rapport, archiver et transmettre au MOA / client.',
-      'Modèle papier de référence : docs/btp/modeles/rapport-chantier-hebdomadaire.html',
     ],
   });
 

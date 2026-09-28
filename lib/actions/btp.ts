@@ -342,17 +342,18 @@ export async function getBtpSitesForProgress(orgId: string): Promise<BtpSiteProg
   }));
 }
 
-export async function getBtpDailyProgress(orgId: string, limit = 25): Promise<BtpDailyProgressRow[]> {
+export async function getBtpDailyProgress(
+  orgId: string,
+  limit = 25,
+  siteId?: string
+): Promise<BtpDailyProgressRow[]> {
   const supabase = await createClient();
   const baseColumns =
     'id, site_id, progress_date, physical_pct, workers_count, notes, weather, created_at, btp_sites(name)';
   const query = async (columns: string) => {
-    const res = await supabase
-      .from('btp_daily_progress')
-      .select(columns)
-      .eq('organization_id', orgId)
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    let q = supabase.from('btp_daily_progress').select(columns).eq('organization_id', orgId);
+    if (siteId) q = q.eq('site_id', siteId);
+    const res = await q.order('created_at', { ascending: false }).limit(limit);
     return {
       data: (res.data ?? []) as unknown as Array<Record<string, unknown> & { site_id?: string | null }>,
       error: res.error,

@@ -103,7 +103,7 @@ export async function compileBtpSiteClosureDossier(params: {
     '— Fin du dossier de clôture —',
   ].join('\n');
 
-  const report = `${structuredReport.report}\n${dossierBlock}`;
+  const report = `${structuredReport.report.replace(/^Statut : .*$/m, 'Statut : Terminé (clôture)')}\n${dossierBlock}`;
 
   return {
     siteName,

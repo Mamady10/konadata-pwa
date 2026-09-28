@@ -21,6 +21,9 @@ export function sanitizePdfText(text: string): string {
     .normalize('NFC')
     .replace(/\u202F/g, ' ')
     .replace(/\u00a0/g, ' ')
+    .replace(/[\u2018\u2019\u201B\u2032]/g, "'")
+    .replace(/[\u201C\u201D\u201E]/g, '"')
+    .replace(/\u2026/g, '...')
     .replace(/\u2192/g, '->')
     .replace(/[\u2013\u2014]/g, '-')
     .replace(/\u2022/g, '-')
@@ -283,11 +286,11 @@ export function drawSCurveChart(
   doc.setDrawColor(...EXPORT_COLORS.muted);
   doc.setLineWidth(0.55);
   doc.line(margin + 2, legY - 0.5, margin + 10, legY - 0.5);
-  doc.text('Planifie', margin + 12, legY);
+  doc.text(sanitizePdfText('Planifié'), margin + 12, legY);
   doc.setDrawColor(...EXPORT_COLORS.bar);
   doc.setLineWidth(0.85);
   doc.line(margin + 32, legY - 0.5, margin + 40, legY - 0.5);
-  doc.text('Realise', margin + 42, legY);
+  doc.text(sanitizePdfText('Réalisé'), margin + 42, legY);
 
   return legY + 5;
 }
@@ -299,8 +302,8 @@ export function synthesisTableRows(
   const delta = s.physicalEnd - s.physicalStart;
   const sign = delta >= 0 ? '+' : '';
   const physical = ['Avancement physique', `${s.physicalStart} % -> ${s.physicalEnd} % (${sign}${Math.round(delta)} pt)`];
-  const delay = ['Retard cumule', `${s.delayDays} jour(s)`];
-  const daily = ['Fiches journalieres', `${s.dailyCount} sur la periode`];
+  const delay = ['Retard cumulé', `${s.delayDays} jour(s)`];
+  const daily = ['Fiches journalières', `${s.dailyCount} sur la période`];
   if (hideFinancials) return [['Indicateur', 'Valeur'], physical, delay, daily];
   return [
     ['Indicateur', 'Valeur'],
@@ -308,8 +311,8 @@ export function synthesisTableRows(
     ['Avancement financier', `${Math.round(s.financialPct)} %`],
     delay,
     ['Budget', formatGnfPdf(s.budget)],
-    ['Depense', formatGnfPdf(s.spent)],
-    ['Reste a engager', formatGnfPdf(Math.max(0, s.budget - s.spent))],
+    ['Dépensé', formatGnfPdf(s.spent)],
+    ['Reste à engager', formatGnfPdf(Math.max(0, s.budget - s.spent))],
     daily,
   ];
 }
@@ -333,7 +336,7 @@ export function identificationTableRows(
   if (id.planningStart && id.planningEnd) {
     rows.push(['Planning', `${id.planningStart} -> ${id.planningEnd}`]);
   }
-  rows.push(['Periode rapport', id.periode]);
+  rows.push(['Période du rapport', id.periode]);
   return rows;
 }
 
@@ -566,7 +569,7 @@ export function drawKpiRow(
 export function comparisonMetricsTableRows(
   c: NonNullable<WeeklyReportExportStructured['comparison']>
 ): string[][] {
-  const rows: string[][] = [['Indicateur', 'Planifie / Ref.', 'Reel', 'Ecart']];
+  const rows: string[][] = [['Indicateur', 'Planifié / Réf.', 'Réel', 'Écart']];
   if (c.plannedPhysicalPct != null) {
     rows.push([
       'Avancement physique',
@@ -587,7 +590,7 @@ export function comparisonMetricsTableRows(
   }
   if (c.budgetPlannedCumulative != null) {
     rows.push([
-      'Budget cumule',
+      'Budget cumulé',
       formatGnfPdf(c.budgetPlannedCumulative),
       formatGnfPdf(c.budgetConsumedCumulative),
       c.budgetGapAmount != null
@@ -614,7 +617,7 @@ export function milestoneTableRows(
   const taskRows = c.taskRows ?? [];
   if (taskRows.length > 0) {
     return [
-      ['Tache', 'Fin prevue', 'Poids', 'Prevu / Realise', 'Retard (j)'],
+      ['Tâche', 'Fin prévue', 'Poids', 'Prévu / Réalisé', 'Retard (j)'],
       ...taskRows.map((t) => [
         t.name,
         t.finishDate,
@@ -626,7 +629,7 @@ export function milestoneTableRows(
   }
   if (c.milestoneRows.length === 0) return [];
   return [
-    ['Jalon', 'Prevu', 'Cible', 'Realise', 'Ecart (j)'],
+    ['Jalon', 'Prévu', 'Cible', 'Réalisé', 'Écart (j)'],
     ...c.milestoneRows.map((m) => [
       m.label,
       m.plannedDate,

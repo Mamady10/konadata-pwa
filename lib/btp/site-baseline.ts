@@ -470,7 +470,7 @@ export function buildWeeklyComparisonMetrics(params: {
   if (progressCurve.length === 0 && plannedPhysical != null) {
     progressCurve.push({
       date: asOfDate,
-      label: 'Fin semaine',
+      label: 'Fin de période',
       plannedPct: plannedPhysical,
       actualPct: actualPhysicalPct,
     });

@@ -82,7 +82,9 @@ export function BtpWeeklyReportPanel({ sites, isDirector }: Props) {
   const [periodType, setPeriodType] = useState<ReportPeriodType>('week');
   const [periodValue, setPeriodValue] = useState(getDefaultPeriodValue('week'));
   const [periodYear, setPeriodYear] = useState(String(new Date().getFullYear()));
-  const [periodQuarter, setPeriodQuarter] = useState<'1' | '2' | '3' | '4'>('1');
+  const [periodQuarter, setPeriodQuarter] = useState<'1' | '2' | '3' | '4'>(
+    () => String(Math.floor(new Date().getMonth() / 3) + 1) as '1' | '2' | '3' | '4'
+  );
   const [weeklyComment, setWeeklyComment] = useState('');
   const [includeFinancials, setIncludeFinancials] = useState(true);
   const [loading, setLoading] = useState(false);
