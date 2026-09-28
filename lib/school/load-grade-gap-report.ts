@@ -16,7 +16,7 @@ import {
   type GradingPeriodPolicyByLevel,
 } from '@/lib/school/grading-period-settings';
 
-const STUDENT_WITH_PERSON = 'matricule, person_id, core_persons(full_name)';
+const STUDENT_WITH_PERSON = 'id, matricule, person_id, core_persons(full_name)';
 
 export async function loadGradeGapReportForClass(
   orgId: string,

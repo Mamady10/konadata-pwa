@@ -304,8 +304,8 @@ export async function closeBtpSite(
       physical_progress: Math.min(
         100,
         Math.max(
-          dossier.structuredReport.structured.physicalEnd ?? 0,
-          dossier.structuredReport.structured.physicalStart ?? 0
+          dossier.structuredReport.structured.synthesis.physicalEnd ?? 0,
+          dossier.structuredReport.structured.synthesis.physicalStart ?? 0
         )
       ),
     })

@@ -124,7 +124,9 @@ function revalidateAcademicYearPaths() {
 
 
 
-async function requireDirector() {
+async function requireDirector(): Promise<
+  { error: string } | { session: Awaited<ReturnType<typeof getSession>> }
+> {
 
   const session = await getSession();
 
@@ -216,7 +218,10 @@ async function loadArchivesForYears(
 
 
 
-async function persistYearArchives(orgId: string, year: string) {
+async function persistYearArchives(
+  orgId: string,
+  year: string
+): Promise<{ error: string } | { success: true; count: number }> {
 
   const supabase = await createClient();
 

@@ -199,7 +199,7 @@ export function BulletinTemplateClient({
     const fd = new FormData(e.currentTarget);
     const res = await uploadBulletinReferenceTemplate(fd);
     setUploading(false);
-    if ('error' in res && res.error) {
+    if ('error' in res) {
       setMsg(res.error);
       return;
     }
@@ -218,7 +218,7 @@ export function BulletinTemplateClient({
     setMsg(null);
     const res = await syncBulletinStyleFromReference();
     setLoading(false);
-    if ('error' in res && res.error) setMsg(res.error);
+    if ('error' in res) setMsg(res.error);
     else {
       setTpl(res.template);
       setRefInfo((r) => ({ ...r, syncedAt: res.template.reference?.synced_at ?? null }));
@@ -230,7 +230,7 @@ export function BulletinTemplateClient({
     setLoading(true);
     const res = await getBulletinBlankPreviewPdf();
     setLoading(false);
-    if ('error' in res && res.error) setMsg(res.error);
+    if ('error' in res) setMsg(res.error);
     else downloadBase64(res.base64, res.fileName);
   }
 
@@ -241,7 +241,7 @@ export function BulletinTemplateClient({
     fd.set('file', file);
     const res = await uploadBulletinLogo(fd);
     setUploadingLogo(false);
-    if ('error' in res && res.error) {
+    if ('error' in res) {
       setMsg(res.error);
       return;
     }
@@ -261,7 +261,7 @@ export function BulletinTemplateClient({
     fd.set('file', file);
     const res = await uploadBulletinStamp(fd);
     setUploadingStamp(false);
-    if ('error' in res && res.error) {
+    if ('error' in res) {
       setMsg(res.error);
       return;
     }

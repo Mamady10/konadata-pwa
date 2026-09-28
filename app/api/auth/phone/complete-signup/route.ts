@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createServiceClient();
     const verified = await verifyPhoneOtpChallenge(supabase, challengeId, code, 'signup');
-    if (!verified.ok) {
+    if ('error' in verified) {
       return NextResponse.json({ error: verified.error }, { status: verified.status });
     }
 

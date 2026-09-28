@@ -36,6 +36,7 @@ export default async function Page() {
     personName: string;
     workDate: string;
     days: number;
+    dailyRate: number;
     amount: number;
   }> = [];
   let personnelForLabor: Array<{ id: string; name: string; dailyRate: number; siteName?: string }> = [];

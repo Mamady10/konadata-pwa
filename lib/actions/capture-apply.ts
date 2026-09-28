@@ -202,11 +202,12 @@ async function applyClassList(
 async function applyGradeSheet(
   orgId: string,
   supabase: Awaited<ReturnType<typeof createClient>>,
-  capture: { payload: { shape: string; rows?: CaptureGradeSheetRow[] } },
+  capture: CaptureExtractionResult,
   params: CaptureApplyParams
 ): Promise<CaptureApplyResult> {
   if (!params.classId) return { error: 'Sélectionnez une classe.' };
-  if (capture.payload.shape !== 'grade_sheet' || !capture.payload.rows?.length) {
+  const gradePayload = capture.payload;
+  if (gradePayload.shape !== 'grade_sheet' || !gradePayload.rows.length) {
     return { error: 'Grille de notes vide.' };
   }
 
@@ -242,7 +243,7 @@ async function applyGradeSheet(
 
   const skipKeys = new Set(['full_name', 'student_code', 'moyenne']);
   const dynamicKeys = new Set<string>();
-  for (const row of capture.payload.rows) {
+  for (const row of gradePayload.rows) {
     for (const [k, v] of Object.entries(row as Record<string, unknown>)) {
       if (skipKeys.has(k) || v == null || String(v).trim() === '') continue;
       dynamicKeys.add(k);
@@ -283,7 +284,7 @@ async function applyGradeSheet(
   let saved = 0;
   let skipped = 0;
 
-  for (const row of capture.payload.rows) {
+  for (const row of gradePayload.rows) {
     let studentId: string | undefined;
     if (row.student_code) {
       studentId = byMatricule.get(row.student_code.trim().toUpperCase());
@@ -830,7 +831,7 @@ async function applyWorkshopAttendance(
   const lines = capture.payload.rows
     .filter((r) => r.full_name?.trim())
     .map((r) => {
-      const parts = [r.full_name.trim(), r.identifier, r.phone, r.remark].filter(Boolean);
+      const parts = [r.full_name?.trim(), r.identifier, r.phone, r.remark].filter(Boolean);
       return parts.join(' — ');
     });
 

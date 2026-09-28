@@ -151,7 +151,7 @@ export function RapportsEtablissementClient({
                   setMepsMsg(null);
                   const res = await exportMepsSchoolStats();
                   setMepsLoading(false);
-                  if ('error' in res && res.error) setMepsMsg(res.error);
+                  if ('error' in res) setMepsMsg(res.error);
                   else {
                     const blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8' });
                     const url = URL.createObjectURL(blob);
@@ -175,7 +175,7 @@ export function RapportsEtablissementClient({
                   setMepsMsg(null);
                   const res = await exportMepsSchoolStats();
                   setMepsLoading(false);
-                  if ('error' in res && res.error) setMepsMsg(res.error);
+                  if ('error' in res) setMepsMsg(res.error);
                   else {
                     await downloadTextAsPdf({
                       title: 'Export MEPS / bailleurs',

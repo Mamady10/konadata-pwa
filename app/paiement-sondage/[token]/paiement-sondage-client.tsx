@@ -48,7 +48,7 @@ export function PaiementSondageClient({
     setMsg(null);
     const res = await recordNgoSurveyPayment(chargeId, ref || undefined);
     setLoading(false);
-    if (res.error) {
+    if ('error' in res) {
       setMsg(res.error);
       return;
     }

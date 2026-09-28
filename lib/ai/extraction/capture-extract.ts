@@ -145,7 +145,7 @@ function buildPayload(
   const list = Array.isArray(parsed.rows) ? parsed.rows : [];
   if (!list.length) return null;
   const shape = kindToShape(kind);
-  return { shape, rows: list as CaptureExtractionPayload['rows'] } as CaptureExtractionPayload;
+  return { shape, rows: list as never } as CaptureExtractionPayload;
 }
 
 function buildPayloadFromCsv(
@@ -207,7 +207,7 @@ async function parseWithLlm(
 
   const raw = await queryKonaAI(prompt, text.slice(0, 24_000), {
     organizationId,
-    operation: `capture_extract_${template.kind}`,
+    operation: 'capture_extract',
   });
 
   try {

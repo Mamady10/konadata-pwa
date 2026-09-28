@@ -155,7 +155,7 @@ export function answerSchoolOfflineFaq(
       lines.push('', '**Classes avec le plus d’écart (sous-encaissement) :**');
       for (const g of metrics.topPaymentGaps) {
         lines.push(
-          `• ${g.className} (${g.enrolled} inscrit(s)) : écart **${formatCurrencyGnf(g.gap)}**`
+          `• ${g.className} (${g.enrolled} inscrit(s)) : écart **${formatCurrencyGnf(g.gapGnf)}**`
         );
       }
     }
@@ -173,7 +173,7 @@ export function answerSchoolOfflineFaq(
     }
     const lines = ['**Classes avec écart de paiement** (année ' + metrics.academicYear + ') :'];
     for (const g of metrics.topPaymentGaps) {
-      lines.push(`• **${g.className}** : ${formatCurrencyGnf(g.gap)} (${g.enrolled} inscrit(s))`);
+      lines.push(`• **${g.className}** : ${formatCurrencyGnf(g.gapGnf)} (${g.enrolled} inscrit(s))`);
     }
     return lines.join('\n');
   }

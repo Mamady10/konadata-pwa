@@ -49,7 +49,7 @@ export function EtudiantsClient({
     formData.set('class_id', classId);
     formData.set('enrollment_status', status);
     const res = await createStudent(formData);
-    if (res.error) {
+    if ('error' in res) {
       setFormMsg(res.error);
       return;
     }
@@ -63,7 +63,7 @@ export function EtudiantsClient({
     setFormMsg(null);
     const res = await exportStudentMatriculesCsv();
     setExporting(false);
-    if ('error' in res && res.error) {
+    if ('error' in res) {
       setFormMsg(res.error);
       return;
     }

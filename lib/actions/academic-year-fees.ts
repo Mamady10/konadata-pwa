@@ -28,7 +28,9 @@ export type AcademicYearFeeSetup = {
   classes: AcademicYearClassFee[];
 };
 
-async function requireDirector() {
+async function requireDirector(): Promise<
+  { error: string } | { session: Awaited<ReturnType<typeof getSession>> }
+> {
   const session = await getSession();
   const caps = getEtablissementCapabilities(session?.profile?.role);
   if (!caps.isDirector) {

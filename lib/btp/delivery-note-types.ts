@@ -18,21 +18,22 @@ export interface BtpDeliveryNoteItem {
 
 export function parseDeliveryNoteItems(raw: unknown): BtpDeliveryNoteItem[] {
   if (!Array.isArray(raw)) return [];
-  return raw
-    .map((row) => {
-      if (!row || typeof row !== 'object') return null;
-      const o = row as Record<string, unknown>;
-      const item = String(o.item ?? o.material ?? '').trim();
-      if (!item) return null;
-      return {
+  return raw.flatMap((row): BtpDeliveryNoteItem[] => {
+    if (!row || typeof row !== 'object') return [];
+    const o = row as Record<string, unknown>;
+    const item = String(o.item ?? o.material ?? '').trim();
+    if (!item) return [];
+    const qty = o.qty ?? o.quantity;
+    return [
+      {
         item,
         category: (o.category as string) || undefined,
-        qty: o.qty ?? o.quantity ?? '',
+        qty: typeof qty === 'number' ? qty : String(qty ?? ''),
         unit: (o.unit as string) || undefined,
         description: (o.description as string) || undefined,
-      };
-    })
-    .filter((r): r is BtpDeliveryNoteItem => r !== null);
+      },
+    ];
+  });
 }
 
 export function formatDeliveryItemsSummary(items: BtpDeliveryNoteItem[]): string {

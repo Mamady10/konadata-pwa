@@ -1,9 +1,7 @@
 /** Import CSV / Excel classes (nom, palier, niveau, filière). */
 
-import {
-  parseEducationLevelBand,
-  type EducationLevelBand,
-} from '@/lib/school/education-level-catalog';
+import { parseEducationLevelBand } from '@/lib/school/education-level-catalog';
+import type { EducationLevelBand } from '@/lib/school/grading-period-settings';
 
 type ClassImportField =
   | 'name'

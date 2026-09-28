@@ -45,7 +45,7 @@ function gradeKey(subjectId: string, examType: string): string {
 export function evaluateStudentCompleteness(
   studentId: string,
   evaluationSlots: EvaluationSlot[],
-  grades: GradeForAverage[],
+  grades: Array<GradeForAverage & { studentId: string }>,
   subjectsInScope: string[]
 ): StudentCompleteness {
   const studentGrades = grades.filter((g) => g.studentId === studentId);

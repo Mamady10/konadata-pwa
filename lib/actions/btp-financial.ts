@@ -5,11 +5,12 @@ import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache';
 import { requireOrgId } from '@/lib/actions/org';
 import { canManageAssignments, getMyAssignedBtpSiteIds } from '@/lib/actions/assignments';
 import {
+  EXPENSE_CATEGORY_LABELS,
   type ExpenseCategory,
   type SiteFinancialTotals,
-  type PosteBudgetComparison,
   type BtpFinancialDashboardRow,
 } from '@/lib/btp/site-financial';
+import type { PosteBudgetComparison } from '@/lib/btp/site-baseline-types';
 import type { BtpItemCategory } from '@/lib/btp/delivery-note-types';
 import { parseDeliveryNoteItems } from '@/lib/btp/delivery-note-types';
 import { aggregateSiteFinancialRow, groupRowsBySiteId } from '@/lib/btp/site-financial-aggregate';
@@ -228,7 +229,7 @@ export async function createBtpDeliveryNote(formData: FormData): Promise<{ succe
             return {
               item,
               category: (o.category as string) || category,
-              qty: Number(o.qty) > 0 ? Number(o.qty) : o.qty ?? '',
+              qty: Number(o.qty) > 0 ? Number(o.qty) : String(o.qty ?? ''),
               unit: (o.unit as string) || undefined,
               description: (o.description as string) || undefined,
             };
@@ -721,7 +722,35 @@ export async function getBtpLaborEntries(orgId: string, limit = 30) {
   return (data ?? []).filter((r) => assigned === null || assigned.includes(r.site_id as string));
 }
 
-export async function getBtpSiteExpenses(orgId: string, limit = 40) {
+/** Jointure plusieurs-vers-un : PostgREST renvoie un objet (le typage générique suppose un tableau). */
+type SiteNameRef = { name?: string } | null;
+
+export interface BtpSiteExpenseRow {
+  id: string;
+  site_id: string;
+  category: string;
+  amount: number;
+  expense_date: string;
+  description: string | null;
+  reference: string | null;
+  supplier: string | null;
+  btp_sites: SiteNameRef;
+}
+
+export interface BtpSubcontractRow {
+  id: string;
+  site_id: string;
+  title: string;
+  contractor: string | null;
+  amount: number | null;
+  paid_amount: number | null;
+  signed_date: string | null;
+  end_date: string | null;
+  status: string | null;
+  btp_sites: SiteNameRef;
+}
+
+export async function getBtpSiteExpenses(orgId: string, limit = 40): Promise<BtpSiteExpenseRow[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('btp_site_expenses')
@@ -732,10 +761,11 @@ export async function getBtpSiteExpenses(orgId: string, limit = 40) {
   if (error) throw error;
 
   const assigned = await getMyAssignedBtpSiteIds();
-  return (data ?? []).filter((r) => assigned === null || assigned.includes(r.site_id as string));
+  const rows = (data ?? []) as unknown as BtpSiteExpenseRow[];
+  return rows.filter((r) => assigned === null || assigned.includes(r.site_id));
 }
 
-export async function getBtpSubcontracts(orgId: string) {
+export async function getBtpSubcontracts(orgId: string): Promise<BtpSubcontractRow[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('btp_contracts')
@@ -746,7 +776,8 @@ export async function getBtpSubcontracts(orgId: string) {
   if (error) throw error;
 
   const assigned = await getMyAssignedBtpSiteIds();
-  return (data ?? []).filter((r) => assigned === null || assigned.includes(r.site_id as string));
+  const rows = (data ?? []) as unknown as BtpSubcontractRow[];
+  return rows.filter((r) => assigned === null || assigned.includes(r.site_id));
 }
 
 export async function getBtpPersonnelForLabor(orgId: string) {

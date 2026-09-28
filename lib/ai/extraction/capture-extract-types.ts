@@ -14,7 +14,7 @@ export interface CaptureExtractionBase {
   row_count: number;
 }
 
-export interface CaptureGradeSheetRow {
+export type CaptureGradeSheetRow = {
   full_name: string;
   student_code?: string;
   maths?: string;
@@ -25,7 +25,7 @@ export interface CaptureGradeSheetRow {
   moyenne?: string;
 }
 
-export interface CapturePersonRow {
+export type CapturePersonRow = {
   full_name: string;
   identifier?: string;
   phone?: string;
@@ -35,7 +35,7 @@ export interface CapturePersonRow {
   remark?: string;
 }
 
-export interface CaptureFieldReport {
+export type CaptureFieldReport = {
   date?: string;
   location?: string;
   participants?: string;
@@ -45,7 +45,7 @@ export interface CaptureFieldReport {
   recommendations?: string;
 }
 
-export interface CaptureBeneficiaryFields {
+export type CaptureBeneficiaryFields = {
   full_name?: string;
   sex_age?: string;
   phone?: string;
@@ -54,7 +54,7 @@ export interface CaptureBeneficiaryFields {
   remarks?: string;
 }
 
-export interface CaptureDailySiteReport {
+export type CaptureDailySiteReport = {
   date?: string;
   workforce?: string;
   tasks?: string;
@@ -63,7 +63,7 @@ export interface CaptureDailySiteReport {
   observations?: string;
 }
 
-export interface CaptureFuelRow {
+export type CaptureFuelRow = {
   date?: string;
   equipment?: string;
   liters?: string;
@@ -72,7 +72,7 @@ export interface CaptureFuelRow {
   remark?: string;
 }
 
-export interface CaptureDeliveryRow {
+export type CaptureDeliveryRow = {
   date?: string;
   supplier?: string;
   material?: string;
@@ -81,7 +81,7 @@ export interface CaptureDeliveryRow {
   received_by?: string;
 }
 
-export interface CaptureExpenseRow {
+export type CaptureExpenseRow = {
   date?: string;
   label?: string;
   amount_gnf?: string;
@@ -89,7 +89,7 @@ export interface CaptureExpenseRow {
   receipt_ref?: string;
 }
 
-export interface CapturePurchaseRow {
+export type CapturePurchaseRow = {
   reference?: string;
   designation?: string;
   quantity?: string;
@@ -98,7 +98,7 @@ export interface CapturePurchaseRow {
   remark?: string;
 }
 
-export interface CaptureStockRow {
+export type CaptureStockRow = {
   reference?: string;
   designation?: string;
   quantity_counted?: string;

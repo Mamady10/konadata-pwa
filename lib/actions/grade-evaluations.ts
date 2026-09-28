@@ -247,6 +247,7 @@ export async function getOrCreateGradeEvaluation(
     }
     return { error: error.message };
   }
+  if (!created) return { error: 'Évaluation non créée.' };
 
   return { evaluationId: created.id as string };
 }

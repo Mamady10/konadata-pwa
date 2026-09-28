@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { BtpFinancialDashboardRowExtended } from '@/lib/btp/site-financial';
+import type { BtpFinancialDashboardRowExtended } from '@/lib/actions/btp-financial';
 import {
   EXPENSE_CATEGORY_LABELS,
 } from '@/lib/btp/site-financial';

@@ -212,7 +212,7 @@ export function plannedPhysicalPctAt(
   if (!date || !start || !end) return null;
 
   const milestones = [...baseline.milestones].sort(
-    (a, b) => a.plannedDate.localeCompare(b.plannedDate) || a.sortOrder - b.sortOrder
+    (a, b) => a.plannedDate.localeCompare(b.plannedDate) || (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
   );
 
   if (milestones.length === 0) {

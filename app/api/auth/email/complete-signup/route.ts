@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createServiceClient();
     const verified = await verifyEmailOtpChallenge(supabase, challengeId, code);
-    if (!verified.ok) {
+    if ('error' in verified) {
       return NextResponse.json({ error: verified.error }, { status: verified.status });
     }
 

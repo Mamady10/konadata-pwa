@@ -13,7 +13,7 @@ export async function tryOfflineChatAnswer(params: {
   sector: KonaChatSector;
   userMessage: string;
   reportPath: string;
-}): Promise<string | null> {
+}): Promise<string> {
   if (params.sector === 'etablissement') {
     try {
       const metrics = await fetchSchoolQuickMetrics(params.orgId);

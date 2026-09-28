@@ -124,7 +124,7 @@ export function StaffPaymentLinkPanel({
     );
     setLoading(false);
 
-    if (res.error) {
+    if ('error' in res) {
       setError(res.error);
       return;
     }

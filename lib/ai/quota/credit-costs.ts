@@ -7,6 +7,7 @@ export const AI_CREDIT_COSTS = {
   parse_roster: 5,
   document_index: 2,
   template_adapt: 8,
+  capture_extract: 5,
 } as const;
 
 export type AiOperation = keyof typeof AI_CREDIT_COSTS;

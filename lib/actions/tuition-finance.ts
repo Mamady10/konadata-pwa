@@ -162,7 +162,7 @@ export async function getPaymentsForExport(): Promise<{
   };
 
   const rows: PaymentExportRow[] = (data ?? []).map((p) => {
-    const st = p.school_students as Record<string, unknown> | null;
+    const st = p.school_students as unknown as Record<string, unknown> | null;
     const cls = st?.school_classes as { name?: string } | null;
     const kind = (p.payment_kind as StudentPaymentKind) || 'tuition';
     const paidAt = p.paid_at as string | null;

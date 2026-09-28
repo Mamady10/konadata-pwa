@@ -24,7 +24,7 @@ export const LANDING_HERO_PILLS = [
   { label: 'PWA terrain', icon: 'wifi' as const },
 ] as const;
 
-export const LANDING_TRUST_PARTNERS = [
+export const LANDING_TRUST_PARTNERS: ReadonlyArray<{ name: string; logo?: string; logoAlt?: string }> = [
   {
     name: 'Premium Construction',
     logo: '/partners/premco.png',
@@ -44,7 +44,7 @@ export const LANDING_TRUST_PARTNERS = [
   { name: 'Bailleurs' },
   { name: 'ONG locales' },
   { name: 'Entreprises BTP' },
-] as const;
+];
 
 export const LANDING_LAUNCH_OFFER = {
   badge: 'Offre de lancement',

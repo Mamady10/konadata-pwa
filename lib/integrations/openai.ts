@@ -117,7 +117,9 @@ export async function queryKonaAIChat(params: {
 export async function extractTextWithVision(
   buffer: Buffer,
   mimeType: string,
-  aiCtx?: AiCallContext
+  aiCtx?: AiCallContext,
+  instruction = 'Transcris intégralement le texte visible sur ce document (y compris manuscrit). ' +
+    'Réponds uniquement avec le texte transcrit, en français si possible, sans commentaire.'
 ): Promise<string> {
   if (!hasActiveLlmProvider()) {
     return '';
@@ -142,12 +144,7 @@ export async function extractTextWithVision(
       {
         role: 'user',
         content: [
-          {
-            type: 'text',
-            text:
-              'Transcris intégralement le texte visible sur ce document (y compris manuscrit). ' +
-              'Réponds uniquement avec le texte transcrit, en français si possible, sans commentaire.',
-          },
+          { type: 'text', text: instruction },
           {
             type: 'image_url',
             image_url: { url: `data:${safeMime};base64,${base64}` },

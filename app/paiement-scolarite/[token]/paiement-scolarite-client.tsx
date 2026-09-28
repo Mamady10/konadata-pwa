@@ -83,7 +83,7 @@ export function PaiementScolariteClient({
     setMsg(null);
     const res = await prepareOrangeMoneyPayment(token);
     setLoading(false);
-    if (res.error) {
+    if ('error' in res) {
       setMsg(res.error);
       return;
     }
@@ -102,7 +102,7 @@ export function PaiementScolariteClient({
     setMsg(null);
     const res = await recordStudentPaymentByToken(token, ref || undefined);
     setLoading(false);
-    if (res.error) {
+    if ('error' in res) {
       setMsg(res.error);
       return;
     }
@@ -130,7 +130,7 @@ export function PaiementScolariteClient({
               {String(payment.organization_name)} a enregistré votre règlement de{' '}
               {formatCurrency(amount)}.
             </p>
-            {payment.reference && (
+            {Boolean(payment.reference) && (
               <p className="text-xs font-mono text-muted-foreground">
                 Réf. {String(payment.reference)}
               </p>

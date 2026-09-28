@@ -5,6 +5,7 @@ const SECTOR_LABELS: Record<TemplateSector, string> = {
   school: 'Établissement scolaire',
   ngo: 'ONG',
   btp: 'BTP / chantier',
+  pme: 'PME / commerce',
 };
 
 /** Consignes utiles sans appel API (modèle + notes direction + type de document). */

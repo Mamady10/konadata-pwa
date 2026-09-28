@@ -4,9 +4,9 @@ import {
   computeSiteFinancialTotals,
   sumLaborEntryAmount,
   type ExpenseCategory,
-  type PosteBudgetComparison,
   type SiteFinancialTotals,
 } from '@/lib/btp/site-financial';
+import type { PosteBudgetComparison } from '@/lib/btp/site-baseline-types';
 import { sumPersonnelPayrollYtd } from '@/lib/btp/personnel-payroll';
 
 export interface SiteFinancialRowInput {

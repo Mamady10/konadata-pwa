@@ -119,7 +119,7 @@ export function SuiviScolariteClient({ schools }: Props) {
       cardId,
     });
     setLoading(false);
-    if ('error' in result && result.error) {
+    if ('error' in result) {
       setError(result.error);
       return;
     }

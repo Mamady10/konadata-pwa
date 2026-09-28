@@ -121,7 +121,10 @@ async function loadReportCardContext(
   cardId: string,
   orgId: string,
   useServiceClient = false
-) {
+): Promise<
+  | { error: string }
+  | { card: Record<string, unknown>; orgSettings: Record<string, unknown> | null; pdfInput: ReportCardPdfInput }
+> {
   const supabase = useServiceClient ? await createServiceClient() : await createClient();
 
   const { data: card, error } = await supabase
@@ -324,7 +327,7 @@ export async function generateReportCardPdfForCard(
   orgId: string,
   useServiceClient = false,
   options?: { skipArchive?: boolean }
-) {
+): Promise<{ error: string } | { base64: string; fileName: string; archived: boolean }> {
   const supabase = useServiceClient ? await createServiceClient() : await createClient();
 
   if (!options?.skipArchive) {
@@ -666,7 +669,7 @@ export async function publishReportCards(params: {
         .limit(1)
         .maybeSingle();
 
-      const student = row.school_students as Record<string, unknown>;
+      const student = row.school_students as unknown as Record<string, unknown>;
       const res = await notifyBulletinPublished({
         guardianPhone: (enrollment?.guardian_phone as string) ?? null,
         guardianSmsConsent: Boolean(enrollment?.guardian_sms_consent),
@@ -856,7 +859,7 @@ export async function exportClassCouncilCsv(params: {
   const header =
     'Matricule;Élève;Moyenne;Rang;Complétude %;Statut;Appréciation;Types notes retenues';
   const lines = cards.map((c) => {
-    const st = c.school_students as Record<string, unknown>;
+    const st = c.school_students as unknown as Record<string, unknown>;
     const types = formatIncludedExamTypesLabel(
       parseIncludedExamTypes(c.included_exam_types),
       10

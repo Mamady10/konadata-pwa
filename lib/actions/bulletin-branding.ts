@@ -31,7 +31,7 @@ export interface BulletinBrandingStatus {
   missing: string[];
 }
 
-async function requireDirector() {
+async function requireDirector(): Promise<{ error: string } | { ok: true }> {
   const session = await getSession();
   const caps = getEtablissementCapabilities(session?.profile?.role);
   if (!caps.isDirector) return { error: 'Seul le directeur peut gérer le branding bulletin.' };

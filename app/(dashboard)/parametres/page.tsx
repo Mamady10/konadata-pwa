@@ -40,7 +40,8 @@ export default async function ParametresPage() {
   if (hasOrg) {
     try {
       const quotaResult = await getMyOrganizationAiQuota();
-      aiQuota = quotaResult;
+      if (quotaResult && 'error' in quotaResult) aiQuotaError = quotaResult.error;
+      else aiQuota = quotaResult;
     } catch (e) {
       aiQuotaError = e instanceof Error ? e.message : 'Quota indisponible';
     }

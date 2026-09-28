@@ -104,7 +104,7 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
   ) {
     try {
       const res = await getPaymentOfferClipboardText(orgId, orgName, amountGnf, ceoNotes);
-      if ('error' in res && res.error) {
+      if ('error' in res) {
         setMsg(res.error);
         return;
       }
@@ -132,8 +132,8 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
       aiPlan,
       Math.max(1, Number(activationMonths) || 1)
     );
-    if ('error' in res && res.error) {
-      setMsg(res.error);
+    if ('error' in res) {
+      setMsg(res.error ?? null);
     } else if (res.emailSent) {
       setMsg('Tarif validé — lien de paiement envoyé par email au directeur.');
     } else if (res.emailWarning) {
@@ -148,8 +148,8 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
 
   async function sendPaymentEmail(orgId: string, orgName: string) {
     const res = await platformSendPaymentOfferEmail(orgId);
-    if ('error' in res && res.error) {
-      setMsg(res.error);
+    if ('error' in res) {
+      setMsg(res.error ?? null);
     } else {
       setMsg(`Lien de paiement envoyé à ${res.sentTo ?? 'le directeur'} (${orgName}).`);
     }
@@ -158,15 +158,15 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
   async function activateTrial(orgId: string) {
     const res = await platformActivateSchoolTrial(orgId, notes || undefined);
     setMsg(
-      'error' in res && res.error
-        ? res.error
+      'error' in res
+        ? res.error ?? null
         : 'Essai 30 jours activé — le directeur a accès au module pendant 30 jours.'
     );
   }
 
   async function markPaid(orgId: string) {
     const res = await recordOfferActivationPayment(orgId, 'CEO-validated');
-    setMsg('error' in res && res.error ? res.error : 'Organisation activée.');
+    setMsg('error' in res ? res.error : 'Organisation activée.');
   }
 
   async function suspendOrg(orgId: string, orgName: string) {
@@ -177,8 +177,8 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
     if (reason === null) return;
     const res = await platformSuspendOrganization(orgId, reason);
     setMsg(
-      'error' in res && res.error
-        ? res.error
+      'error' in res
+        ? res.error ?? null
         : 'Accès organisation bloqué (abonnement en cours non utilisé tant que suspendu).'
     );
   }
@@ -186,13 +186,13 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
   async function restoreOrg(orgId: string) {
     const res = await platformRestoreOrganizationAccess(orgId);
     setMsg(
-      'error' in res && res.error ? res.error : 'Accès rétabli selon le statut d’abonnement.'
+      'error' in res ? res.error ?? null : 'Accès rétabli selon le statut d’abonnement.'
     );
   }
 
   async function saveRename(orgId: string) {
     const res = await platformAdminUpdateOrganizationName(orgId, renameValue);
-    if ('error' in res && res.error) setMsg(res.error);
+    if ('error' in res) setMsg(res.error);
     else {
       setMsg(`Organisation renommée : ${res.name}`);
       setRenaming(null);
@@ -203,7 +203,7 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
     if (!confirm(`Envoyer un lien de réinitialisation au directeur de « ${orgName} » ?`)) return;
     const res = await platformAdminSendDirectorPasswordReset(orgId);
     setMsg(
-      'error' in res && res.error
+      'error' in res
         ? res.error
         : `Lien envoyé à ${res.sentTo}`
     );
@@ -619,8 +619,8 @@ export function OrganisationsClient({ rows, usageMap = {} }: Props) {
                           }
                           const res = await prepareSchoolRenewalBilling(org.id);
                           setMsg(
-                            'error' in res && res.error
-                              ? res.error
+                            'error' in res
+                              ? res.error ?? null
                               : 'Renouvellement préparé — établissement bloqué jusqu’au paiement.'
                           );
                         }}

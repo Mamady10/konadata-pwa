@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { hasActiveLlmApi, queryKonaAI } from '@/lib/integrations/openai';
+import { extractTextWithVision, hasActiveLlmApi } from '@/lib/integrations/openai';
 import type { OrgLogoImage } from '@/lib/school/fetch-org-logo';
 
 export type StampProcessMethod = 'direct' | 'pdf_render' | 'vision';
@@ -52,10 +52,11 @@ async function validateStampWithVision(
 ): Promise<boolean> {
   if (!hasActiveLlmApi()) return false;
   try {
-    const reply = await queryKonaAI(
-      'Ce document est-il un cachet ou sceau officiel d\'établissement scolaire ? Réponds uniquement OUI ou NON.',
+    const reply = await extractTextWithVision(
       png,
-      organizationId ? { organizationId, operation: 'vision_page', visionPages: 1 } : undefined
+      'image/png',
+      organizationId ? { organizationId, operation: 'vision_page', visionPages: 1 } : undefined,
+      'Ce document est-il un cachet ou sceau officiel d\'établissement scolaire ? Réponds uniquement OUI ou NON.'
     );
     return /^oui/i.test(reply.trim());
   } catch {

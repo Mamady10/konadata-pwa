@@ -5,7 +5,9 @@ import { getSession } from '@/lib/actions/auth';
 import { sendPasswordResetEmail } from '@/lib/auth/send-password-reset-email';
 import { revalidatePath } from 'next/cache';
 
-async function requirePlatformAdmin() {
+async function requirePlatformAdmin(): Promise<
+  { error: string } | { session: NonNullable<Awaited<ReturnType<typeof getSession>>> }
+> {
   const session = await getSession();
   if (session?.profile?.role !== 'platform_admin') {
     return { error: 'Réservé à l\'admin KonaData' as const };

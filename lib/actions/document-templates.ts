@@ -7,6 +7,7 @@ import { canManageAssignments } from '@/lib/actions/assignments';
 import {
   NGO_SURVEY_REPORT_PURPOSE,
   orgTypeToTemplateSector,
+  type TemplatePurposeDef,
   type TemplateSector,
 } from '@/lib/ai/document-template-purposes';
 import {
@@ -78,7 +79,7 @@ export async function getOrganizationAiTemplates(
 export async function getOrganizationAiTemplatesForCurrentOrg(
   sector: TemplateSector
 ): Promise<{
-  purposes: ReturnType<typeof getTemplatePurposesForSector>;
+  purposes: TemplatePurposeDef[];
   templates: OrganizationAiTemplateRow[];
 }> {
   const orgId = await requireOrgId();

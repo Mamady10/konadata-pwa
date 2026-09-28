@@ -2199,8 +2199,9 @@ export async function generateReportCards(
 
   cards.sort((a, b) => b.average - a.average);
   for (let i = 0; i < cards.length; i++) {
-    if (cards[i].card?.id) {
-      await supabase.from('school_report_cards').update({ rank: i + 1 }).eq('id', cards[i].card.id);
+    const cardId = cards[i].card?.id;
+    if (cardId) {
+      await supabase.from('school_report_cards').update({ rank: i + 1 }).eq('id', cardId);
     }
   }
 
