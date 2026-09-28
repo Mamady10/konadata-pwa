@@ -55,6 +55,12 @@ export function schoolAcademicYearLabel(now: Date = new Date()): string {
   return `${y}-${y + 1}`;
 }
 
+/** Première année d'un libellé « 2026-2027 » (null si illisible). */
+export function academicYearStart(label: string | null | undefined): number | null {
+  const m = /^(\d{4})/.exec(label?.trim() ?? '');
+  return m ? Number(m[1]) : null;
+}
+
 function dayLabel(d: Date): string {
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
@@ -62,7 +68,9 @@ function dayLabel(d: Date): string {
 export function resolveSchoolPeriod(
   period: SchoolReportPeriod,
   now: Date = new Date(),
-  customRange?: SchoolCustomRange
+  customRange?: SchoolCustomRange,
+  /** Année scolaire paramétrée par l'établissement (ex. « 2026-2027 »), prioritaire pour la période « year ». */
+  academicYear?: string | null
 ): SchoolPeriodWindow {
   if (period === 'custom') {
     const rawStart = customRange?.start ? new Date(customRange.start) : now;
@@ -97,6 +105,19 @@ export function resolveSchoolPeriod(
   }
 
   if (period === 'year') {
+    const configured = academicYearStart(academicYear);
+    if (configured != null) {
+      // Année paramétrée : de juillet (réinscriptions, préparation de la rentrée) à fin juin.
+      const start = new Date(configured, 6, 1);
+      const end = endOfDay(new Date(configured + 1, 6, 0));
+      return {
+        period,
+        start: startOfDay(start),
+        end,
+        periodLabel: `Année scolaire ${configured}-${configured + 1}`,
+        rangeLabel: `${monthShort(start)} – ${monthShort(end)}`,
+      };
+    }
     const start = new Date(yStart, SCHOOL_YEAR_START_MONTH, 1);
     const end = endOfDay(new Date(yStart + 1, SCHOOL_YEAR_START_MONTH, 0));
     return {

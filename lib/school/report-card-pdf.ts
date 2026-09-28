@@ -197,7 +197,7 @@ export function generateReportCardPdfBuffer(input: ReportCardPdfInput): Uint8Arr
         doc.addPage();
         y = 20;
       }
-      const rowH = tpl.show_appreciation ? 9 : 7;
+      const rowH = tpl.show_appreciation && input.grades.length <= 7 ? 9 : 7.5;
       if (i % 2 === 0) {
         doc.setFillColor(248, 250, 252);
         doc.rect(margin, y, 182, rowH, 'F');
@@ -255,7 +255,7 @@ export function generateReportCardPdfBuffer(input: ReportCardPdfInput): Uint8Arr
     }
   }
 
-  y = sectionTitle('SYNTHÈSE & DÉCISION', y + 2);
+  y = sectionTitle('SYNTHÈSE & DÉCISION', y + 5);
   const synthH = 28;
   drawBox(doc, margin, y, 182, synthH);
 
@@ -291,7 +291,7 @@ export function generateReportCardPdfBuffer(input: ReportCardPdfInput): Uint8Arr
   doc.setFontSize(8);
   doc.text(decision, margin + 100, y + 13, { maxWidth: 88 });
 
-  y += synthH + 5;
+  y += synthH + 7;
 
   const councilText =
     (tpl.show_appreciation && input.appreciation?.trim()) ||
@@ -300,18 +300,25 @@ export function generateReportCardPdfBuffer(input: ReportCardPdfInput): Uint8Arr
   if (councilText) {
     y = sectionTitle('APPRÉCIATION DU CONSEIL DE CLASSE', y);
     const lines = doc.splitTextToSize(councilText, 176);
-    const apprH = Math.max(16, lines.length * 4.5 + 6);
+    const apprH = Math.max(12, lines.length * 4.5 + 6);
     drawBox(doc, margin, y, 182, apprH);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.text(lines, margin + 3, y + 6);
-    y += apprH + 6;
+    y += apprH + 3;
   }
 
-  y = Math.max(y + 4, 248);
-  const sigY = y;
-  drawBox(doc, margin, sigY, 88, 26);
-  drawBox(doc, margin + 94, sigY, 88, 26);
+  // Bloc signatures (28 mm) + pied de page (7 mm) : toujours sur la page.
+  const pageH = doc.internal.pageSize.getHeight();
+  const sigH = 28;
+  const sigBlockH = sigH + 7;
+  if (y + 2 + sigBlockH > pageH - 1) {
+    doc.addPage();
+    y = 20;
+  }
+  const sigY = Math.max(y + 2, pageH - 4 - sigBlockH);
+  drawBox(doc, margin, sigY, 88, sigH);
+  drawBox(doc, margin + 94, sigY, 88, sigH);
 
   const stamp = input.organizationStamp;
   if (stamp?.base64) {
@@ -319,10 +326,10 @@ export function generateReportCardPdfBuffer(input: ReportCardPdfInput): Uint8Arr
       doc.addImage(
         `data:image/${stamp.format === 'JPEG' ? 'jpeg' : 'png'};base64,${stamp.base64}`,
         stamp.format,
-        margin + 18,
-        sigY + 2,
-        38,
-        38,
+        margin + 64,
+        sigY + 3.5,
+        21,
+        21,
         undefined,
         'FAST'
       );
@@ -342,14 +349,13 @@ export function generateReportCardPdfBuffer(input: ReportCardPdfInput): Uint8Arr
   doc.text('Le parent / tuteur', margin + 138, sigY + 6, { align: 'center' });
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
-  doc.text('Signature et cachet', margin + 44, sigY + 22, { align: 'center' });
-  doc.text('Signature', margin + 138, sigY + 22, { align: 'center' });
+  doc.text('Signature et cachet', margin + 44, sigY + 25, { align: 'center' });
+  doc.text('Signature', margin + 138, sigY + 25, { align: 'center' });
   doc.setDrawColor(148, 163, 184);
-  doc.line(margin + 10, sigY + 20, margin + 78, sigY + 20);
-  doc.line(margin + 104, sigY + 20, margin + 172, sigY + 20);
-  y = sigY + 30;
+  doc.line(margin + 10, sigY + 22, margin + 78, sigY + 22);
+  doc.line(margin + 104, sigY + 22, margin + 172, sigY + 22);
 
-  y += 28;
+  y = sigY + sigH + 5;
   doc.setFontSize(7);
   doc.setTextColor(100, 116, 139);
   doc.text(

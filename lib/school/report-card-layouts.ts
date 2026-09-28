@@ -22,6 +22,9 @@ function semesterLabel(semester: string): string {
   if (semester === 'S1') return '1er semestre';
   if (semester === 'S2') return '2e semestre';
   if (semester === 'S3') return '3e semestre';
+  if (semester === 'T1') return '1er trimestre';
+  if (semester === 'T2') return '2e trimestre';
+  if (semester === 'T3') return '3e trimestre';
   return semester;
 }
 

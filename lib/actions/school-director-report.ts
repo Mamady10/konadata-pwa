@@ -8,10 +8,10 @@ import {
   getEnrollments,
   getGrades,
   getClasses,
+  getOrgDefaultAcademicYear,
 } from '@/lib/actions/school';
 import {
   resolveSchoolPeriod,
-  schoolAcademicYearLabel,
   type SchoolReportPeriod,
   type SchoolCustomRange,
 } from '@/lib/school/report-period';
@@ -91,9 +91,24 @@ export async function getSchoolDirectorReport(
   try {
     const orgId = await requireOrgId();
     const supabase = await createClient();
-    const win = resolveSchoolPeriod(period, new Date(), customRange);
+    const academicYear = await getOrgDefaultAcademicYear(orgId);
+    const now = new Date();
+    const win = resolveSchoolPeriod(period, now, customRange, academicYear);
     const startIso = win.start.toISOString();
     const endIso = win.end.toISOString();
+
+    // Année scolaire : les encaissements sont ceux rattachés à l'année (réinscriptions anticipées comprises).
+    let paymentsQuery = supabase
+      .from('school_payments')
+      .select('amount, paid_at')
+      .eq('organization_id', orgId)
+      .eq('status', 'paid');
+    paymentsQuery =
+      period === 'year'
+        ? paymentsQuery.or(
+            `academic_year.eq.${academicYear},and(academic_year.is.null,paid_at.gte.${startIso},paid_at.lte.${endIso})`
+          )
+        : paymentsQuery.gte('paid_at', startIso).lte('paid_at', endIso);
 
     const [
       { data: orgRow },
@@ -123,13 +138,7 @@ export async function getSchoolDirectorReport(
         .eq('organization_id', orgId)
         .gte('created_at', startIso)
         .lte('created_at', endIso),
-      supabase
-        .from('school_payments')
-        .select('amount, paid_at')
-        .eq('organization_id', orgId)
-        .eq('status', 'paid')
-        .gte('paid_at', startIso)
-        .lte('paid_at', endIso),
+      paymentsQuery,
       supabase
         .from('school_grades')
         .select('id', { count: 'exact', head: true })
@@ -176,8 +185,13 @@ export async function getSchoolDirectorReport(
 
     // Encaissements par mois sur la fenêtre.
     const trendBuckets = new Map<string, number>();
-    const cursor = new Date(win.start.getFullYear(), win.start.getMonth(), 1);
-    while (cursor <= win.end) {
+    let trendStart = win.start;
+    for (const p of periodPayments ?? []) {
+      if (p.paid_at && new Date(p.paid_at as string) < trendStart) trendStart = new Date(p.paid_at as string);
+    }
+    const trendEnd = period === 'year' && now < win.end ? now : win.end;
+    const cursor = new Date(trendStart.getFullYear(), trendStart.getMonth(), 1);
+    while (cursor <= trendEnd) {
       trendBuckets.set(monthKey(cursor), 0);
       cursor.setMonth(cursor.getMonth() + 1);
     }
@@ -220,7 +234,7 @@ export async function getSchoolDirectorReport(
     return {
       data: {
         orgName: (orgRow?.name as string) ?? 'Établissement',
-        academicYear: schoolAcademicYearLabel(),
+        academicYear,
         generatedAt: new Date().toISOString(),
         period,
         periodLabel: win.periodLabel,

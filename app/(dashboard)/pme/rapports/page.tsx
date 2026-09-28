@@ -34,7 +34,7 @@ export default async function Page() {
       {
         id: 'dep',
         title: 'Total dépenses',
-        subtitle: 'Charges opérationnelles',
+        subtitle: 'Achats de marchandises + charges',
         status: formatCurrency(kpis.totalExpenses),
       },
       {

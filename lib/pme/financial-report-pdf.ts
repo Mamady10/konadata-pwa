@@ -10,6 +10,22 @@ function fc(n: number): string {
   return `${grouped} GNF`;
 }
 
+function decimalFr(n: number, digits: number): string {
+  const [int, dec] = n.toFixed(digits).split('.');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return dec && Number(dec) !== 0 ? `${grouped},${dec.replace(/0+$/, '')}` : grouped;
+}
+
+/** Montant court pour les étiquettes de graphes (ex. 55,6 M). */
+function short(n: number): string {
+  const a = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (a >= 1e9) return `${sign}${decimalFr(a / 1e9, 2)} Md`;
+  if (a >= 1e6) return `${sign}${decimalFr(a / 1e6, 1)} M`;
+  if (a >= 1e3) return `${sign}${decimalFr(a / 1e3, 0)} k`;
+  return `${sign}${Math.round(a)}`;
+}
+
 /** Génère et télécharge un PDF mis en page (couleurs, tableaux, graphes). */
 export async function downloadPmeFinancialReportPdf(
   data: PmeFinancialReportData
@@ -38,8 +54,9 @@ export async function downloadPmeFinancialReportPdf(
       y = M;
     }
   };
-  const sectionTitle = (label: string) => {
-    ensure(12);
+  /** `keepWith` : hauteur du contenu qui suit, pour ne pas laisser un titre seul en bas de page. */
+  const sectionTitle = (label: string, keepWith = 16) => {
+    ensure(12 + keepWith);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
     setText(ink);
@@ -53,6 +70,9 @@ export async function downloadPmeFinancialReportPdf(
 
   const colLabels = data.buckets.map((b) => b.short);
   const nCols = colLabels.length || 1;
+  // Au-delà de 6 colonnes, les montants complets ne tiennent plus : tableau en millions de GNF.
+  const compact = nCols > 6;
+  const cell = (v: number) => (compact ? decimalFr(v / 1e6, 1) : fc(v));
 
   // ---- En-tête ----
   setFill([10, 25, 47]);
@@ -107,15 +127,15 @@ export async function downloadPmeFinancialReportPdf(
   y += cardH + 10;
 
   // ---- Tableau global (buckets en colonnes) ----
-  sectionTitle(`Détail par ${data.unitLabel}`);
+  sectionTitle(`Détail par ${data.unitLabel}${compact ? ' (en millions de GNF)' : ''}`);
   drawTable();
 
   // ---- Graphes ----
-  sectionTitle(`Entrées par ${data.unitLabel}`);
+  sectionTitle(`Entrées par ${data.unitLabel}`, 42);
   drawBars(data.buckets.map((d) => d.entrees), blue);
-  sectionTitle(`Dépenses par ${data.unitLabel}`);
+  sectionTitle(`Dépenses par ${data.unitLabel}`, 42);
   drawBars(data.buckets.map((d) => d.depenses), red);
-  sectionTitle(`Reste par ${data.unitLabel}`);
+  sectionTitle(`Reste par ${data.unitLabel}`, 42);
   drawBars(data.buckets.map((d) => d.reste), green, amber);
 
   // ---- Pied de page ----
@@ -184,13 +204,13 @@ export async function downloadPmeFinancialReportPdf(
       r.values.forEach((v, i) => {
         const isReste = r.label === 'Reste';
         setText(isReste ? (v < 0 ? red : v > 0 ? green : muted) : ink);
-        doc.text(v !== 0 ? fc(v) : '—', M + labelW + colW * i + colW - 1.5, y + 4.7, {
+        doc.text(v !== 0 ? cell(v) : '—', M + labelW + colW * i + colW - 1.5, y + 4.7, {
           align: 'right',
         });
       });
       setText(ink);
       doc.setFont('helvetica', 'bold');
-      doc.text(fc(rowTotal), M + W - 1.5, y + 4.7, { align: 'right' });
+      doc.text(cell(rowTotal), M + W - 1.5, y + 4.7, { align: 'right' });
       doc.setDrawColor(line[0], line[1], line[2]);
       doc.setLineWidth(0.2);
       doc.line(M, y + rowH, M + W, y + rowH);
@@ -220,7 +240,7 @@ export async function downloadPmeFinancialReportPdf(
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7);
       setText(ink);
-      doc.text(v !== 0 ? `${Math.round(v / 1000)}k` : '0', cx, baseline - h - 1.5, {
+      doc.text(v !== 0 ? short(v) : '0', cx, baseline - h - 1.5, {
         align: 'center',
       });
       doc.setFont('helvetica', 'normal');

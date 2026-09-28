@@ -53,8 +53,9 @@ export async function downloadDirectorReportPdf(
   const setFill = (c: RGB) => doc.setFillColor(c[0], c[1], c[2]);
   const setText = (c: RGB) => doc.setTextColor(c[0], c[1], c[2]);
 
-  const sectionTitle = (label: string) => {
-    ensure(12);
+  /** `keepWith` : hauteur minimale du contenu qui suit, pour ne pas laisser un titre seul en bas de page. */
+  const sectionTitle = (label: string, keepWith = 20) => {
+    ensure(12 + keepWith);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
     setText(ink);
@@ -122,7 +123,7 @@ export async function downloadDirectorReportPdf(
   y += cardH * 2 + gap + 8;
 
   // ---- Encaissements sur la période (barres verticales) ----
-  sectionTitle('Encaissements sur la période');
+  sectionTitle('Encaissements sur la période', 50);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   setText(muted);
@@ -133,7 +134,12 @@ export async function downloadDirectorReportPdf(
       label: t.label,
       value: t.amount,
       color: [37, 99, 235] as RGB,
-      caption: t.amount > 0 ? `${nf(Math.round(t.amount / 1000))}k` : '0',
+      caption:
+        t.amount >= 1e6
+          ? `${(t.amount / 1e6).toFixed(1).replace('.', ',').replace(',0', '')} M`
+          : t.amount > 0
+            ? `${nf(Math.round(t.amount / 1000))} k`
+            : '0',
     }))
   );
 
@@ -146,13 +152,13 @@ export async function downloadDirectorReportPdf(
   drawStatusBars();
 
   // ---- Résultats par classe (barres verticales) ----
-  sectionTitle('Résultats par classe (moyenne sur 20)');
+  sectionTitle('Résultats par classe (moyenne sur 20)', 44);
   drawVerticalBars(
     data.resultsByClass.map((r) => ({
       label: r.className,
       value: r.average ?? 0,
       color: avgColor(r.average),
-      caption: r.average != null ? r.average.toFixed(1) : '—',
+      caption: r.average != null ? r.average.toFixed(1).replace('.', ',') : '—',
     }))
   );
 
@@ -289,7 +295,7 @@ export async function downloadDirectorReportPdf(
       setFill(barColor);
       doc.rect(xs[4] + 1, y + 4.6, (cw[4] - 2.5) * Math.min(1, ratio), 1.4, 'F');
 
-      setText(r.gap > 0 ? [220, 38, 38] : [5, 150, 105]);
+      setText(r.gap < 0 ? [220, 38, 38] : [5, 150, 105]);
       doc.setFont('helvetica', 'bold');
       doc.text(fc(r.gap), xs[5] + cw[5] - 1.5, y + 4.7, { align: 'right' });
       doc.setFont('helvetica', 'normal');

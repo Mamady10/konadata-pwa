@@ -29,10 +29,11 @@ export async function GET(
       return NextResponse.json({ error: 'Reçu introuvable' }, { status: 404 });
     }
 
-    const pdf = generateReceiptPdfBuffer(receipt);
+    const origin = process.env.NEXT_PUBLIC_APP_URL ?? 'https://konadatagn.com';
+    const pdf = await generateReceiptPdfBuffer(receipt, `${origin}/recu-scolarite/${token}`);
     const filename = `${receipt.receipt_number ?? 'recu'}.pdf`;
 
-    return new NextResponse(pdf, {
+    return new NextResponse(new Uint8Array(pdf), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

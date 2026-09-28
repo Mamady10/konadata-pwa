@@ -294,7 +294,7 @@ export function SchoolDirectorReport() {
                                 <span className="text-xs text-muted-foreground w-9 text-right">{Math.round(ratio * 100)}%</span>
                               </div>
                             </td>
-                            <td className={`py-2 pl-2 text-right font-medium ${r.gap > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            <td className={`py-2 pl-2 text-right font-medium ${r.gap < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                               {formatCurrency(r.gap)}
                             </td>
                           </tr>

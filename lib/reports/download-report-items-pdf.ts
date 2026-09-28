@@ -19,9 +19,14 @@ const ACCENTS: RGB[] = [
   [219, 39, 119],
 ];
 
-/** Nettoie les espaces insécables (U+202F/U+00A0) mal rendus par jsPDF. */
+/** Caractères hors WinAnsi mal rendus par jsPDF (espaces fines, signe moins, guillemets courbes…). */
 function clean(s: string): string {
-  return (s ?? '').replace(/[\u202F\u00A0]/g, ' ');
+  return (s ?? '')
+    .replace(/[\u202F\u00A0]/g, ' ')
+    .replace(/\u2212/g, '-')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/\u2026/g, '...');
 }
 
 interface Options {
@@ -51,6 +56,13 @@ export async function downloadReportItemsPdf({
 
   const setFill = (c: RGB) => doc.setFillColor(c[0], c[1], c[2]);
   const setText = (c: RGB) => doc.setTextColor(c[0], c[1], c[2]);
+  /** Une seule ligne dans `width` (police courante), tronquée avec « ... » si nécessaire. */
+  const oneLine = (text: string, width: number) => {
+    let t = clean(text);
+    if (doc.getTextWidth(t) <= width) return t;
+    while (t.length > 1 && doc.getTextWidth(`${t}...`) > width) t = t.slice(0, -1);
+    return `${t.trimEnd()}...`;
+  };
 
   // En-tête
   setFill([10, 25, 47]);
@@ -97,23 +109,24 @@ export async function downloadReportItemsPdf({
     setFill(accent);
     doc.roundedRect(x, y, 2.4, cardH, 1, 1, 'F');
 
+    const textW = cardW - 10;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
     setText(ink);
-    doc.text(clean(it.title), x + 6, y + 8, { maxWidth: cardW - 10 });
+    doc.text(oneLine(it.title, textW), x + 6, y + 8);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(15);
     setText(accent);
-    doc.text(clean(it.status), x + 6, y + 17, { maxWidth: cardW - 10 });
+    doc.text(oneLine(it.status, textW), x + 6, y + 16.5);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     setText(muted);
-    doc.text(clean(it.subtitle), x + 6, y + 24, { maxWidth: cardW - 10 });
+    doc.text(oneLine(it.subtitle, textW), x + 6, y + 23);
     if (it.date) {
       doc.setFontSize(7.5);
-      doc.text(clean(it.date), x + 6, y + 28, { maxWidth: cardW - 10 });
+      doc.text(oneLine(it.date, textW), x + 6, y + 27.5);
     }
 
     if (col === cols - 1) y += cardH + gap;

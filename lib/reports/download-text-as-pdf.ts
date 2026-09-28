@@ -84,7 +84,7 @@ type Block =
   | { type: 'rule' }
   | { type: 'space' }
   | { type: 'bullet'; marker: string; indent: number; segments: Segment[] }
-  | { type: 'para'; segments: Segment[] }
+  | { type: 'para'; segments: Segment[]; indentX?: number }
   | { type: 'table'; rows: string[][] };
 
 const RULE_RE = /^\s*([-=_*\u2500\u2550\u2014])\1{2,}\s*$/;
@@ -168,6 +168,13 @@ function parseBlocks(content: string, title: string): Block[] {
     const numbered = line.match(/^(\d{1,2}[.)])\s+(.*)$/);
     if (numbered) {
       blocks.push({ type: 'bullet', marker: numbered[1], indent, segments: parseInline(numbered[2]) });
+      continue;
+    }
+    // Ligne indentée sous une puce : suite de l'élément, alignée sur son texte.
+    const prev = blocks[blocks.length - 1];
+    if (indent > 0 && prev && (prev.type === 'bullet' || (prev.type === 'para' && prev.indentX))) {
+      const indentX = prev.type === 'bullet' ? 2 + prev.indent * 5 + (prev.marker === 'dot' ? 4.5 : 6.5) : prev.indentX;
+      blocks.push({ type: 'para', segments: parseInline(line), indentX });
       continue;
     }
     const keyValue = line.match(/^([^:*]{2,42}?)\s:\s(.+)$/);
@@ -371,8 +378,9 @@ export async function buildTextReportPdf({
         break;
       }
       case 'para': {
-        const lines = wrapSegments(doc, b.segments, BODY_SIZE, maxW);
-        drawWords(lines, MARGIN, BODY_SIZE, C.text);
+        const dx = b.indentX ?? 0;
+        const lines = wrapSegments(doc, b.segments, BODY_SIZE, maxW - dx);
+        drawWords(lines, MARGIN + dx, BODY_SIZE, C.text);
         y += 0.8;
         break;
       }

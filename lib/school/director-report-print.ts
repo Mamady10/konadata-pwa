@@ -87,7 +87,7 @@ export function buildDirectorReportPrintHtml(data: SchoolDirectorReportData): st
           .map((r) => {
             const ratio = r.expected > 0 ? r.collected / r.expected : 0;
             const color = ratio >= 0.8 ? '#059669' : ratio >= 0.5 ? '#D97706' : '#DC2626';
-            const gapClass = r.gap > 0 ? 'neg' : 'pos';
+            const gapClass = r.gap < 0 ? 'neg' : 'pos';
             return `<tr>
               <td class="strong">${esc(r.className)}</td>
               <td class="r">${nf(r.enrolled)}</td>
@@ -142,7 +142,7 @@ export function buildDirectorReportPrintHtml(data: SchoolDirectorReportData): st
             label: r.className,
             value: r.average ?? 0,
             color: avgColor(r.average),
-            caption: r.average != null ? r.average.toFixed(1) : '—',
+            caption: r.average != null ? r.average.toFixed(1).replace('.', ',') : '—',
           }))
         )
       : '<p class="muted">Aucune note enregistrée.</p>';

@@ -101,20 +101,24 @@ export async function getBtpDashboardKpis(orgId: string) {
 export async function getPmeDashboardKpis(orgId: string) {
   const supabase = await createClient();
 
-  const [sales, expenses, products, customers] = await Promise.all([
+  const [sales, expenses, purchases, products, customers] = await Promise.all([
     supabase.from('pme_sales').select('total, payment_status').eq('organization_id', orgId),
     supabase.from('pme_expenses').select('amount').eq('organization_id', orgId),
+    supabase.from('pme_purchases').select('total').eq('organization_id', orgId),
     supabase.from('pme_products').select('stock_quantity, min_stock').eq('organization_id', orgId),
     supabase.from('pme_customers').select('balance').eq('organization_id', orgId),
   ]);
 
   const salesRows = sales.data ?? [];
   const expenseRows = expenses.data ?? [];
+  const purchaseRows = purchases.data ?? [];
   const productRows = products.data ?? [];
   const customerRows = customers.data ?? [];
 
   const revenue = salesRows.reduce((s, x) => s + Number(x.total), 0);
-  const totalExpenses = expenseRows.reduce((s, x) => s + Number(x.amount), 0);
+  const purchasesTotal = purchaseRows.reduce((s, x) => s + (Number(x.total) || 0), 0);
+  const totalExpenses =
+    expenseRows.reduce((s, x) => s + Number(x.amount), 0) + purchasesTotal;
   const receivables = customerRows.reduce((s, c) => s + Number(c.balance), 0);
   const lowStock = productRows.filter((p) => Number(p.stock_quantity) <= Number(p.min_stock)).length;
 
