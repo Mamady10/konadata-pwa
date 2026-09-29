@@ -125,5 +125,5 @@ Utilisez la présentation `KONADATA-PRESENTATION-PARTENAIRES.pptx` (notes de l'o
 - **Publier plusieurs fois par semaine dans le groupe** : l'administrateur et les membres se lasseront.
 - **Envoyer le même message privé à tout le monde**, sans personnalisation.
 - **Relancer plus de deux fois** une personne qui ne répond pas.
-- **Montrer les données ou le logo d'un client** sans son accord écrit. Cela vaut aussi pour les logos partenaires (PREMCO, VCCOM, Loukhy).
+- **Montrer les données ou le logo d'un client** sans son accord écrit. Les partenaires PREMCO, VCCOM et Loukhy ont donné leur accord : leurs logos peuvent apparaître dans nos supports.
 - **Promettre une fonctionnalité qui n'existe pas encore.** Notez la demande, dites « c'est une bonne idée, je la note », et revenez vers la personne quand c'est prêt.
