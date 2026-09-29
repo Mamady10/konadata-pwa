@@ -116,16 +116,141 @@ const ICONS = {
 const svg = (name) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`;
 
+// ---------------------------------------------------------------- marque PREMCO dans les scènes BTP
+const PREMCO_LOGO = path.join(CAMPAIGN, 'marques', 'premco-logo.png');
+const CLEAR = { r: 0, g: 0, b: 0, alpha: 0 };
+
+/**
+ * Logos PREMCO incrustés dans les scènes (coordonnées en pixels de l'image 720×1280) :
+ * `light`/`dark` = logo détouré clair ou foncé centré en (x, y), de largeur w ;
+ * `poster` = logo sur son fond noir, remplissant le rectangle `box` [x, y, l, h] (cadres, bâches).
+ * rot (°), skew (° de cisaillement horizontal), op (opacité), dim (luminosité, scènes de nuit).
+ */
+const OFFICE_FRAME = { v: 'poster', box: [585, 155, 98, 117] };
+const SITE_BANNER = { v: 'poster', box: [25, 406, 150, 75], op: 0.95 };
+const GRADER_ARM = { v: 'dark', x: 58, y: 466, w: 88, op: 0.9 };
+const BOSS_PHOTO_BAND = { v: 'poster', box: [590, 212, 130, 36] };
+const BRANDING = {
+  'ingenieur-marche-perdu/01-bureau.png': [{ v: 'dark', x: 328, y: 660, w: 60, rot: 9, op: 0.85 }],
+  'ingenieur-marche-perdu/02-telephone.png': [{ v: 'dark', x: 344, y: 679, w: 60, rot: 10, op: 0.85 }],
+  'ingenieur-marche-perdu/03-patron.png': [BOSS_PHOTO_BAND],
+  'ingenieur-marche-perdu/04-nuit.png': [{ v: 'dark', x: 335, y: 690, w: 58, rot: 8, op: 0.8, dim: 0.75 }],
+  'ingenieur-marche-perdu/06-konadata.png': [{ v: 'dark', x: 537, y: 712, w: 65, rot: 14, op: 0.85 }],
+  'ingenieur-marche-perdu/07-succes.png': [BOSS_PHOTO_BAND],
+  'rapport-chantier/01-attente.png': [OFFICE_FRAME],
+  'rapport-chantier/02-chantier.png': [
+    { v: 'dark', x: 352, y: 258, w: 82, rot: -9, op: 0.92 },
+    { v: 'poster', box: [404, 405, 60, 38], op: 0.95 },
+    SITE_BANNER,
+  ],
+  'rapport-chantier/03-chaos.png': [OFFICE_FRAME],
+  'rapport-chantier/04-reunion.png': [{ v: 'dark', x: 462, y: 292, w: 70, op: 0.85 }],
+  'rapport-chantier/05-saisie.png': [
+    { v: 'dark', x: 356, y: 256, w: 82, rot: -6, op: 0.92 },
+    { v: 'poster', box: [400, 400, 58, 36], op: 0.95 },
+    SITE_BANNER,
+  ],
+  'rapport-chantier/06-serein.png': [OFFICE_FRAME],
+  'rapport-chantier/07-validation.png': [{ v: 'dark', x: 462, y: 292, w: 70, op: 0.85 }],
+  'ciment-livre/01-facture.png': [OFFICE_FRAME],
+  'ciment-livre/03-magasin.png': [
+    { v: 'dark', x: 452, y: 178, w: 55, rot: -5, op: 0.92 },
+    { v: 'poster', box: [474, 262, 44, 28], op: 0.95 },
+  ],
+  'ciment-livre/04-livraison.png': [
+    { v: 'dark', x: 315, y: 356, w: 55, rot: -5, op: 0.92 },
+    { v: 'poster', box: [75, 200, 125, 62], op: 0.95 },
+  ],
+  'gasoil-evapore/01-facture.png': [{ v: 'poster', box: [582, 150, 99, 128] }],
+  'gasoil-evapore/02-chantier.png': [
+    { v: 'dark', x: 403, y: 285, w: 85, rot: -6, op: 0.92 },
+    { v: 'poster', box: [462, 420, 56, 35], op: 0.95 },
+    GRADER_ARM,
+  ],
+  'gasoil-evapore/03-nuit.png': [
+    { ...GRADER_ARM, dim: 0.55 },
+    { v: 'dark', x: 606, y: 456, w: 100, op: 0.9, dim: 0.55 },
+  ],
+  'gasoil-evapore/04-releve.png': [
+    { v: 'dark', x: 481, y: 294, w: 85, rot: -8, op: 0.92 },
+    { v: 'poster', box: [522, 420, 56, 35], op: 0.95 },
+    GRADER_ARM,
+  ],
+  'gasoil-evapore/05-bureau.png': [{ v: 'poster', box: [584, 148, 100, 130] }],
+};
+
+const premcoCache = {};
+/** Logo PREMCO en RGBA : `light` (blanc et cuivre), `dark` (marine et cuivre) ou `poster` (fond noir d'origine). */
+async function premcoVariant(v) {
+  if (premcoCache[v]) return premcoCache[v];
+  const { data, info } = await sharp(PREMCO_LOGO).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  if (v === 'poster') {
+    const bg = [data[0], data[1], data[2]];
+    const trimmed = await sharp(data, { raw: info }).trim({ threshold: 40 }).png().toBuffer({ resolveWithObject: true });
+    const pad = Math.round(trimmed.info.width * 0.1);
+    const background = { r: bg[0], g: bg[1], b: bg[2], alpha: 1 };
+    const framed = await sharp(trimmed.data).extend({ top: pad, bottom: pad, left: pad, right: pad, background }).raw().toBuffer({ resolveWithObject: true });
+    return (premcoCache[v] = { ...framed, bg });
+  }
+  const px = Buffer.from(data);
+  for (let i = 0; i < px.length; i += 4) {
+    const [r, g, b] = [px[i], px[i + 1], px[i + 2]];
+    const m = Math.max(r, g, b);
+    const a = Math.min(1, Math.max(0, (m - 40) / 150));
+    const copper = m - Math.min(r, g, b) > 40;
+    const light = copper ? [r, g, b].map((c) => Math.min(255, c / Math.max(a, 0.01))) : [255, 255, 255];
+    const [cr, cg, cb] = v === 'dark' ? (copper ? [150, 85, 55] : [22, 38, 70]) : light;
+    px[i] = cr;
+    px[i + 1] = cg;
+    px[i + 2] = cb;
+    px[i + 3] = Math.round(a * 255);
+  }
+  return (premcoCache[v] = await sharp(px, { raw: info }).trim({ threshold: 1 }).raw().toBuffer({ resolveWithObject: true }));
+}
+
+/** Calque PREMCO prêt à composer sur la scène agrandie d'un facteur k. */
+async function premcoLayer(p, k) {
+  const { data, info, bg } = await premcoVariant(p.v);
+  const png = async (img) => sharp(await img.png().toBuffer());
+  let img = sharp(data, { raw: info });
+  if (p.box) {
+    const [, , bw, bh] = p.box.map((n) => Math.round(n * k));
+    img = await png(img.resize(bw, bh, { fit: 'contain', background: { r: bg[0], g: bg[1], b: bg[2], alpha: 1 }, kernel: 'lanczos3' }));
+  } else {
+    img = await png(img.resize(Math.round(p.w * k), null, { kernel: 'lanczos3' }));
+    if (p.skew) img = await png(img.affine([[1, Math.tan((p.skew * Math.PI) / 180)], [0, 1]], { background: CLEAR }));
+    if (p.rot) img = await png(img.rotate(p.rot, { background: CLEAR }));
+  }
+  const { data: px, info: size } = await img.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const op = p.op ?? 1;
+  const dim = p.dim ?? 1;
+  for (let i = 0; i < px.length; i += 4) {
+    px[i] *= dim;
+    px[i + 1] *= dim;
+    px[i + 2] *= dim;
+    px[i + 3] *= op;
+  }
+  const [left, top] = p.box
+    ? [Math.round(p.box[0] * k), Math.round(p.box[1] * k)]
+    : [Math.round(p.x * k - size.width / 2), Math.round(p.y * k - size.height / 2)];
+  return { input: px, raw: size, left, top };
+}
+
 /** Agrandit une scène (720×1280) pour le zoom lent, en conservant la netteté du trait. */
 async function sceneImage(story, file) {
-  const out = path.join(SWORK, story, file.replace(/\.png$/, '.jpg'));
+  const brand = BRANDING[`${story}/${file}`];
+  const out = path.join(SWORK, story, file.replace(/\.png$/, brand ? '-premco.jpg' : '.jpg'));
   if (!existsSync(out)) {
     await mkdir(path.dirname(out), { recursive: true });
-    await sharp(path.join(STORIES, story, file))
+    const src = path.join(STORIES, story, file);
+    const k = Math.round(W * 1.2) / (await sharp(src).metadata()).width;
+    const base = await sharp(src)
       .resize(Math.round(W * 1.2), Math.round(H * 1.2), { kernel: 'lanczos3' })
       .sharpen({ sigma: 0.6 })
-      .jpeg({ quality: 93 })
-      .toFile(out);
+      .png()
+      .toBuffer();
+    const layers = brand ? await Promise.all(brand.map((p) => premcoLayer(p, k))) : [];
+    await sharp(base).composite(layers).jpeg({ quality: 93 }).toFile(out);
   }
   return url(out);
 }
