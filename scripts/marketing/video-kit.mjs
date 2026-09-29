@@ -15,7 +15,12 @@ import { CAMPAIGN, url } from './campaign-html.mjs';
 
 export const FFMPEG = ffmpegInstaller.path;
 export const FPS = 30;
+/** Voix Edge (« fr-FR-DeniseNeural ») ou OpenAI (« openai:coral »). */
 export const VOICE = process.env.CAMPAIGN_TTS_VOICE || 'fr-FR-DeniseNeural';
+const RATE = process.env.CAMPAIGN_TTS_RATE || '+2%';
+const OPENAI_TTS_MODEL = process.env.OPENAI_TTS_MODEL || 'gpt-4o-mini-tts';
+export const TRAINER_INSTRUCTIONS =
+  "Parle en français de France, avec un accent neutre. Ton chaleureux, posé et souriant de formateur qui montre un logiciel pas à pas à un collègue. Débit modéré, articulation claire, courtes pauses naturelles entre les phrases.";
 const MUSIC_FILE = path.join(CAMPAIGN, 'musique.mp3');
 const MUSIC_VOL = Number(process.env.CAMPAIGN_MUSIC_VOLUME || '0.10');
 
@@ -33,21 +38,57 @@ export function durationSec(file) {
   return m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : null;
 }
 
-/** Synthèse vocale mise en cache (clé = voix + texte). */
-export async function voiceClip(text, cacheDir) {
-  const key = createHash('md5').update(`${VOICE}|${text}`).digest('hex').slice(0, 16);
+async function openaiSpeech(text, voice, instructions, mp3) {
+  const key = process.env.OPENAI_API_KEY?.trim();
+  if (!key) throw new Error('OPENAI_API_KEY manquant pour la voix OpenAI.');
+  const res = await fetch('https://api.openai.com/v1/audio/speech', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: OPENAI_TTS_MODEL, voice, input: text, instructions, response_format: 'mp3' }),
+  });
+  if (!res.ok) throw new Error(`Voix OpenAI (${res.status}) : ${(await res.text()).slice(0, 300)}`);
+  await writeFile(mp3, Buffer.from(await res.arrayBuffer()));
+}
+
+/**
+ * Synthèse vocale mise en cache (clé = voix + débit + hauteur + consignes + texte).
+ * `opts` : { voice, rate, pitch, instructions } pour surcharger les valeurs par défaut.
+ */
+export async function voiceClip(text, cacheDir, opts = {}) {
+  const voice = opts.voice || VOICE;
+  const rate = opts.rate || RATE;
+  const pitch = opts.pitch || '+0Hz';
+  const instructions = opts.instructions || TRAINER_INSTRUCTIONS;
+  const isOpenai = voice.startsWith('openai:');
+  const key = createHash('md5')
+    .update(
+      isOpenai
+        ? `${voice}|${OPENAI_TTS_MODEL}|${instructions}|${text}`
+        : pitch !== '+0Hz'
+          ? `${voice}|${rate}|${pitch}|${text}`
+          : rate === '+2%'
+            ? `${voice}|${text}`
+            : `${voice}|${rate}|${text}`
+    )
+    .digest('hex')
+    .slice(0, 16);
   const mp3 = path.join(cacheDir, `${key}.mp3`);
   const wav = path.join(cacheDir, `${key}.wav`);
   if (!existsSync(wav)) {
     await mkdir(cacheDir, { recursive: true });
-    const tts = new EdgeTTS({
-      voice: VOICE,
-      lang: 'fr-FR',
-      outputFormat: 'audio-24khz-96kbitrate-mono-mp3',
-      rate: '+2%',
-      timeout: 120000,
-    });
-    await tts.ttsPromise(text, mp3);
+    if (isOpenai) {
+      await openaiSpeech(text, voice.slice('openai:'.length), instructions, mp3);
+    } else {
+      const tts = new EdgeTTS({
+        voice,
+        lang: 'fr-FR',
+        outputFormat: 'audio-24khz-96kbitrate-mono-mp3',
+        rate,
+        pitch,
+        timeout: 120000,
+      });
+      await tts.ttsPromise(text, mp3);
+    }
     ff(
       [
         '-i', mp3,
