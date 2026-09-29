@@ -43,6 +43,16 @@ const CAST = {
   kourouma: { name: 'Mme Kourouma', color: '#15803D', voice: 'fr-FR-DeniseNeural', rate: '-2%' },
   barry: { name: 'M. Barry', color: '#2563EB', voice: 'fr-FR-RemyMultilingualNeural', rate: '+2%' },
   kaba: { name: 'M. Kaba', color: '#0369A1', voice: 'fr-FR-HenriNeural', rate: '+3%' },
+  conde: { name: 'M. Condé', color: '#1D4ED8', voice: 'fr-FR-RemyMultilingualNeural', rate: '+0%' },
+  fofana: { name: 'Mme Fofana', color: '#EA580C', voice: 'fr-BE-CharlineNeural', rate: '+2%' },
+  soumah: { name: 'M. Soumah', color: '#475569', voice: 'fr-BE-GerardNeural', rate: '-4%' },
+  bah: { name: 'M. Bah', color: '#0284C7', voice: 'fr-CH-FabriceNeural', rate: '-2%' },
+  keita: { name: 'Mariama', color: '#16A34A', voice: 'fr-CH-ArianeNeural', rate: '+2%' },
+  diakite: { name: 'M. Diakité', color: '#92400E', voice: 'fr-BE-GerardNeural', rate: '-6%', pitch: '-4Hz' },
+  toure: { name: 'Mme Touré', color: '#7E22CE', voice: 'fr-FR-DeniseNeural', rate: '+4%' },
+  sekou: { name: 'Sékou', color: '#DC2626', voice: 'fr-FR-RemyMultilingualNeural', rate: '+8%', pitch: '+4Hz' },
+  cliente: { name: 'Cliente', color: '#0F766E', voice: 'fr-CH-ArianeNeural', rate: '+0%' },
+  client: { name: 'Client', color: '#15803D', voice: 'fr-CH-FabriceNeural', rate: '+2%' },
 };
 
 /** Réplique : `say` est lu par la voix, `text` (optionnel) est affiché en sous-titre. */
@@ -865,7 +875,496 @@ async function storyReportCards() {
   };
 }
 
+async function storyLostReceipt() {
+  const S = 'recu-introuvable';
+  const img = (f) => sceneImage(S, f);
+  const counter = await img('02-guichet.png');
+  const directrice = await sceneImage('nuit-bulletins', '04-directrice.png');
+  const PAY = 'ecole-04-paiement-recu';
+  const form = await tutoCrop(PAY, 'shots/012-after.jpg', { left: 570, top: 300, width: 2440, height: 720 }, 'paiement-saisie');
+  const receipt = await tutoCrop(PAY, 'shots/018-after.jpg', { left: 960, top: 180, width: 1190, height: 1548 }, 'recu-officiel');
+  const history = await tutoCrop(PAY, 'shots/016-after.jpg', { left: 540, top: 150, width: 2500, height: 1210 }, 'paiements-historique');
+
+  return {
+    id: 'histoire-recu-introuvable',
+    accent: 'ecole',
+    music: 0.05,
+    shots: [
+      {
+        img: await img('01-portail.png'),
+        kb: [[1.04, 0, 0], [1.14, 0, -30]],
+        pre: 0.5,
+        lines: [
+          line('narr', "Lundi matin. Au portail de l'école, Mariame est arrêtée : d'après le registre, sa scolarité n'est pas payée."),
+          line('conde', "Désolé, Mariame. Tu n'es pas sur la liste. Dis à ta maman de passer à la caisse.", { tail: 30 }),
+        ],
+        overlays: [{ type: 'chip', at: 0.3, icon: 'clock', text: 'Lundi · 7 h 45' }],
+      },
+      {
+        img: counter,
+        kb: [[1.05, 0, 0], [1.12, 0, 10]],
+        pre: 0.4,
+        lines: [
+          line('fofana', "J'ai payé un million quarante mille francs en septembre ! C'est vous-même qui avez encaissé !", {
+            text: "J'ai payé 1 040 000 francs en septembre ! C'est vous-même qui avez encaissé !",
+            tail: 28,
+          }),
+          line('soumah', 'Je ne trouve rien dans le cahier, madame… Vous avez gardé votre reçu ?', { tail: 75 }),
+          line('fofana', "Le reçu ? C'était un petit bout de papier… Je ne sais plus où il est.", { tail: 28 }),
+        ],
+        overlays: [{ type: 'chip', at: 0.2, icon: 'clock', text: 'Lundi · 9 h 00' }],
+      },
+      {
+        img: counter,
+        kb: [[1.5, -230, -170], [1.6, -250, -210]],
+        cut: true,
+        pre: 0.3,
+        lines: [
+          line('narr', 'Un cahier de caisse, des reçus sur papier libre, des ratures… Personne ne peut prouver qui a payé quoi.', { gap: 0.9 }),
+          line('narr', "Et pour l'école aussi, c'est de l'argent qui échappe à tout contrôle."),
+        ],
+        post: 0.6,
+        overlays: [
+          { type: 'questions', at: 0.6, step: 0.8, items: [['Payé', 60, 330], ['Quand', 720, 420], ['Combien', 80, 1080], ['Reste', 700, 1150]] },
+          { type: 'stamp', line: 0, at: 'end', y: 1250, text: 'LITIGE', sub: 'ÉLÈVE RENVOYÉE À TORT', shake: true },
+        ],
+        sfx: [{ sfx: 'thump', line: 0, at: 'end', vol: 1 }],
+      },
+      {
+        rewind: 'Et si chaque paiement était enregistré dans *KonaData* ?',
+        pre: 0.6,
+        sfx: [{ sfx: 'whoosh', at: 0, vol: 0.9 }],
+        lines: [line('narr', 'Et si chaque paiement était enregistré dans Kona Data ?')],
+        post: 0.5,
+      },
+      {
+        img: await img('03-guichet-kona.png'),
+        kb: [[1.04, 0, 0], [1.12, 0, -20]],
+        pre: 0.6,
+        lines: [
+          line('narr', "Au guichet, chaque paiement est saisi dans Kona Data : l'élève, le montant, et le mode de paiement, espèces, Orange Money ou MTN MoMo.", {
+            text: "Au guichet, chaque paiement est saisi dans KonaData : l'élève, le montant, et le mode de paiement (espèces, Orange Money, MTN MoMo).",
+          }),
+          line('narr', 'Le reçu officiel est généré aussitôt, avec un code de vérification et le reste à payer.'),
+          line('soumah', 'Voilà votre reçu, madame. Je vous l’envoie aussi sur WhatsApp.', { tail: 75 }),
+        ],
+        post: 0.3,
+        overlays: [
+          { type: 'dim', line: 0, at: 0, untilLine: 2, untilAt: 0 },
+          { type: 'step', line: 0, at: 0, y: 300, n: '1', text: 'Paiement enregistré', untilLine: 1, untilAt: 0 },
+          { type: 'image', line: 0, at: 0.3, src: form, x: 50, y: 400, w: 980, untilLine: 1, untilAt: 0 },
+          { type: 'image', line: 1, at: 0.1, src: receipt, x: 260, y: 250, w: 560, anim: 'pop', untilLine: 2, untilAt: 0 },
+          { type: 'chip', line: 1, at: 0, icon: 'check', tone: 'green', text: 'Reçu REC-2026-000400' },
+        ],
+        sfx: [{ sfx: 'ding', line: 1, at: 0.2, vol: 0.8 }],
+      },
+      {
+        img: await img('04-portail-ok.png'),
+        kb: [[1.04, 0, 0], [1.13, 0, -30]],
+        pre: 0.5,
+        lines: [
+          line('fofana', "Voici le reçu de l'école, avec son code de vérification.", { tail: 22 }),
+          line('conde', 'C’est bon, madame, tout est en règle. Allez, Mariame, en classe !', { tail: 42 }),
+        ],
+        post: 0.5,
+        overlays: [{ type: 'chip', at: 0.2, icon: 'check', tone: 'green', text: 'Paiement vérifié' }],
+        sfx: [{ sfx: 'chime', line: 1, at: 0.3, vol: 0.7 }],
+      },
+      {
+        img: directrice,
+        kb: [[1.04, 0, 0], [1.12, 0, -20]],
+        pre: 0.4,
+        lines: [
+          line('narr', 'Et la directrice suit chaque jour les encaissements et les impayés, élève par élève.'),
+          line('kourouma', 'Plus de litiges à la caisse… et des comptes enfin clairs.', { tail: 70 }),
+        ],
+        post: 0.4,
+        overlays: [
+          { type: 'dim', line: 0, at: 0, untilLine: 1, untilAt: 0 },
+          { type: 'image', line: 0, at: 0.2, src: history, x: 50, y: 360, w: 980, untilLine: 1, untilAt: 0 },
+        ],
+      },
+      {
+        endCard: { title: ['Chaque paiement,', '*un reçu vérifiable.*'], badge: '12 mois gratuits pour les écoles' },
+        pre: 0.3,
+        lines: [
+          line('narr', 'Kona Data. Chaque paiement, un reçu vérifiable. Douze mois gratuits pour les écoles.', {
+            text: 'KonaData : chaque paiement, un reçu vérifiable. 12 mois gratuits pour les écoles.',
+          }),
+        ],
+        post: 2.2,
+      },
+    ],
+  };
+}
+
+async function storyForgottenCredits() {
+  const S = 'credits-oublies';
+  const img = (f) => sceneImage(S, f);
+  const shopKona = await img('04-boutique-kona.png');
+  const CRD = 'pme-05-credits-clients';
+  const form = await tutoCrop(CRD, 'shots/012-filled.jpg', { left: 560, top: 570, width: 2470, height: 960 }, 'dette-saisie');
+  const partial = await tutoCrop(CRD, 'shots/022-scroll.jpg', { left: 560, top: 725, width: 1220, height: 515 }, 'dette-partiel');
+  const overview = await tutoCrop(CRD, 'shots/001-highlight.jpg', { left: 555, top: 170, width: 2475, height: 1030 }, 'credits-vue');
+
+  return {
+    id: 'histoire-credits-oublies',
+    accent: 'pme',
+    music: 0.05,
+    shots: [
+      {
+        img: await img('01-boutique.png'),
+        kb: [[1.04, 0, 0], [1.14, 0, -30]],
+        pre: 0.5,
+        lines: [
+          line('narr', 'Au marché de Madina, Monsieur Bah fait crédit à ses clients fidèles. Tout est noté… dans un vieux cahier.'),
+          line('keita', "Deux sacs de riz et un bidon d'huile. Note-le, Bah, je te paie à la fin du mois !", { tail: 25 }),
+          line('bah', "Pas de souci, Mariama. C'est noté.", { tail: 80 }),
+        ],
+        overlays: [{ type: 'chip', at: 0.3, icon: 'clock', text: 'Marché de Madina' }],
+      },
+      {
+        img: await img('02-grossiste.png'),
+        kb: [[1.05, 0, 0], [1.12, 0, 10]],
+        pre: 0.4,
+        lines: [
+          line('diakite', 'Bah, ça fait trois semaines. Mes huit millions, c’est pour aujourd’hui ?', {
+            text: 'Bah, ça fait trois semaines. Mes 8 millions, c’est pour aujourd’hui ?',
+            tail: 28,
+          }),
+          line('bah', "Mes clients ne m'ont pas encore payé… Donne-moi encore une semaine.", { tail: 80 }),
+          line('diakite', 'Encore une semaine ? Alors plus de marchandise à crédit pour toi.', { tail: 28 }),
+        ],
+        overlays: [{ type: 'chip', at: 0.2, icon: 'calendar', tone: 'red', text: 'Fin du mois' }],
+      },
+      {
+        img: await img('03-carnet.png'),
+        kb: [[1.5, -60, -110], [1.62, -70, -130]],
+        cut: true,
+        pre: 0.3,
+        lines: [
+          line('narr', 'Le soir, il reprend son cahier : des dizaines de noms, des montants barrés, des pages arrachées.', { gap: 0.6 }),
+          line('bah', "Mariama dit qu'elle m'a déjà donné cinq cent mille… Je ne le vois nulle part.", {
+            text: "Mariama dit qu'elle m'a déjà donné 500 000… Je ne le vois nulle part.",
+            tail: 45,
+          }),
+          line('narr', "Qui lui doit combien ? Qui a déjà remboursé ? Impossible de le dire. L'argent est dehors… et la caisse est vide."),
+        ],
+        post: 0.6,
+        overlays: [
+          { type: 'questions', at: 0.6, step: 0.8, items: [['Qui', 60, 330], ['Combien', 680, 420], ['Déjà payé', 60, 1060], ['Pour quand', 620, 1150]] },
+          { type: 'stamp', line: 2, at: 'end', y: 1250, text: 'CRÉDITS OUBLIÉS', sub: 'ARGENT DEHORS, CAISSE VIDE', shake: true },
+        ],
+        sfx: [{ sfx: 'thump', line: 2, at: 'end', vol: 1 }],
+      },
+      {
+        rewind: 'Et si chaque crédit était suivi dans *KonaData* ?',
+        pre: 0.6,
+        sfx: [{ sfx: 'whoosh', at: 0, vol: 0.9 }],
+        lines: [line('narr', 'Et si chaque crédit était suivi dans Kona Data ?')],
+        post: 0.5,
+      },
+      {
+        img: shopKona,
+        kb: [[1.04, 0, 0], [1.12, 0, -20]],
+        pre: 0.6,
+        lines: [
+          line('narr', "Chaque vente à crédit est enregistrée dans Kona Data : le client, les marchandises, le montant dû et l'échéance.", {
+            text: "Chaque vente à crédit est enregistrée dans KonaData : le client, les marchandises, le montant dû et l'échéance.",
+          }),
+          line('keita', 'Bah, je viens de t’envoyer cinq cent mille par Orange Money.', {
+            text: 'Bah, je viens de t’envoyer 500 000 par Orange Money.',
+            tail: 25,
+          }),
+          line('narr', 'Le remboursement est saisi : la dette passe à « Partiel », et le reste à payer se calcule tout seul.'),
+          line('bah', "Bien reçu, Mariama. Il te reste cinq cent quatre-vingt-dix mille, d'ici le douze octobre.", {
+            text: "Bien reçu, Mariama. Il te reste 590 000, d'ici le 12 octobre.",
+            tail: 78,
+          }),
+        ],
+        post: 0.3,
+        overlays: [
+          { type: 'dim', line: 0, at: 0, untilLine: 1, untilAt: 0 },
+          { type: 'step', line: 0, at: 0, y: 300, n: '1', text: 'Nouvelle dette', untilLine: 1, untilAt: 0 },
+          { type: 'image', line: 0, at: 0.3, src: form, x: 50, y: 400, w: 980, untilLine: 1, untilAt: 0 },
+          { type: 'dim', line: 2, at: 0, untilLine: 3, untilAt: 0.8 },
+          { type: 'image', line: 2, at: 0.1, src: partial, x: 140, y: 380, w: 800, anim: 'pop', untilLine: 3, untilAt: 0.8 },
+          { type: 'chip', line: 2, at: 0, icon: 'check', tone: 'green', text: 'Partiel · reste 590 000 FG' },
+        ],
+        sfx: [{ sfx: 'ding', line: 2, at: 0.2, vol: 0.8 }],
+      },
+      {
+        img: shopKona,
+        kb: [[1.35, -170, -60], [1.42, -190, -70]],
+        cut: true,
+        pre: 0.3,
+        lines: [
+          line('narr', "Et d'un coup d'œil, il voit le total accordé à crédit, ce qui est déjà rentré, et ce qui reste dû, client par client."),
+          line('bah', 'Maintenant, je sais exactement qui relancer… et quand.', { tail: 60 }),
+        ],
+        post: 0.4,
+        overlays: [
+          { type: 'dim', line: 0, at: 0, untilLine: 1, untilAt: 0 },
+          { type: 'image', line: 0, at: 0.2, src: overview, x: 50, y: 360, w: 980, untilLine: 1, untilAt: 0 },
+        ],
+      },
+      {
+        img: await img('05-grossiste-ok.png'),
+        kb: [[1.04, 0, 0], [1.13, 0, -30]],
+        pre: 0.5,
+        lines: [
+          line('diakite', 'Tout est réglé, Bah. Je te relivre dès lundi.', { tail: 28 }),
+          line('bah', 'Merci, mon frère. À lundi !', { tail: 80 }),
+        ],
+        post: 0.5,
+        overlays: [{ type: 'chip', at: 0.2, icon: 'check', tone: 'green', text: 'Fournisseur payé' }],
+        sfx: [{ sfx: 'chime', line: 0, at: 0.3, vol: 0.7 }],
+      },
+      {
+        endCard: { title: ['Chaque crédit noté,', '*chaque franc suivi.*'], badge: '6 mois gratuits pour les PME' },
+        pre: 0.3,
+        lines: [
+          line('narr', 'Kona Data. Chaque crédit noté, chaque franc suivi. Six mois gratuits pour les PME.', {
+            text: 'KonaData : chaque crédit noté, chaque franc suivi. 6 mois gratuits pour les PME.',
+          }),
+        ],
+        post: 2.2,
+      },
+    ],
+  };
+}
+
+async function storyStockOut() {
+  const S = 'rupture-marche';
+  const img = (f) => sceneImage(S, f);
+  const STK = 'pme-03-stock-alerte';
+  const form = await tutoCrop(STK, 'shots/016-filled.jpg', { left: 560, top: 335, width: 2465, height: 960 }, 'article-seuil');
+  const lowList = await tutoCrop(STK, 'shots/020-scroll.jpg', { left: 560, top: 1275, width: 1220, height: 410 }, 'stock-bas-liste');
+  const advice = await tutoCrop(STK, 'shots/020-scroll.jpg', { left: 560, top: 130, width: 2465, height: 320 }, 'stock-recommandation');
+
+  return {
+    id: 'histoire-rupture-marche',
+    accent: 'pme',
+    music: 0.05,
+    shots: [
+      {
+        img: await img('01-foule.png'),
+        kb: [[1.04, 0, 0], [1.14, 0, -30]],
+        pre: 0.5,
+        lines: [
+          line('narr', 'Veille de Tabaski. Tout Conakry fait ses courses, et la boutique de Madame Touré ne désemplit pas.'),
+          line('client', "Deux bidons d'huile de vingt litres, s'il vous plaît !", { text: "Deux bidons d'huile de 20 litres, s'il vous plaît !", tail: 48 }),
+          line('toure', 'Tout de suite ! Sékou, apporte deux bidons de la réserve !', { tail: 82 }),
+        ],
+        overlays: [{ type: 'chip', at: 0.3, icon: 'calendar', text: 'Veille de Tabaski' }],
+      },
+      {
+        img: await img('02-reserve.png'),
+        kb: [[1.05, 0, 0], [1.12, 0, 10]],
+        pre: 0.4,
+        lines: [
+          line('sekou', "Patronne… il n'y a plus d'huile. Plus un seul bidon !", { tail: 55 }),
+          line('toure', "Comment ça ? J'étais sûre qu'il en restait plein !", { tail: 16 }),
+        ],
+        sfx: [{ sfx: 'thump', line: 0, at: 'end', vol: 0.8 }],
+      },
+      {
+        img: await img('03-clients-partent.png'),
+        kb: [[1.05, 0, 0], [1.14, 20, -20]],
+        pre: 0.4,
+        lines: [
+          line('client', "Pas d'huile, un jour pareil ? On va voir en face.", { tail: 50 }),
+          line('narr', "Les clients partent chez la concurrence. Et le grossiste ne peut pas livrer avant trois jours… après la fête.", { gap: 0.6 }),
+          line('narr', 'Personne ne savait que le stock baissait. Le cahier, lui, ne prévient pas.'),
+        ],
+        post: 0.6,
+        overlays: [
+          { type: 'questions', line: 1, at: 0.2, step: 0.8, items: [['Combien en reste', 60, 330], ['Quand commander', 560, 440]] },
+          { type: 'stamp', line: 2, at: 'end', y: 1250, text: 'RUPTURE', sub: 'VENTES PERDUES LE JOUR J', shake: true },
+        ],
+        sfx: [{ sfx: 'thump', line: 2, at: 'end', vol: 1 }],
+      },
+      {
+        rewind: 'Et si le stock prévenait *avant* la rupture ?',
+        pre: 0.6,
+        sfx: [{ sfx: 'whoosh', at: 0, vol: 0.9 }],
+        lines: [line('narr', 'Et si le stock prévenait avant la rupture ?')],
+        post: 0.5,
+      },
+      {
+        img: await img('04-commande.png'),
+        kb: [[1.04, 0, 0], [1.12, 0, -20]],
+        pre: 0.6,
+        lines: [
+          line('narr', "Une semaine plus tôt. Dans Kona Data, chaque article a son seuil d'alerte : dès que le stock passe en dessous, il est marqué « Stock bas ».", {
+            text: "Une semaine plus tôt. Dans KonaData, chaque article a son seuil d'alerte : dès que le stock passe en dessous, il est marqué « Stock bas ».",
+          }),
+          line('narr', 'Sur le tableau de bord, Madame Touré voit la liste des stocks bas… et Kona Data lui recommande de réapprovisionner.', {
+            text: 'Sur le tableau de bord, Madame Touré voit la liste des stocks bas… et KonaData lui recommande de réapprovisionner.',
+          }),
+          line('toure', "Allô, Monsieur Diakité ? Dix bidons d'huile et vingt sacs d'oignons, livrés avant jeudi.", {
+            text: "Allô, M. Diakité ? 10 bidons d'huile et 20 sacs d'oignons, livrés avant jeudi.",
+            tail: 80,
+          }),
+          line('diakite', "C'est noté, Madame Touré. Vous serez livrée mercredi."),
+        ],
+        post: 0.3,
+        overlays: [
+          { type: 'chip', at: 0.2, icon: 'rewind', text: 'Une semaine plus tôt', untilLine: 2, untilAt: 0 },
+          { type: 'dim', line: 0, at: 0, untilLine: 2, untilAt: 0 },
+          { type: 'step', line: 0, at: 0, y: 300, n: '1', text: "Seuil d'alerte par article", untilLine: 1, untilAt: 0 },
+          { type: 'image', line: 0, at: 0.3, src: form, x: 50, y: 400, w: 980, untilLine: 1, untilAt: 0 },
+          { type: 'step', line: 1, at: 0, y: 300, n: '2', text: 'Stock bas + recommandation', untilLine: 2, untilAt: 0 },
+          { type: 'image', line: 1, at: 0.1, src: lowList, x: 50, y: 400, w: 980, anim: 'pop', untilLine: 2, untilAt: 0 },
+          { type: 'image', line: 1, at: 1.6, src: advice, x: 50, y: 760, w: 980, anim: 'pop', untilLine: 2, untilAt: 0 },
+          { type: 'call', line: 2, at: 0, initials: 'MD', name: 'M. Diakité', status: 'Grossiste · en ligne' },
+        ],
+        sfx: [{ sfx: 'ding', line: 1, at: 1.7, vol: 0.7 }],
+      },
+      {
+        img: await img('05-fete-ok.png'),
+        kb: [[1.04, 0, 0], [1.13, 0, -30]],
+        pre: 0.5,
+        lines: [
+          line('narr', 'Veille de Tabaski. Cette fois, les rayons sont pleins.'),
+          line('cliente', "Enfin une boutique où il y a de l'huile !", { tail: 62 }),
+          line('toure', 'Chez nous, on ne tombe plus en rupture.', { tail: 84 }),
+        ],
+        post: 0.5,
+        overlays: [{ type: 'chip', at: 0.2, icon: 'check', tone: 'green', text: 'Stock prêt pour la fête' }],
+        sfx: [{ sfx: 'chime', line: 2, at: 0.3, vol: 0.7 }],
+      },
+      {
+        endCard: { title: ['Le bon stock,', '*au bon moment.*'], badge: '6 mois gratuits pour les PME' },
+        pre: 0.3,
+        lines: [
+          line('narr', 'Kona Data. Le bon stock, au bon moment. Six mois gratuits pour les PME.', {
+            text: 'KonaData : le bon stock, au bon moment. 6 mois gratuits pour les PME.',
+          }),
+        ],
+        post: 2.2,
+      },
+    ],
+  };
+}
+
+async function storyVanishingFuel() {
+  const S = 'gasoil-evapore';
+  const img = (f) => sceneImage(S, f);
+  const FUEL = 'btp-04-carburant';
+  const form = await tutoCrop(FUEL, 'shots/013-filled.jpg', { left: 560, top: 335, width: 2465, height: 860 }, 'carburant-releve');
+  const history = await tutoCrop(FUEL, 'shots/014-after.jpg', { left: 560, top: 455, width: 2465, height: 1030 }, 'carburant-historique');
+
+  return {
+    id: 'histoire-gasoil-evapore',
+    accent: 'btp',
+    music: 0.05,
+    shots: [
+      {
+        img: await img('01-facture.png'),
+        kb: [[1.04, 0, 0], [1.14, 0, -30]],
+        pre: 0.5,
+        lines: [
+          line('narr', 'Chantier de la route Dubréka–Khorira. En fin de semaine, Monsieur Camara reçoit les factures de gasoil.'),
+          line('camara', "Mille cent quatre-vingts litres en une semaine ? Quatorze millions de francs ! Mais qu'est-ce qu'on fait de tout ce gasoil ?", {
+            text: "1 180 litres en une semaine ? 14 millions de francs ! Mais qu'est-ce qu'on fait de tout ce gasoil ?",
+            tail: 50,
+          }),
+        ],
+        overlays: [{ type: 'chip', at: 0.3, icon: 'clock', text: 'Vendredi · 17 h 00' }],
+      },
+      {
+        img: await img('02-chantier.png'),
+        kb: [[1.05, 0, 0], [1.12, 0, 10]],
+        pre: 1.1,
+        sfx: [{ sfx: 'ring', at: 0, vol: 0.9 }],
+        lines: [
+          line('mamadou', "Patron, les chauffeurs font le plein eux-mêmes, au bidon. J'ai quelques papiers… mais pas tout.", { tail: 55 }),
+          line('camara', 'Quelle machine ? Combien de litres ? Personne ne sait ?', { tail: 50 }),
+        ],
+        overlays: [{ type: 'call', at: 0, initials: 'MC', name: 'M. Camara', status: 'Directeur · en ligne' }],
+      },
+      {
+        img: await img('03-nuit.png'),
+        kb: [[1.12, -50, 0], [1.35, -180, 60]],
+        cut: true,
+        pre: 0.4,
+        lines: [
+          line('narr', 'Des pleins notés sur des bouts de papier… quand ils sont notés. Et la nuit, certains bidons prennent une autre route.', { gap: 0.6 }),
+          line('narr', "Sans relevé, impossible de savoir ce qui est normal… et ce qui ne l'est pas."),
+        ],
+        post: 0.6,
+        overlays: [
+          { type: 'questions', at: 0.8, step: 0.8, items: [['Combien de litres', 60, 330], ['Quel chantier', 600, 440], ['Qui a rempli', 80, 1060]] },
+          { type: 'stamp', line: 1, at: 'end', y: 1250, text: 'GASOIL ÉVAPORÉ', sub: 'DES MILLIONS SANS TRACE', shake: true },
+        ],
+        sfx: [{ sfx: 'thump', line: 1, at: 'end', vol: 1 }],
+      },
+      {
+        rewind: 'Et si chaque plein était enregistré dans *KonaData* ?',
+        pre: 0.6,
+        sfx: [{ sfx: 'whoosh', at: 0, vol: 0.9 }],
+        lines: [line('narr', 'Et si chaque plein était enregistré dans Kona Data ?')],
+        post: 0.5,
+      },
+      {
+        img: await img('04-releve.png'),
+        kb: [[1.04, 0, 0], [1.12, 0, -20]],
+        pre: 0.6,
+        lines: [
+          line('narr', 'À chaque plein, Mamadou fait un relevé dans Kona Data : le chantier, les litres, le coût, et une note, comme « plein niveleuse, tronçon PK 6 ».', {
+            text: 'À chaque plein, Mamadou fait un relevé dans KonaData : le chantier, les litres, le coût, et une note (« Plein niveleuse — tronçon PK 6 »).',
+          }),
+          line('narr', 'Une consommation suspecte ? Il la marque comme anomalie : elle remonte dans les alertes de la direction.'),
+          line('mamadou', "Cent quatre-vingts litres pour la niveleuse. C'est enregistré !", { text: "180 litres pour la niveleuse. C'est enregistré !", tail: 70 }),
+        ],
+        post: 0.3,
+        overlays: [
+          { type: 'dim', line: 0, at: 0, untilLine: 2, untilAt: 0 },
+          { type: 'step', line: 0, at: 0, y: 300, n: '1', text: 'Relevé carburant', untilLine: 1, untilAt: 0 },
+          { type: 'step', line: 1, at: 0, y: 300, n: '2', text: 'Anomalie → alerte direction', untilLine: 2, untilAt: 0 },
+          { type: 'image', line: 0, at: 0.3, src: form, x: 50, y: 400, w: 980, untilLine: 2, untilAt: 0 },
+          { type: 'chip', line: 2, at: 0, icon: 'check', tone: 'green', text: 'Relevé enregistré' },
+        ],
+        sfx: [{ sfx: 'ding', line: 2, at: 0.2, vol: 0.8 }],
+      },
+      {
+        img: await img('05-bureau.png'),
+        kb: [[1.04, 0, 0], [1.12, 0, -20]],
+        pre: 0.4,
+        lines: [
+          line('narr', 'Au bureau, Monsieur Camara suit la consommation de chaque chantier. Les anomalies ressortent en rouge.'),
+          line('camara', 'Enfin, je sais où passe chaque litre. Mamadou, demain matin, on vérifie ce relevé en alerte.', { tail: 55 }),
+          line('narr', 'Les pleins sont suivis, les écarts vérifiés… et la facture de gasoil redevient normale.'),
+        ],
+        post: 0.4,
+        overlays: [
+          { type: 'dim', line: 0, at: 0, untilLine: 1, untilAt: 0 },
+          { type: 'image', line: 0, at: 0.2, src: history, x: 50, y: 360, w: 980, untilLine: 1, untilAt: 0 },
+          { type: 'chip', line: 0, at: 1.2, icon: 'alert', tone: 'red', text: 'Alerte · 1 180 L', untilLine: 2, untilAt: 0 },
+          { type: 'chip', line: 2, at: 0, icon: 'check', tone: 'green', text: 'Consommation sous contrôle' },
+        ],
+        sfx: [{ sfx: 'chime', line: 2, at: 0.3, vol: 0.7 }],
+      },
+      {
+        endCard: { title: ['Chaque litre de gasoil,', '*une trace.*'], badge: '6 mois gratuits pour le BTP' },
+        pre: 0.3,
+        lines: [
+          line('narr', 'Kona Data. Chaque litre de gasoil, une trace. Six mois gratuits pour les entreprises du BTP.', {
+            text: 'KonaData : chaque litre de gasoil, une trace. 6 mois gratuits pour les entreprises du BTP.',
+          }),
+        ],
+        post: 2.2,
+      },
+    ],
+  };
+}
+
 const STORIES_BY_ID = {
+  'histoire-gasoil-evapore': storyVanishingFuel,
+  'histoire-rupture-marche': storyStockOut,
+  'histoire-credits-oublies': storyForgottenCredits,
+  'histoire-recu-introuvable': storyLostReceipt,
   'histoire-nuit-bulletins': storyReportCards,
   'histoire-ingenieur-marche-perdu': storyEngineerLostTender,
   'histoire-rapport-chantier': storySiteReport,
@@ -971,8 +1470,12 @@ async function renderStory(browser, story, qr) {
       const chunks = balancedChunks(ln.text, 62);
       const n = chunks.reduce((a, c) => a + c.length, 0);
       let c0 = ln.start;
-      for (const text of chunks) {
-        const d = (ln.clip.dur * text.length) / n;
+      for (const chunk of chunks) {
+        const d = (ln.clip.dur * chunk.length) / n;
+        const text = chunk
+          .replace(/ (?=[!?:;»])/g, '\u00A0')
+          .replace(/« /g, '«\u00A0')
+          .replace(/(\d) (?=\d{3}\b)/g, '$1\u00A0');
         cues.push({ text, start: c0, end: c0 + d, who: ln.who, tail: ln.tail });
         c0 += d;
       }
