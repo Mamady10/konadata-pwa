@@ -39,6 +39,10 @@ const CAST = {
   accueil: { name: 'Réceptionniste', color: '#DB2777', voice: 'fr-FR-DeniseNeural', rate: '+0%' },
   mamadou: { name: 'Mamadou', color: '#D97706', voice: 'fr-BE-GerardNeural', rate: '+0%' },
   diallo: { name: 'Mme Diallo', color: '#7C3AED', voice: 'fr-FR-DeniseNeural', rate: '-2%' },
+  sylla: { name: 'M. Sylla', color: '#0891B2', voice: 'fr-CH-FabriceNeural', rate: '+4%' },
+  kourouma: { name: 'Mme Kourouma', color: '#15803D', voice: 'fr-FR-DeniseNeural', rate: '-2%' },
+  barry: { name: 'M. Barry', color: '#2563EB', voice: 'fr-FR-RemyMultilingualNeural', rate: '+2%' },
+  kaba: { name: 'M. Kaba', color: '#0369A1', voice: 'fr-FR-HenriNeural', rate: '+3%' },
 };
 
 /** Réplique : `say` est lu par la voix, `text` (optionnel) est affiché en sous-titre. */
@@ -577,9 +581,295 @@ async function storySiteReport() {
   };
 }
 
+async function storyCementDelivery() {
+  const S = 'ciment-livre';
+  const img = (f) => sceneImage(S, f);
+  const patronPhone = await sceneImage('ingenieur-marche-perdu', '03-patron.png');
+  const mamadouCahier = await sceneImage('rapport-chantier', '02-chantier.png');
+  const patronSerein = await sceneImage('rapport-chantier', '06-serein.png');
+  const BL = 'btp-05-bons-livraison';
+  const blForm = await tutoCrop(BL, 'shots/015-filled.jpg', { left: 560, top: 350, width: 1860, height: 826 }, 'bl-saisie');
+  const blLines = await tutoCrop(BL, 'shots/021-filled.jpg', { left: 530, top: 200, width: 1900, height: 560 }, 'bl-lignes');
+
+  return {
+    id: 'histoire-ciment-livre',
+    accent: 'btp',
+    music: 0.05,
+    shots: [
+      {
+        img: await img('01-facture.png'),
+        kb: [[1.04, 0, 0], [1.16, 0, -40]],
+        pre: 0.5,
+        lines: [
+          line('narr', 'Fin du mois. La cimenterie facture deux cent cinquante sacs de ciment livrés sur le chantier de Kipé. Mais monsieur Camara a un doute.', {
+            text: 'Fin du mois. La cimenterie facture 250 sacs de ciment livrés sur le chantier de Kipé. Mais M. Camara a un doute.',
+          }),
+        ],
+        overlays: [
+          { type: 'chip', at: 0.3, icon: 'calendar', text: 'Fin du mois' },
+          { type: 'notice', at: 2, y: 1120, label: 'FACTURE FOURNISSEUR', title: 'Ciment CPJ 42.5 : 250 sacs · chantier de Kipé', due: 'À payer : 23 750 000 GNF' },
+        ],
+      },
+      {
+        img: patronPhone,
+        kb: [[1.1, 0, 20], [1.2, 0, 40]],
+        pre: 1.2,
+        sfx: [{ sfx: 'ring', at: 0, vol: 0.8 }],
+        lines: [line('camara', 'Mamadou, on a vraiment reçu deux cent cinquante sacs de ciment ?', { text: 'Mamadou, on a vraiment reçu 250 sacs de ciment ?', tail: 50 })],
+        overlays: [{ type: 'call', at: 0, initials: 'M', name: 'Mamadou', status: 'Chef de chantier · appel…', untilLine: 0, untilAt: 0.2 }],
+      },
+      {
+        img: mamadouCahier,
+        kb: [[1.1, 0, 60], [1.2, 0, 80]],
+        cut: true,
+        lines: [line('mamadou', "Euh… il y a eu trois ou quatre livraisons, patron. Les bons papier… je ne sais plus où je les ai mis.", { tail: 50 })],
+      },
+      {
+        img: await img('02-fournisseur.png'),
+        kb: [[1.08, 0, 40], [1.16, 0, 60]],
+        pre: 0.3,
+        lines: [line('sylla', 'Monsieur Camara, mes camions ont tout livré ! Réglez la facture, s’il vous plaît.', { text: 'M. Camara, mes camions ont tout livré ! Réglez la facture, s’il vous plaît.', tail: 48 })],
+        overlays: [{ type: 'chip', at: 0.1, icon: 'phone', text: 'M. Sylla · Cimenterie' }],
+        post: 0.2,
+      },
+      {
+        img: await img('03-magasin.png'),
+        kb: [[1.04, 0, 0], [1.14, 20, -20]],
+        pre: 0.4,
+        lines: [
+          line('narr', 'Sans preuve, impossible de contester. Monsieur Camara paie tout…', { text: 'Sans preuve, impossible de contester. M. Camara paie tout…', gap: 0.5 }),
+          line('narr', 'Et au magasin, il manque cinquante sacs.', { text: 'Et au magasin, il manque 50 sacs.' }),
+        ],
+        post: 0.8,
+        overlays: [{ type: 'stamp', line: 1, at: 'end', y: 1260, text: '−4 750 000 GNF', sub: '50 SACS JAMAIS REÇUS', shake: true }],
+        sfx: [{ sfx: 'thump', line: 1, at: 'end', vol: 1 }],
+      },
+      {
+        rewind: 'Et si chaque livraison était enregistrée dans *KonaData* ?',
+        pre: 0.6,
+        sfx: [{ sfx: 'whoosh', at: 0, vol: 0.9 }],
+        lines: [line('narr', 'Et si chaque livraison était enregistrée dans Kona Data ?')],
+        post: 0.5,
+      },
+      {
+        img: await img('04-livraison.png'),
+        kb: [[1.25, 80, 40], [1.35, 100, 60]],
+        pre: 0.6,
+        lines: [
+          line('narr', 'À chaque livraison, Mamadou saisit le bon dans Kona Data : le fournisseur, la quantité réellement reçue, et la copie du bon signé.', {
+            text: 'À chaque livraison, Mamadou saisit le bon dans KonaData : fournisseur, quantité réellement reçue, copie du bon signé.',
+          }),
+          line('narr', 'Une fois le bon validé, le stock du chantier est mis à jour.'),
+          line('mamadou', 'Deux cents sacs reçus. C’est enregistré !', { text: '200 sacs reçus. C’est enregistré !', tail: 45 }),
+        ],
+        post: 0.4,
+        overlays: [
+          { type: 'chip', at: 0.2, icon: 'calendar', text: 'À chaque livraison', untilLine: 1, untilAt: 0 },
+          { type: 'dim', line: 0, at: 0, untilLine: 2, untilAt: 0 },
+          { type: 'step', line: 0, at: 0, y: 300, n: '1', text: 'Bon de livraison saisi', untilLine: 2, untilAt: 0 },
+          { type: 'image', line: 0, at: 0.3, src: blForm, x: 50, y: 400, w: 980, untilLine: 2, untilAt: 0 },
+          { type: 'step', line: 0, at: 2.6, y: 900, n: '2', text: 'Quantité réellement reçue', untilLine: 2, untilAt: 0 },
+          { type: 'image', line: 0, at: 2.9, src: blLines, x: 50, y: 990, w: 980, untilLine: 2, untilAt: 0 },
+          { type: 'chip', line: 1, at: 0, icon: 'check', tone: 'green', text: 'BL validé · stock +200 sacs' },
+        ],
+        sfx: [{ sfx: 'ding', line: 1, at: 0.2, vol: 0.8 }],
+      },
+      {
+        img: patronSerein,
+        kb: [[1.04, 0, 0], [1.12, 0, -20]],
+        pre: 0.5,
+        lines: [
+          line('narr', 'À réception de la facture, monsieur Camara compare avec les bons validés : deux cents sacs reçus, pas deux cent cinquante.', {
+            text: 'À réception de la facture, M. Camara compare avec les bons validés : 200 sacs reçus, pas 250.',
+          }),
+          line('camara', 'Monsieur Sylla, nos bons signés indiquent deux cents sacs. Je paie deux cents sacs.', { text: 'M. Sylla, nos bons signés indiquent 200 sacs. Je paie 200 sacs.', tail: 55 }),
+        ],
+        post: 0.2,
+        overlays: [
+          { type: 'chip', at: 0.2, icon: 'check', tone: 'green', text: 'Bons validés dans KonaData' },
+          { type: 'notice', line: 0, at: 0.5, y: 1120, label: 'CONTRÔLE DES LIVRAISONS', title: 'Facturé : 250 sacs · Reçu : 200 sacs', due: 'Écart : 50 sacs · 4 750 000 GNF' },
+        ],
+      },
+      {
+        img: await img('05-fournisseur-gene.png'),
+        kb: [[1.08, 0, 40], [1.16, 0, 60]],
+        cut: true,
+        lines: [line('sylla', 'Ah… Vous avez raison, monsieur Camara. Je vous envoie une facture corrigée.', { text: 'Ah… Vous avez raison, M. Camara. Je vous envoie une facture corrigée.', tail: 45 })],
+        post: 1.2,
+        overlays: [{ type: 'stamp', line: 0, at: 'end', tone: 'green', y: 1250, text: 'FACTURE CORRIGÉE', sub: '4 750 000 GNF ÉCONOMISÉS' }],
+        sfx: [{ sfx: 'chime', line: 0, at: 'end', vol: 0.8 }],
+      },
+      {
+        endCard: { title: ['Chaque livraison,', '*enregistrée et prouvée.*'], badge: '6 mois gratuits pour le BTP' },
+        pre: 0.3,
+        lines: [
+          line('narr', 'Kona Data. Chaque livraison, enregistrée et prouvée. Six mois gratuits pour les entreprises du BTP.', {
+            text: 'KonaData : chaque livraison, enregistrée et prouvée. 6 mois gratuits pour les entreprises du BTP.',
+          }),
+        ],
+        post: 2.2,
+      },
+    ],
+  };
+}
+
+async function storyReportCards() {
+  const S = 'nuit-bulletins';
+  const img = (f) => sceneImage(S, f);
+  const night = await img('01-nuit.png');
+  const notes = await tutoCrop('ecole-05-saisie-notes', 'shots/016-highlight.jpg', { left: 600, top: 140, width: 2460, height: 1000 }, 'notes-saisie');
+  const complet = await tutoCrop('ecole-06-bulletins', 'shots/008-highlight.jpg', { left: 540, top: 520, width: 2500, height: 370 }, 'bulletins-completude');
+  const bulletin = await tutoCrop('ecole-06-bulletins', 'pages-5/page-01.jpg', null, 'bulletin-page1');
+
+  return {
+    id: 'histoire-nuit-bulletins',
+    accent: 'ecole',
+    music: 0.05,
+    shots: [
+      {
+        img: night,
+        kb: [[1.04, 0, 0], [1.12, 0, -30]],
+        pre: 0.5,
+        lines: [
+          line('narr', 'Fin du premier trimestre. Six cent vingt élèves, dix-huit classes… et tous les bulletins doivent être remis aux parents lundi.', {
+            text: 'Fin du 1er trimestre. 620 élèves, 18 classes… et tous les bulletins doivent être remis aux parents lundi.',
+          }),
+        ],
+        overlays: [
+          { type: 'chip', at: 0.3, icon: 'clock', text: 'Vendredi · 22 h 00' },
+          { type: 'notice', at: 2, y: 1120, label: 'BULLETINS DU 1er TRIMESTRE', title: '620 élèves · 18 classes', due: 'Remise aux parents : lundi' },
+        ],
+      },
+      {
+        img: night,
+        kb: [[1.6, -300, 220], [1.66, -320, 240]],
+        cut: true,
+        lines: [line('barry', 'Madame la directrice, il me manque encore les notes de trois collègues. Et je dois tout recalculer à la main !', { tail: 55 })],
+      },
+      {
+        img: night,
+        kb: [[1.6, 290, 300], [1.66, 310, 320]],
+        cut: true,
+        lines: [line('kourouma', "Encore ? Les parents attendent lundi. On y passera la nuit s'il le faut.", { tail: 45 })],
+        post: 0.2,
+      },
+      {
+        img: night,
+        kb: [[1.08, 0, -10], [1.18, 0, -40]],
+        pre: 0.3,
+        sfx: [{ sfx: 'tick', at: 0, vol: 0.55, len: 'shot' }],
+        lines: [
+          line('narr', 'Moyennes, coefficients, rangs… Chaque bulletin est calculé et recopié à la main. Une seule erreur, et tout le classement change.'),
+        ],
+        post: 0.4,
+        overlays: [
+          { type: 'chip', at: 0.2, icon: 'clock', tone: 'red', text: 'Dimanche · 2 h 15' },
+          {
+            type: 'questions',
+            at: 0.8,
+            step: 0.8,
+            items: [
+              ['Coefficient', 50, 300],
+              ['Moyenne', 700, 420],
+              ['Rang', 80, 1120],
+              ['Appréciation', 560, 1200],
+              ['Absences', 60, 820],
+            ],
+          },
+        ],
+      },
+      {
+        img: await img('02-parent.png'),
+        kb: [[1.05, 0, 0], [1.13, 0, 10]],
+        pre: 0.5,
+        lines: [
+          line('kaba', 'Madame, la moyenne de ma fille est fausse ! Elle a eu quinze en maths, pas cinq !', { text: 'Madame, la moyenne de ma fille est fausse ! Elle a eu 15 en maths, pas 5 !', tail: 38, gap: 0.8 }),
+          line('kourouma', 'Je suis désolée, monsieur Kaba… Nous allons tout vérifier.', { text: 'Je suis désolée, M. Kaba… Nous allons tout vérifier.', tail: 80, gap: 0.5 }),
+          line('narr', "Des nuits de travail… et la confiance des parents qui s'effrite."),
+        ],
+        post: 0.6,
+        overlays: [
+          { type: 'chip', at: 0.2, icon: 'clock', tone: 'red', text: 'Lundi · 8 h 30' },
+          { type: 'stamp', line: 1, at: 'end', y: 1250, text: 'ERREUR DE CALCUL', sub: '40 BULLETINS À REFAIRE', shake: true },
+        ],
+        sfx: [{ sfx: 'thump', line: 1, at: 'end', vol: 1 }],
+      },
+      {
+        rewind: "Et si l'école utilisait *KonaData* ?",
+        pre: 0.6,
+        sfx: [{ sfx: 'whoosh', at: 0, vol: 0.9 }],
+        lines: [line('narr', "Et si l'école utilisait Kona Data ?")],
+        post: 0.5,
+      },
+      {
+        img: await img('03-saisie.png'),
+        kb: [[1.04, 0, 0], [1.12, 0, -30]],
+        pre: 0.6,
+        lines: [
+          line('narr', 'Chaque enseignant saisit ses notes dans Kona Data, classe par classe, depuis son ordinateur ou son téléphone.', {
+            text: 'Chaque enseignant saisit ses notes dans KonaData, classe par classe, depuis son ordinateur ou son téléphone.',
+          }),
+          line('narr', "Moyennes, coefficients et rangs se calculent tout seuls. Et la directrice voit tout de suite s'il manque des notes."),
+        ],
+        post: 0.3,
+        overlays: [
+          { type: 'chip', at: 0.2, icon: 'calendar', text: 'Pendant le trimestre' },
+          { type: 'dim', line: 0, at: 0 },
+          { type: 'step', line: 0, at: 0, y: 300, n: '1', text: 'Notes saisies par classe' },
+          { type: 'image', line: 0, at: 0.3, src: notes, x: 50, y: 400, w: 980 },
+          { type: 'step', line: 1, at: 0, y: 870, n: '2', text: 'Complétude vérifiée : 100 %' },
+          { type: 'image', line: 1, at: 0.3, src: complet, x: 50, y: 960, w: 980 },
+        ],
+      },
+      {
+        img: await img('04-directrice.png'),
+        kb: [[1.04, 0, 0], [1.12, 0, -20]],
+        pre: 0.5,
+        lines: [
+          line('narr', 'En un clic, les bulletins de toute la classe sont générés… puis publiés, avec un SMS aux parents.'),
+          line('kourouma', 'Six cent vingt bulletins… et pas une seule nuit blanche !', { text: '620 bulletins… et pas une seule nuit blanche !', tail: 70 }),
+        ],
+        post: 0.4,
+        overlays: [
+          { type: 'dim', line: 0, at: 0, untilLine: 1, untilAt: 0 },
+          { type: 'image', line: 0, at: 0.2, src: bulletin, x: 250, y: 230, w: 580, rot: -3, anim: 'pop', untilLine: 1, untilAt: 0 },
+          { type: 'chip', line: 0, at: 3, icon: 'check', tone: 'green', text: 'Bulletins publiés · SMS envoyés' },
+        ],
+        sfx: [{ sfx: 'ding', line: 0, at: 3.1, vol: 0.8 }],
+      },
+      {
+        img: await img('05-famille.png'),
+        kb: [[1.04, 0, 0], [1.12, 0, -20]],
+        pre: 0.9,
+        sfx: [{ sfx: 'ding', at: 0.2, vol: 0.9 }, { sfx: 'chime', line: 0, at: 'end', vol: 0.7 }],
+        lines: [
+          line('kaba', 'Aminata, ton bulletin est arrivé ! Seize de moyenne… Je suis fier de toi.', { text: 'Aminata, ton bulletin est arrivé ! 16 de moyenne… Je suis fier de toi.', tail: 62 }),
+        ],
+        post: 1.2,
+        overlays: [
+          { type: 'chip', at: 0.2, icon: 'mail', tone: 'green', text: "Nouveau message de l'école" },
+          { type: 'confetti', line: 0, at: 'end' },
+        ],
+      },
+      {
+        endCard: { title: ['Des bulletins justes,', '*sans nuit blanche.*'], badge: '12 mois gratuits pour les écoles' },
+        pre: 0.3,
+        lines: [
+          line('narr', 'Kona Data. Des bulletins justes, sans nuit blanche. Douze mois gratuits pour les écoles.', {
+            text: 'KonaData : des bulletins justes, sans nuit blanche. 12 mois gratuits pour les écoles.',
+          }),
+        ],
+        post: 2.2,
+      },
+    ],
+  };
+}
+
 const STORIES_BY_ID = {
+  'histoire-nuit-bulletins': storyReportCards,
   'histoire-ingenieur-marche-perdu': storyEngineerLostTender,
   'histoire-rapport-chantier': storySiteReport,
+  'histoire-ciment-livre': storyCementDelivery,
 };
 
 // ---------------------------------------------------------------- montage
