@@ -16,7 +16,7 @@ import path from 'path';
 import sharp from 'sharp';
 import { FPS, buildAudio, ff, renderHtmlVideo, toSrt, voiceClip } from './video-kit.mjs';
 import { ACCENTS, CONTACT } from './campaign-content.mjs';
-import { CAMPAIGN, CSS, ROOT, WORK, esc, glows, icon, launchBrowser, logo, prepareBrandAssets, qrSvg, rich, url } from './campaign-html.mjs';
+import { CAMPAIGN, CSS, ROOT, WORK, esc, glows, icon, launchBrowser, logo, phone, prepareBrandAssets, qrSvg, rich, url } from './campaign-html.mjs';
 
 const OUT = path.join(CAMPAIGN, 'videos');
 const STORIES = path.join(CAMPAIGN, 'histoires');
@@ -37,6 +37,8 @@ const CAST = {
   ibrahima: { name: 'Ibrahima', color: '#EA580C', voice: 'fr-FR-RemyMultilingualNeural', rate: '+2%' },
   camara: { name: 'M. Camara', color: '#2563EB', voice: 'fr-FR-HenriNeural', rate: '-4%', pitch: '-6Hz' },
   accueil: { name: 'Réceptionniste', color: '#DB2777', voice: 'fr-FR-DeniseNeural', rate: '+0%' },
+  mamadou: { name: 'Mamadou', color: '#D97706', voice: 'fr-BE-GerardNeural', rate: '+0%' },
+  diallo: { name: 'Mme Diallo', color: '#7C3AED', voice: 'fr-FR-DeniseNeural', rate: '-2%' },
 };
 
 /** Réplique : `say` est lu par la voix, `text` (optionnel) est affiché en sous-titre. */
@@ -169,6 +171,7 @@ const STORY_CSS = `
 .stampw{position:absolute;left:50%;top:760px;transform:translate(-50%,-50%) rotate(-11deg)}
 .stamp{padding:18px 44px;border:12px solid #DC2626;border-radius:26px;color:#DC2626;background:rgba(255,255,255,.88);font-weight:900;font-size:112px;letter-spacing:.03em;line-height:1;white-space:nowrap;text-align:center;box-shadow:0 20px 50px -10px rgba(0,0,0,.5)}
 .stamp small{display:block;font-size:40px;letter-spacing:.18em;margin-top:10px}
+.stamp.green{border-color:#16A34A;color:#16A34A}
 .rew{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 42%,#12305A 0%,#06111F 70%)}
 .rew .ln{position:absolute;inset:0;opacity:.35;background:repeating-linear-gradient(0deg,rgba(255,255,255,.08) 0 3px,transparent 3px 9px)}
 .rew .ic{width:220px;height:220px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,var(--a1),var(--a2));box-shadow:0 30px 90px -20px var(--a1)}
@@ -209,10 +212,21 @@ const OVERLAYS = {
       .map(([txt, x, y], i) => `<div class="q" style="left:${x}px;top:${y}px;animation:${A('floatq', t0 + i * (o.step ?? 0.7), 2.8, 'ease-out')}">${esc(txt)} <i>?</i></div>`)
       .join(''),
   stamp: (o, t0) =>
-    `<div class="stampw"><div class="stamp" style="animation:${A('stamp', t0, 0.55)}">${esc(o.text)}${o.sub ? `<small>${esc(o.sub)}</small>` : ''}</div></div>`,
+    `<div class="stampw"${o.y ? ` style="top:${o.y}px"` : ''}><div class="stamp ${o.tone ?? ''}" style="font-size:${Math.min(112, Math.floor(1300 / o.text.length))}px;animation:${A('stamp', t0, 0.55)}">${esc(o.text)}${o.sub ? `<small>${esc(o.sub)}</small>` : ''}</div></div>`,
   dim: (o, t0) => `<div class="dim" style="animation:${A('fade', t0, 0.5, 'linear')}${o.untilT ? `,${OUT_ANIM(o.untilT)}` : ''}"></div>`,
   image: (o, t0) =>
     `<div class="abs" style="left:${o.x}px;top:${o.y}px;width:${o.w}px;animation:${A(o.anim ?? 'rise', t0, 0.8)}${o.untilT ? `,${OUT_ANIM(o.untilT)}` : ''}"><div class="shotimg" style="position:relative;${o.rot ? `transform:rotate(${o.rot}deg)` : ''}"><img src="${o.src}"></div></div>`,
+  phone: (o, t0) =>
+    `<div class="abs" style="left:${o.x}px;top:${o.y}px;animation:${A(o.anim ?? 'rise', t0, 0.8)}${o.untilT ? `,${OUT_ANIM(o.untilT)}` : ''}"><div style="${o.rot ? `transform:rotate(${o.rot}deg)` : ''}">${phone(o.src, o.w)}</div></div>`,
+  pages: (o, t0) => {
+    const n = o.pages.length;
+    return o.pages
+      .map((src, i) => {
+        const k = i - (n - 1) / 2;
+        return `<div class="abs" style="left:${540 - o.w / 2 + k * (o.spread ?? 170)}px;top:${o.y + Math.abs(k) * 30}px;width:${o.w}px;z-index:${i + 1};animation:${A('rise', t0 + i * 0.3, 0.8)}${o.untilT ? `,${OUT_ANIM(o.untilT)}` : ''}"><div class="shotimg" style="position:relative;transform:rotate(${k * 6}deg)"><img src="${src}"></div></div>`;
+      })
+      .join('');
+  },
   step: (o, t0) =>
     `<div class="stp" style="top:${o.y}px;animation:${A('up', t0, 0.6)}${o.untilT ? `,${OUT_ANIM(o.untilT)}` : ''}"><b>${esc(o.n)}</b><span>${esc(o.text)}</span></div>`,
   confetti: (o, t0) => {
@@ -371,7 +385,7 @@ async function storyEngineerLostTender() {
         sfx: [{ sfx: 'chime', line: 0, at: 0.2, vol: 0.8 }],
       },
       {
-        endCard: true,
+        endCard: { title: ['Le devis avec métré,', '*en quelques minutes.*'], badge: '6 mois gratuits pour le BTP' },
         pre: 0.3,
         lines: [
           line('narr', 'Kona Data. Le devis avec métré, en quelques minutes. Six mois gratuits pour les entreprises du BTP.', {
@@ -384,12 +398,196 @@ async function storyEngineerLostTender() {
   };
 }
 
+async function storySiteReport() {
+  const S = 'rapport-chantier';
+  const img = (f) => sceneImage(S, f);
+  const patronPhone = await sceneImage('ingenieur-marche-perdu', '03-patron.png');
+  const FICHE = 'btp-03-fiche-journaliere';
+  const REPORT = 'btp-06-rapport-periodique';
+  const releve = await tutoCrop(FICHE, 'shots/004-after.jpg', null, 'releve-saisie');
+  const enregistre = await tutoCrop(FICHE, 'shots/018-after.jpg', null, 'releve-enregistre');
+  const dashboard = url(path.join(CAMPAIGN, 'captures', 'btp-dashboard-mobile.png'));
+  const pages = [];
+  for (const n of [2, 6, 1]) pages.push(await tutoCrop(REPORT, `pages-7/page-0${n}.jpg`, null, `rapport-page${n}`));
+
+  return {
+    id: 'histoire-rapport-chantier',
+    accent: 'btp',
+    music: 0.05,
+    shots: [
+      {
+        img: await img('01-attente.png'),
+        kb: [[1.04, 0, 0], [1.16, -20, -40]],
+        pre: 0.5,
+        lines: [
+          line(
+            'narr',
+            "Lundi, huit heures. À onze heures, monsieur Camara doit présenter l'avancement du chantier au maître d'ouvrage. Mais le rapport du mois… n'est toujours pas arrivé.",
+            { text: "Lundi, 8 h. À 11 h, M. Camara doit présenter l'avancement du chantier au maître d'ouvrage. Mais le rapport du mois… n'est toujours pas arrivé." }
+          ),
+        ],
+        overlays: [
+          { type: 'chip', at: 0.3, icon: 'calendar', text: 'Lundi · 8 h 00' },
+          { type: 'notice', at: 2.2, y: 1120, label: 'RÉUNION DE CHANTIER', title: "Centre de santé de Coyah, avec le maître d'ouvrage", due: "Aujourd'hui, 11 h 00 · rapport mensuel" },
+        ],
+      },
+      {
+        img: patronPhone,
+        kb: [[1.1, 0, 20], [1.2, 0, 40]],
+        pre: 1.2,
+        sfx: [{ sfx: 'ring', at: 0, vol: 0.8 }],
+        lines: [line('camara', "Mamadou, le rapport du mois, il est où ? J'ai la réunion à onze heures !", { text: "Mamadou, le rapport du mois, il est où ? J'ai la réunion à 11 h !", tail: 50 })],
+        overlays: [{ type: 'call', at: 0, initials: 'M', name: 'Mamadou', status: 'Chef de chantier · appel…', untilLine: 0, untilAt: 0.2 }],
+      },
+      {
+        img: await img('02-chantier.png'),
+        kb: [[1.1, 0, 60], [1.2, 0, 80]],
+        cut: true,
+        lines: [
+          line('mamadou', "Patron… les fiches sont dans mon cahier, les photos sur mon téléphone, et les bons de carburant, c'est le magasinier qui les a.", { tail: 50 }),
+        ],
+      },
+      {
+        img: patronPhone,
+        kb: [[1.22, 0, 60], [1.3, 0, 80]],
+        cut: true,
+        lines: [line('camara', 'Envoie-moi tout. Tout de suite !', { tail: 50 })],
+        post: 0.3,
+      },
+      {
+        img: await img('03-chaos.png'),
+        kb: [[1.03, 0, 0], [1.16, 0, -30]],
+        pre: 0.4,
+        sfx: [{ sfx: 'tick', at: 0, vol: 0.55, len: 'shot' }],
+        lines: [
+          line('narr', 'Photos éparpillées sur WhatsApp, cahiers illisibles, bons de carburant froissés… Il faut tout ressaisir et tout recompter.'),
+          line('narr', 'En trois heures.'),
+        ],
+        post: 0.4,
+        overlays: [
+          { type: 'chip', at: 0.2, icon: 'clock', text: 'Lundi · 9 h 30', untilT: 4 },
+          { type: 'chip', at: 4.3, icon: 'clock', tone: 'red', text: 'Lundi · 10 h 50' },
+          {
+            type: 'questions',
+            at: 1,
+            step: 0.75,
+            items: [
+              ['Photos', 60, 330],
+              ['Carburant', 640, 300],
+              ['Effectif', 70, 700],
+              ['Avancement', 600, 760],
+              ['Bons', 90, 1020],
+              ['Météo', 720, 1080],
+            ],
+          },
+        ],
+      },
+      {
+        img: await img('04-reunion.png'),
+        kb: [[1.06, 0, 0], [1.14, 0, 10]],
+        pre: 0.5,
+        lines: [
+          line('diallo', 'Encore sans rapport, monsieur Camara ? Sans avancement vérifiable, je ne peux pas valider votre décompte.', {
+            text: 'Encore sans rapport, M. Camara ? Sans avancement vérifiable, je ne peux pas valider votre décompte.',
+            tail: 72,
+            gap: 0.9,
+          }),
+          line('narr', "Le travail est fait sur le chantier… mais sans rapport, pour le client, il n'existe pas."),
+        ],
+        post: 0.6,
+        overlays: [
+          { type: 'chip', at: 0.2, icon: 'clock', tone: 'red', text: 'Lundi · 11 h 20' },
+          { type: 'stamp', line: 0, at: 'end', text: 'DÉCOMPTE BLOQUÉ', sub: 'PAIEMENT EN ATTENTE', shake: true },
+        ],
+        sfx: [{ sfx: 'thump', line: 0, at: 'end', vol: 1 }],
+      },
+      {
+        rewind: "Et si l'équipe utilisait *KonaData* ?",
+        pre: 0.6,
+        sfx: [{ sfx: 'whoosh', at: 0, vol: 0.9 }],
+        lines: [line('narr', "Et si l'équipe de monsieur Camara utilisait Kona Data ?", { text: "Et si l'équipe de M. Camara utilisait KonaData ?" })],
+        post: 0.5,
+      },
+      {
+        img: await img('05-saisie.png'),
+        kb: [[1.04, 0, 0], [1.12, 0, -30]],
+        pre: 0.6,
+        lines: [
+          line('narr', "Chaque soir, depuis le chantier, Mamadou saisit sur son téléphone l'avancement, l'effectif et la météo du jour."),
+          line('narr', 'Photos, carburant et bons de livraison sont enregistrés au fil des jours.'),
+          line('mamadou', "C'est enregistré. Le patron le voit déjà au bureau !", { tail: 50 }),
+        ],
+        post: 0.4,
+        overlays: [
+          { type: 'chip', at: 0.2, icon: 'calendar', text: 'Chaque soir · 17 h 30' },
+          { type: 'dim', line: 0, at: 0, untilLine: 2, untilAt: 0 },
+          { type: 'phone', line: 0, at: 0.2, src: releve, x: 300, y: 250, w: 480, untilLine: 1, untilAt: 0 },
+          { type: 'phone', line: 1, at: 0, src: enregistre, x: 300, y: 250, w: 480, anim: 'fade', untilLine: 2, untilAt: 0 },
+        ],
+        sfx: [{ sfx: 'ding', line: 1, at: 0.2, vol: 0.8 }],
+      },
+      {
+        img: await img('06-serein.png'),
+        kb: [[1.04, 0, 0], [1.12, 0, -20]],
+        pre: 0.5,
+        lines: [
+          line('narr', 'Lundi, huit heures. Monsieur Camara suit déjà tous ses chantiers depuis son téléphone.', {
+            text: 'Lundi, 8 h. M. Camara suit déjà tous ses chantiers depuis son téléphone.',
+          }),
+          line('narr', "Et le rapport du mois ? Il se génère en un clic : planifié contre réalisé, courbe d'avancement, photos datées.", {
+            text: "Et le rapport du mois ? Il se génère en 1 clic : planifié vs réalisé, courbe d'avancement, photos datées.",
+          }),
+        ],
+        post: 0.5,
+        overlays: [
+          { type: 'chip', at: 0.2, icon: 'calendar', text: 'Lundi · 8 h 00', untilLine: 1, untilAt: 0 },
+          { type: 'dim', line: 0, at: 0 },
+          { type: 'phone', line: 0, at: 0.2, src: dashboard, x: 300, y: 250, w: 480, untilLine: 1, untilAt: 0 },
+          { type: 'chip', line: 1, at: 0, icon: 'check', tone: 'green', text: 'Rapport prêt · 8 h 05' },
+          { type: 'pages', line: 1, at: 0.3, pages, w: 400, y: 330 },
+        ],
+        sfx: [{ sfx: 'ding', line: 1, at: 0.4, vol: 0.8 }],
+      },
+      {
+        img: await img('07-validation.png'),
+        kb: [[1.04, 0, 0], [1.13, 0, -20]],
+        pre: 0.5,
+        lines: [
+          line('diallo', "Enfin un rapport clair et complet ! Je valide votre décompte dès aujourd'hui.", { tail: 72, gap: 0.6 }),
+          line('camara', 'Et avec Kona Data, vous le recevrez chaque mois, à la même date.', { tail: 30 }),
+        ],
+        post: 0.5,
+        overlays: [
+          { type: 'chip', at: 0.2, icon: 'clock', text: 'Lundi · 11 h 00' },
+          { type: 'stamp', line: 0, at: 'end', tone: 'green', y: 1340, text: 'DÉCOMPTE VALIDÉ', sub: 'PAIEMENT LANCÉ' },
+        ],
+        sfx: [{ sfx: 'chime', line: 0, at: 'end', vol: 0.8 }],
+      },
+      {
+        endCard: { title: ['Vos rapports de chantier,', '*en un clic.*'], badge: '6 mois gratuits pour le BTP' },
+        pre: 0.3,
+        lines: [
+          line('narr', 'Kona Data. Vos rapports de chantier, en un clic. Six mois gratuits pour les entreprises du BTP.', {
+            text: 'KonaData : vos rapports de chantier, en un clic. 6 mois gratuits pour les entreprises du BTP.',
+          }),
+        ],
+        post: 2.2,
+      },
+    ],
+  };
+}
+
+const STORIES_BY_ID = {
+  'histoire-ingenieur-marche-perdu': storyEngineerLostTender,
+  'histoire-rapport-chantier': storySiteReport,
+};
+
 // ---------------------------------------------------------------- montage
-function endCard(t0, qr) {
+function endCard(t0, qr, card) {
   return `${glows()}<div class="end">
     <div style="animation:${A('pop', t0 + 0.1, 0.8)}">${logo(96)}</div>
-    <h1 style="animation:${A('up', t0 + 0.4, 0.7)}">Le devis avec métré,<br><em>en quelques minutes.</em></h1>
-    <div class="badge" style="font-size:52px;animation:${A('pop', t0 + 0.9, 0.7)}">${icon('gift')}<span>6 mois gratuits pour le BTP</span></div>
+    <h1 style="animation:${A('up', t0 + 0.4, 0.7)}">${card.title.map(rich).join('<br>')}</h1>
+    <div class="badge" style="font-size:52px;animation:${A('pop', t0 + 0.9, 0.7)}">${icon('gift')}<span>${esc(card.badge)}</span></div>
     <div style="font-size:70px;font-weight:900;letter-spacing:-.03em;animation:${A('up', t0 + 1.2, 0.7)}"><em>${CONTACT.site}</em></div>
     <div class="foot" style="font-size:42px;color:#CBD5E1;animation:${A('up', t0 + 1.4, 0.7)}"><span>${icon('phone')}WhatsApp ${CONTACT.whatsapp}</span></div>
     <div class="qrbox" style="animation:${A('pop', t0 + 1.6, 0.7)}"><div style="width:220px;height:220px">${qr}</div>Scannez-moi</div>
@@ -508,7 +706,7 @@ async function renderStory(browser, story, qr) {
         kbCss.push(`@keyframes kb${i}{from{transform:translate(${x0}px,${y0}px) scale(${z0})}to{transform:translate(${x1}px,${y1}px) scale(${z1})}}`);
         bg = `<img class="bg" src="${sh.img}" style="animation:${A(`kb${i}`, s - xf, d + xf + 0.4, 'linear')}"><div class="vig"></div>`;
       } else if (sh.rewind) bg = rewindCard(sh, s);
-      else if (sh.endCard) bg = endCard(s, qr);
+      else if (sh.endCard) bg = endCard(s, qr, sh.endCard);
       const shakeAt = (sh.overlays ?? []).filter((o) => o.shake).map((o) => when(sh, o));
       const overlays = (sh.overlays ?? [])
         .map((o) => {
@@ -587,11 +785,11 @@ async function main() {
   await mkdir(OUT, { recursive: true });
   await prepareBrandAssets();
   const qr = await qrSvg();
-  const stories = [await storyEngineerLostTender()];
+  const stories = [];
+  for (const [id, build] of Object.entries(STORIES_BY_ID)) if (!ONLY || ONLY.includes(id)) stories.push(await build());
   const browser = await launchBrowser();
   try {
     for (const story of stories) {
-      if (ONLY && !ONLY.includes(story.id)) continue;
       await renderStory(browser, story, qr);
     }
   } finally {
