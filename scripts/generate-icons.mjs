@@ -1,6 +1,6 @@
 /**
  * Génère les icônes d'installation (PWA, iOS, favicon) : le symbole KonaData
- * (public/brand/konadata-symbol.svg : K blanc prolongé en graphique à barres) sur fond vert dégradé.
+ * (public/brand/konadata-symbol.svg : K blanc prolongé en graphique à barres) sur fond bleu dégradé.
  *
  * - icon-192/512 (« any ») : carré arrondi, symbole en grand (bureau, barre des tâches, onglets)
  * - maskable-192/512 : fond plein, symbole dans la zone sûre (Android découpe en cercle ou goutte)
@@ -25,8 +25,8 @@ function backgroundSvg(size, radius) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
   <defs>
     <linearGradient id="bg" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0" stop-color="#17634D"/>
-      <stop offset="1" stop-color="#4FB488"/>
+      <stop offset="0" stop-color="#1D4ED8"/>
+      <stop offset="1" stop-color="#38BDF8"/>
     </linearGradient>
     <radialGradient id="glow" cx="72%" cy="22%" r="70%">
       <stop offset="0" stop-color="#FFFFFF" stop-opacity=".14"/>
@@ -57,7 +57,7 @@ async function renderIcon(symbol, size, { scale, radius = 0, shadow = true }) {
   const art = await sharp(Buffer.from(symbolSvg(symbol, size, scale))).png().toBuffer();
   if (shadow) {
     const alpha = await sharp(art).extractChannel('alpha').linear(0.35, 0).toBuffer();
-    const shade = await sharp({ create: { width: size, height: size, channels: 3, background: '#0B3D2E' } })
+    const shade = await sharp({ create: { width: size, height: size, channels: 3, background: '#0A192F' } })
       .joinChannel(alpha)
       .blur(Math.max(0.3, size * 0.012))
       .png()

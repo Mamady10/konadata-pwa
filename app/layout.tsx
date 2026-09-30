@@ -38,10 +38,10 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
-        <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png?v=4" />
-        <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48x48.png?v=4" />
-        <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png?v=4" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=4" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png?v=5" />
+        <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48x48.png?v=5" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png?v=5" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=5" />
       </head>
       <body className={inter.className}>
         {children}

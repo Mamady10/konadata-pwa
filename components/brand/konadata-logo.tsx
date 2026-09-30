@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
 export const KONADATA_WORDMARK_SRC = '/brand/konadata-wordmark.png';
-export const KONADATA_ICON_SRC = '/brand/konadata-mark.png';
+export const KONADATA_ICON_SRC = '/brand/konadata-mark.png?v=2';
 
 type KonaDataLogoVariant = 'wordmark' | 'icon';
 
