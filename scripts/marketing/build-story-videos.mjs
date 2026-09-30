@@ -53,6 +53,10 @@ const CAST = {
   sekou: { name: 'Sékou', color: '#DC2626', voice: 'fr-FR-RemyMultilingualNeural', rate: '+8%', pitch: '+4Hz' },
   cliente: { name: 'Cliente', color: '#0F766E', voice: 'fr-CH-ArianeNeural', rate: '+0%' },
   client: { name: 'Client', color: '#15803D', voice: 'fr-CH-FabriceNeural', rate: '+2%' },
+  fatou: { name: 'Fatou', color: '#BE185D', voice: 'fr-BE-CharlineNeural', rate: '+0%' },
+  alpha: { name: 'Alpha', color: '#0D9488', voice: 'fr-FR-RemyMultilingualNeural', rate: '+6%', pitch: '+2Hz' },
+  ousmane: { name: 'Ousmane', color: '#1D4ED8', voice: 'fr-BE-GerardNeural', rate: '-2%' },
+  lansana: { name: 'Lansana', color: '#EA580C', voice: 'fr-CH-FabriceNeural', rate: '+6%', pitch: '+3Hz' },
 };
 
 /** Réplique : `say` est lu par la voix, `text` (optionnel) est affiché en sous-titre. */
@@ -112,6 +116,9 @@ const ICONS = {
   check: '<path d="M20 6 9 17l-5-5"/>',
   rewind: '<path d="M11 19 2 12l9-7v14z"/><path d="M22 19l-9-7 9-7v14z"/>',
   mail: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+  send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+  camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+  plane: '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
 };
 const svg = (name) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`;
@@ -177,6 +184,11 @@ const BRANDING = {
     GRADER_ARM,
   ],
   'gasoil-evapore/05-bureau.png': [{ v: 'poster', box: [584, 148, 100, 130] }],
+  'diaspora-maison/05-photo.png': [
+    { v: 'dark', x: 437, y: 257, w: 56, rot: 8, op: 0.92 },
+    { v: 'dark', x: 643, y: 428, w: 88, op: 0.9 },
+  ],
+  'diaspora-maison/07-cles.png': [{ v: 'dark', x: 150, y: 300, w: 70, rot: -2, op: 0.92 }],
 };
 
 const premcoCache = {};
@@ -1485,7 +1497,322 @@ async function storyVanishingFuel() {
   };
 }
 
+async function storyDiasporaHouse() {
+  const S = 'diaspora-maison';
+  const img = (f) => sceneImage(S, f);
+  const paris = await img('01-paris.png');
+  const invite = await tutoCrop('commun-02-inviter-equipe', 'shots/011-after.jpg', { left: 560, top: 340, width: 2465, height: 1040 }, 'invite-code');
+  const releve = await tutoCrop('btp-03-fiche-journaliere', 'shots/004-after.jpg', null, 'releve-saisie');
+  const blForm = await tutoCrop('btp-05-bons-livraison', 'shots/015-filled.jpg', { left: 560, top: 350, width: 1860, height: 826 }, 'bl-saisie');
+  const dashboard = url(path.join(CAMPAIGN, 'captures', 'btp-dashboard-mobile.png'));
+  const pages = [];
+  for (const n of [1, 6]) pages.push(await tutoCrop('btp-06-rapport-periodique', `pages-7/page-0${n}.jpg`, null, `rapport-page${n}`));
+
+  return {
+    id: 'histoire-diaspora-maison',
+    accent: 'btp',
+    music: 0.05,
+    shots: [
+      {
+        img: paris,
+        kb: [[1.04, 0, 0], [1.14, 0, -30]],
+        pre: 0.5,
+        lines: [
+          line('narr', 'Paris, vingt et une heures. Fatou est infirmière. Depuis deux ans, elle fait construire sa maison à Conakry… à distance.', {
+            text: 'Paris, 21 h. Fatou est infirmière. Depuis 2 ans, elle fait construire sa maison à Conakry… à distance.',
+          }),
+          line('fatou', "Alpha, je t'ai envoyé les cinq millions pour le ciment. Tu m'envoies des photos du chantier ?", {
+            text: "Alpha, je t'ai envoyé les 5 millions pour le ciment. Tu m'envoies des photos du chantier ?",
+            tail: 58,
+          }),
+        ],
+        overlays: [
+          { type: 'chip', at: 0.3, icon: 'clock', text: 'Paris · 21 h 00', untilLine: 1, untilAt: 0 },
+          { type: 'call', line: 1, at: 0, initials: 'A', name: 'Alpha', status: 'Appel WhatsApp · Conakry' },
+        ],
+      },
+      {
+        img: await img('02-chantier.png'),
+        kb: [[1.05, 0, 0], [1.12, 0, 10]],
+        pre: 0.3,
+        lines: [
+          line('alpha', "Oui, grande sœur, ça avance bien ! On a presque fini les murs. Les photos, je t'envoie demain, le réseau est faible ici.", { tail: 55 }),
+        ],
+        overlays: [{ type: 'call', at: 0, initials: 'F', name: 'Fatou', status: 'Appel WhatsApp · Paris' }],
+      },
+      {
+        img: await img('03-doute.png'),
+        kb: [[1.06, 0, 0], [1.2, 0, -40]],
+        pre: 0.4,
+        sfx: [{ sfx: 'tick', at: 0, vol: 0.45, len: 'shot' }],
+        lines: [
+          line('narr', "Les photos arrivent… floues, prises de loin. Les demandes d'argent, elles, arrivent toujours à l'heure.", { gap: 0.5 }),
+          line('narr', 'En deux ans, Fatou a envoyé plus de deux cents millions de francs guinéens. Mais combien de sacs de ciment ? Quel avancement ? Personne ne peut le lui dire.', {
+            text: 'En 2 ans, Fatou a envoyé plus de 200 millions de GNF. Mais combien de sacs de ciment ? Quel avancement ? Personne ne peut le lui dire.',
+          }),
+        ],
+        post: 0.4,
+        overlays: [
+          { type: 'chip', line: 1, at: 0, icon: 'send', tone: 'red', text: 'Envoyés · 200 000 000 GNF' },
+          { type: 'questions', line: 1, at: 1.2, step: 0.8, items: [['Combien de ciment', 60, 300], ['Quel avancement', 520, 420], ["Où va l'argent", 80, 1080]] },
+        ],
+      },
+      {
+        img: await img('04-arrivee.png'),
+        kb: [[1.04, 0, 0], [1.12, 0, -20]],
+        pre: 0.4,
+        lines: [
+          line('narr', 'Aux vacances, elle vient enfin voir sa maison.'),
+          line('fatou', "Alpha… c'est ça, « presque fini » ? Les murs m'arrivent à la poitrine !", { tail: 36 }),
+          line('alpha', 'Grande sœur… le ciment a augmenté, les ouvriers sont partis. Je ne savais pas comment te le dire.', { tail: 66, gap: 0.5 }),
+        ],
+        post: 0.6,
+        overlays: [
+          { type: 'chip', at: 0.2, icon: 'plane', text: 'Conakry · les vacances' },
+          { type: 'stamp', line: 2, at: 'end', y: 1250, text: 'CHANTIER À L’ARRÊT', sub: '2 ANS D’ENVOIS SANS SUIVI', shake: true },
+        ],
+        sfx: [{ sfx: 'thump', line: 2, at: 'end', vol: 1 }],
+      },
+      {
+        rewind: 'Et si Fatou suivait son chantier dans *KonaData* ?',
+        pre: 0.6,
+        sfx: [{ sfx: 'whoosh', at: 0, vol: 0.9 }],
+        lines: [line('narr', 'Et si Fatou suivait son chantier dans Kona Data, depuis Paris ?', { text: 'Et si Fatou suivait son chantier dans KonaData, depuis Paris ?' })],
+        post: 0.5,
+      },
+      {
+        img: paris,
+        kb: [[1.1, 0, -20], [1.16, 0, -40]],
+        pre: 0.4,
+        lines: [
+          line('narr', 'Cette fois, Fatou confie les travaux à une entreprise sérieuse, et crée son chantier dans Kona Data.', {
+            text: 'Cette fois, Fatou confie les travaux à une entreprise sérieuse, et crée son chantier dans KonaData.',
+          }),
+          line('narr', "En un clic, elle génère un code d'accès pour Mamadou, le chef de chantier."),
+        ],
+        post: 0.3,
+        overlays: [
+          { type: 'dim', at: 0 },
+          { type: 'step', at: 0.2, y: 300, n: '1', text: 'Le chantier dans KonaData', untilLine: 1, untilAt: 0 },
+          { type: 'step', line: 1, at: 0, y: 300, n: '2', text: "Code d'accès du chef de chantier" },
+          { type: 'image', line: 1, at: 0.2, src: invite, x: 50, y: 400, w: 980 },
+        ],
+        sfx: [{ sfx: 'ding', line: 1, at: 1.2, vol: 0.7 }],
+      },
+      {
+        img: await img('05-photo.png'),
+        kb: [[1.04, 0, 0], [1.12, 0, -30]],
+        pre: 0.5,
+        lines: [
+          line('narr', 'Chaque soir, Mamadou remplit la fiche du jour : les travaux faits, les ouvriers présents, et les photos du chantier.'),
+          line('narr', 'Chaque livraison de ciment ou de fer est enregistrée avec son bon.'),
+          line('mamadou', 'Madame Fatou, les photos de la dalle sont en ligne. Vous pouvez vérifier !', { tail: 60 }),
+        ],
+        post: 0.4,
+        overlays: [
+          { type: 'chip', at: 0.2, icon: 'camera', text: 'Chaque soir · 17 h 30', untilLine: 2, untilAt: 0 },
+          { type: 'dim', line: 0, at: 0, untilLine: 2, untilAt: 0 },
+          { type: 'phone', line: 0, at: 0.2, src: releve, x: 300, y: 250, w: 480, untilLine: 1, untilAt: 0 },
+          { type: 'image', line: 1, at: 0.1, src: blForm, x: 50, y: 420, w: 980, untilLine: 2, untilAt: 0 },
+          { type: 'chip', line: 2, at: 0, icon: 'check', tone: 'green', text: 'Fiche du jour envoyée' },
+        ],
+        sfx: [{ sfx: 'ding', line: 2, at: 0.2, vol: 0.8 }],
+      },
+      {
+        img: await img('06-serein.png'),
+        kb: [[1.04, 0, 0], [1.12, 0, -20]],
+        pre: 0.4,
+        lines: [
+          line('narr', 'À Paris, Fatou suit tout depuis son téléphone : l’avancement, les livraisons, les photos datées.'),
+          line('narr', 'Et chaque semaine, elle reçoit le rapport du chantier : planifié contre réalisé, budget consommé, photos et commentaire du chef de chantier.', {
+            text: 'Et chaque semaine, elle reçoit le rapport du chantier : planifié vs réalisé, budget consommé, photos et commentaire du chef de chantier.',
+          }),
+          line('fatou', "Enfin, je vois ma maison monter… sans même prendre l'avion !", { tail: 58 }),
+        ],
+        post: 0.4,
+        overlays: [
+          { type: 'chip', at: 0.2, icon: 'clock', text: 'Paris · 8 h 15', untilLine: 1, untilAt: 0 },
+          { type: 'dim', line: 0, at: 0, untilLine: 2, untilAt: 0 },
+          { type: 'phone', line: 0, at: 0.2, src: dashboard, x: 300, y: 250, w: 480, untilLine: 1, untilAt: 0 },
+          { type: 'chip', line: 1, at: 0, icon: 'mail', tone: 'green', text: 'Rapport de la semaine reçu', untilLine: 2, untilAt: 0 },
+          { type: 'pages', line: 1, at: 0.3, pages, w: 460, y: 330, spread: 220, untilLine: 2, untilAt: 0 },
+        ],
+        sfx: [{ sfx: 'ding', line: 1, at: 0.4, vol: 0.8 }],
+      },
+      {
+        img: await img('07-cles.png'),
+        kb: [[1.04, 0, 0], [1.12, 0, -20]],
+        pre: 0.5,
+        lines: [
+          line('narr', 'Un an plus tard, les clés sont dans ses mains. Sans mauvaise surprise.'),
+          line('fatou', "Merci, Mamadou. Et toi, Alpha, cette fois, on a tout suivi ensemble !", { tail: 52 }),
+        ],
+        post: 0.5,
+        overlays: [{ type: 'stamp', line: 1, at: 'end', tone: 'green', y: 1300, text: 'MAISON LIVRÉE', sub: 'SUIVIE DE A À Z' }],
+        sfx: [{ sfx: 'chime', line: 1, at: 'end', vol: 0.8 }],
+      },
+      {
+        endCard: { title: ['Vous êtes de la diaspora\u00A0?', 'Suivez votre chantier', '*au pays.*'], size: 78, badge: 'Où que vous soyez', badgeIcon: 'globe' },
+        pre: 0.3,
+        lines: [
+          line('narr', 'Vous êtes de la diaspora ? Avec Kona Data, suivez votre chantier au pays : photos, livraisons, avancement… où que vous soyez.', {
+            text: 'Vous êtes de la diaspora ? Avec KonaData, suivez votre chantier au pays : photos, livraisons, avancement… où que vous soyez.',
+          }),
+        ],
+        post: 2.2,
+      },
+    ],
+  };
+}
+
+async function storyDiasporaShop() {
+  const S = 'diaspora-boutique';
+  const img = (f) => sceneImage(S, f);
+  const SALE = 'pme-02-enregistrer-vente';
+  const saleForm = await tutoCrop(SALE, 'shots/012-filled.jpg', { left: 560, top: 335, width: 2465, height: 790 }, 'vente-saisie');
+  const salesList = await tutoCrop(SALE, 'shots/013-after.jpg', { left: 560, top: 450, width: 2465, height: 540 }, 'ventes-liste');
+  const lowList = await tutoCrop('pme-03-stock-alerte', 'shots/020-scroll.jpg', { left: 560, top: 1275, width: 1220, height: 410 }, 'stock-bas-liste');
+  const report = await tutoCrop('pme-06-rapports', 'pages-5/page-01.jpg', { left: 0, top: 0, width: 1400, height: 820 }, 'pme-rapport-mois');
+
+  return {
+    id: 'histoire-diaspora-boutique',
+    accent: 'pme',
+    music: 0.05,
+    shots: [
+      {
+        img: await img('01-bruxelles.png'),
+        kb: [[1.04, 0, 0], [1.14, 0, -30]],
+        pre: 0.5,
+        lines: [
+          line('narr', 'Bruxelles, dix-neuf heures. Ousmane est comptable. Il y a un an, il a ouvert une boutique à Conakry, tenue par son petit frère, Lansana.', {
+            text: 'Bruxelles, 19 h. Ousmane est comptable. Il y a un an, il a ouvert une boutique à Conakry, tenue par son petit frère, Lansana.',
+          }),
+          line('ousmane', 'Lansana, je viens de t’envoyer les huit millions. Dis-moi, la boutique rapporte combien par mois ?', {
+            text: 'Lansana, je viens de t’envoyer les 8 millions. Dis-moi, la boutique rapporte combien par mois ?',
+            tail: 55,
+          }),
+        ],
+        overlays: [
+          { type: 'chip', at: 0.3, icon: 'clock', text: 'Bruxelles · 19 h 00', untilLine: 1, untilAt: 0 },
+          { type: 'call', line: 1, at: 0, initials: 'L', name: 'Lansana', status: 'Appel WhatsApp · Conakry' },
+        ],
+      },
+      {
+        img: await img('02-boutique.png'),
+        kb: [[1.05, 0, 0], [1.12, 0, 10]],
+        pre: 0.3,
+        lines: [
+          line('lansana', 'Grand frère, ça marche, ça marche ! Les clients viennent. Mais avec les dépenses… il faut encore envoyer un peu pour le stock.', { tail: 35 }),
+          line('ousmane', 'Ça marche, mais il faut encore envoyer ? Tu vends combien, exactement ?', { tail: 50 }),
+          line('lansana', "Exactement… c'est dans le cahier. Je te dirai.", { tail: 35 }),
+        ],
+        overlays: [{ type: 'call', at: 0, initials: 'O', name: 'Grand frère Ousmane', status: 'Appel WhatsApp · Bruxelles' }],
+      },
+      {
+        img: await img('03-nuit.png'),
+        kb: [[1.06, 0, 0], [1.2, 0, -40]],
+        pre: 0.4,
+        sfx: [{ sfx: 'tick', at: 0, vol: 0.45, len: 'shot' }],
+        lines: [
+          line('narr', "Le soir, Ousmane refait les calculs. Lui, le comptable… n'a aucun chiffre sur sa propre boutique.", { gap: 0.5 }),
+          line('narr', "Combien de ventes ? Quelles dépenses ? Il ne sait même pas si sa boutique gagne de l'argent… ou en perd."),
+        ],
+        post: 0.6,
+        overlays: [
+          { type: 'questions', at: 1, step: 0.8, items: [['Ventes', 60, 320], ['Dépenses', 640, 300], ['Bénéfice', 80, 1060], ['Stock', 700, 1100]] },
+          { type: 'stamp', line: 1, at: 'end', y: 1250, text: 'BOUTIQUE À L’AVEUGLE', sub: 'UN AN SANS CHIFFRES', shake: true },
+        ],
+        sfx: [{ sfx: 'thump', line: 1, at: 'end', vol: 1 }],
+      },
+      {
+        rewind: 'Et si la boutique était gérée dans *KonaData* ?',
+        pre: 0.6,
+        sfx: [{ sfx: 'whoosh', at: 0, vol: 0.9 }],
+        lines: [line('narr', 'Et si la boutique de Lansana était gérée dans Kona Data ?', { text: 'Et si la boutique de Lansana était gérée dans KonaData ?' })],
+        post: 0.5,
+      },
+      {
+        img: await img('04-kona.png'),
+        kb: [[1.04, 0, 0], [1.12, 0, -20]],
+        pre: 0.5,
+        lines: [
+          line('narr', 'Chaque vente est enregistrée dans Kona Data : le client, le montant, le paiement, et ce qui a été vendu.', {
+            text: 'Chaque vente est enregistrée dans KonaData : le client, le montant, le paiement, et ce qui a été vendu.',
+          }),
+          line('lansana', "Trois sacs de riz et deux bidons d'huile, payés par Orange Money. C'est enregistré !", {
+            text: "3 sacs de riz et 2 bidons d'huile, payés par Orange Money. C'est enregistré !",
+            tail: 35,
+          }),
+          line('narr', 'Achats, dépenses et stock aussi : quand un article passe sous le seuil, une alerte le signale.'),
+        ],
+        post: 0.4,
+        overlays: [
+          { type: 'dim', line: 0, at: 0, untilLine: 1, untilAt: 0 },
+          { type: 'step', line: 0, at: 0, y: 300, n: '1', text: 'Vente enregistrée', untilLine: 1, untilAt: 0 },
+          { type: 'image', line: 0, at: 0.3, src: saleForm, x: 50, y: 400, w: 980, untilLine: 1, untilAt: 0 },
+          { type: 'chip', line: 1, at: 0, icon: 'check', tone: 'green', text: 'Vente · 1 270 000 GNF', untilLine: 2, untilAt: 0 },
+          { type: 'dim', line: 2, at: 0 },
+          { type: 'step', line: 2, at: 0, y: 300, n: '2', text: 'Alerte stock bas' },
+          { type: 'image', line: 2, at: 0.2, src: lowList, x: 140, y: 420, w: 800, anim: 'pop' },
+        ],
+        sfx: [
+          { sfx: 'ding', line: 1, at: 'end', vol: 0.8 },
+          { sfx: 'ding', line: 2, at: 0.4, vol: 0.6 },
+        ],
+      },
+      {
+        img: await img('05-tram.png'),
+        kb: [[1.04, 0, 0], [1.12, 0, -20]],
+        pre: 0.4,
+        lines: [
+          line('narr', 'Dans le tram, Ousmane ouvre Kona Data : chaque vente de la journée apparaît, avec son montant.', {
+            text: 'Dans le tram, Ousmane ouvre KonaData : chaque vente de la journée apparaît, avec son montant.',
+          }),
+          line('narr', 'Et chaque mois, le rapport financier arrive : les entrées, les dépenses, et ce qui reste, semaine par semaine.'),
+          line('ousmane', 'Cinquante-neuf millions de reste ce mois-ci. Enfin des chiffres clairs !', {
+            text: '59 millions de reste ce mois-ci. Enfin des chiffres clairs !',
+            tail: 55,
+          }),
+        ],
+        post: 0.4,
+        overlays: [
+          { type: 'chip', at: 0.2, icon: 'clock', text: 'Bruxelles · 8 h 10', untilLine: 1, untilAt: 0 },
+          { type: 'dim', line: 0, at: 0, untilLine: 2, untilAt: 0 },
+          { type: 'image', line: 0, at: 0.2, src: salesList, x: 50, y: 400, w: 980, untilLine: 1, untilAt: 0 },
+          { type: 'chip', line: 1, at: 0, icon: 'mail', tone: 'green', text: 'Rapport du mois reçu', untilLine: 2, untilAt: 0 },
+          { type: 'image', line: 1, at: 0.2, src: report, x: 50, y: 360, w: 980, untilLine: 2, untilAt: 0 },
+        ],
+        sfx: [{ sfx: 'ding', line: 1, at: 0.4, vol: 0.8 }],
+      },
+      {
+        img: await img('06-visio.png'),
+        kb: [[1.04, 0, 0], [1.12, 0, -20]],
+        pre: 0.5,
+        lines: [
+          line('ousmane', 'Lansana, avec des chiffres pareils, on ouvre une deuxième boutique à Kankan !', { tail: 30 }),
+          line('lansana', 'Grand frère, je prépare tout. Et tu suivras les deux boutiques depuis Bruxelles !', { tail: 52 }),
+        ],
+        post: 0.5,
+        overlays: [{ type: 'stamp', line: 1, at: 'end', tone: 'green', y: 1300, text: 'CONFIANCE RETROUVÉE', sub: 'CHIFFRES À L’APPUI' }],
+        sfx: [{ sfx: 'chime', line: 1, at: 'end', vol: 0.8 }],
+      },
+      {
+        endCard: { title: ['Vous êtes de la diaspora\u00A0?', 'Votre commerce au pays,', '*sous vos yeux.*'], size: 78, badge: 'Où que vous soyez', badgeIcon: 'globe' },
+        pre: 0.3,
+        lines: [
+          line('narr', 'Vous êtes de la diaspora ? Avec Kona Data, suivez votre commerce au pays : ventes, dépenses, stock… où que vous soyez.', {
+            text: 'Vous êtes de la diaspora ? Avec KonaData, suivez votre commerce au pays : ventes, dépenses, stock… où que vous soyez.',
+          }),
+        ],
+        post: 2.2,
+      },
+    ],
+  };
+}
+
 const STORIES_BY_ID = {
+  'histoire-diaspora-maison': storyDiasporaHouse,
+  'histoire-diaspora-boutique': storyDiasporaShop,
   'histoire-gasoil-evapore': storyVanishingFuel,
   'histoire-rupture-marche': storyStockOut,
   'histoire-credits-oublies': storyForgottenCredits,
@@ -1500,8 +1827,8 @@ const STORIES_BY_ID = {
 function endCard(t0, qr, card) {
   return `${glows()}<div class="end">
     <div style="animation:${A('pop', t0 + 0.1, 0.8)}">${logo(96)}</div>
-    <h1 style="animation:${A('up', t0 + 0.4, 0.7)}">${card.title.map(rich).join('<br>')}</h1>
-    <div class="badge" style="font-size:52px;animation:${A('pop', t0 + 0.9, 0.7)}">${icon('gift')}<span>${esc(card.badge)}</span></div>
+    <h1 style="${card.size ? `font-size:${card.size}px;` : ''}animation:${A('up', t0 + 0.4, 0.7)}">${card.title.map(rich).join('<br>')}</h1>
+    <div class="badge" style="font-size:52px;animation:${A('pop', t0 + 0.9, 0.7)}">${icon(card.badgeIcon ?? 'gift')}<span>${esc(card.badge)}</span></div>
     <div style="font-size:70px;font-weight:900;letter-spacing:-.03em;animation:${A('up', t0 + 1.2, 0.7)}"><em>${CONTACT.site}</em></div>
     <div class="foot" style="font-size:42px;color:#CBD5E1;animation:${A('up', t0 + 1.4, 0.7)}"><span>${icon('phone')}WhatsApp ${CONTACT.whatsapp}</span></div>
     <div class="qrbox" style="animation:${A('pop', t0 + 1.6, 0.7)}"><div style="width:220px;height:220px">${qr}</div>Scannez-moi</div>
