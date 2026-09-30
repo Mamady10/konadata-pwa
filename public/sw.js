@@ -3,7 +3,7 @@
  * Cache agressif du shell UI + mode hors-ligne avec persistance des formulaires.
  */
 
-const CACHE_VERSION = 'guinea-pwa-v1';
+const CACHE_VERSION = 'guinea-pwa-v2';
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const OFFLINE_URL = '/offline.html';
@@ -13,8 +13,10 @@ const SHELL_ASSETS = [
   '/',
   OFFLINE_URL,
   '/manifest.json',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
+  '/icons/icon-192x192.png?v=2',
+  '/icons/icon-512x512.png?v=2',
+  '/icons/maskable-192x192.png?v=2',
+  '/icons/maskable-512x512.png?v=2',
 ];
 
 /** IndexedDB pour formulaires en attente */
