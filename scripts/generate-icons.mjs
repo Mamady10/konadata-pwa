@@ -1,6 +1,6 @@
 /**
- * Génère les icônes d'installation (PWA, iOS, favicon) à partir du logo KonaData
- * (public/brand/konadata-icon.png : base de données, étoile et pixels sur fond marine).
+ * Génère les icônes d'installation (PWA, iOS, favicon) à partir de l'icône d'application KonaData
+ * (public/brand/konadata-app-icon.png : barres de croissance, flèche et étoile sur fond marine).
  *
  * - icon-192/512 (« any ») : carré arrondi, logo en grand (bureau, barre des tâches, onglets)
  * - maskable-192/512 : fond plein, logo dans la zone sûre (Android découpe en cercle ou goutte)
@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
-const SOURCE = join(ROOT, 'public', 'brand', 'konadata-icon.png');
+const SOURCE = join(ROOT, 'public', 'brand', 'konadata-app-icon.png');
 const ICONS_DIR = join(ROOT, 'public', 'icons');
 
 /** Isole le dessin du logo (sans le carré arrondi ni le fond noir de l'image source). */
