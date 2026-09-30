@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
 export const KONADATA_WORDMARK_SRC = '/brand/konadata-wordmark.png';
-export const KONADATA_ICON_SRC = '/brand/konadata-icon.png';
+export const KONADATA_ICON_SRC = '/brand/konadata-mark.png';
 
 type KonaDataLogoVariant = 'wordmark' | 'icon';
 
@@ -78,7 +78,7 @@ export function KonaDataWordmark({
 }: KonaDataWordmarkProps) {
   const konaColor = tone === 'onDark' ? '#FFFFFF' : '#0A192F';
   const dataColor = tone === 'onDark' ? '#38BDF8' : '#2563EB';
-  const iconPx = Math.round(size * 1.15);
+  const iconPx = Math.round(size * 1.2);
 
   const content = (
     <span className={cn('inline-flex items-center', className)} style={{ gap: Math.round(size * 0.28) }}>

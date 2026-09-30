@@ -1,4 +1,4 @@
-import { KonaDataLogo } from '@/components/brand/konadata-logo';
+import { KonaDataWordmark } from '@/components/brand/konadata-logo';
 import { KONADATA_TAGLINE } from '@/lib/brand/konadata-brand';
 import { LANDING_LINKS } from '@/lib/marketing/landing-links';
 import { cn } from '@/lib/utils';
@@ -18,7 +18,7 @@ export function AuthPageBrand({
 }: AuthPageBrandProps) {
   return (
     <div className={cn('flex flex-col items-center gap-2 mb-8', className)}>
-      <KonaDataLogo href={LANDING_LINKS.home} variant="wordmark" height={height} />
+      <KonaDataWordmark href={LANDING_LINKS.home} tone="onLight" size={Math.round(height * 0.8)} />
       {showTagline && (
         <p className="text-xs font-medium tracking-wide text-muted-foreground">{KONADATA_TAGLINE}</p>
       )}

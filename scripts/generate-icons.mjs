@@ -7,6 +7,7 @@
  * - apple-touch-icon (180) : fond plein, iOS arrondit lui-même
  * - favicon-32/48 : symbole au plus près pour rester lisible en très petit
  * - public/brand/konadata-app-icon.png (1024) : icône complète pour les supports marketing
+ * - public/brand/konadata-mark.png (512) : carré arrondi affiché dans l'appli à côté du nom
  *
  * Usage : npm run generate:icons
  */
@@ -81,6 +82,7 @@ async function main() {
     [join(ICONS_DIR, 'favicon-48x48.png'), 48, { scale: 0.78, radius: 0.2, shadow: false }],
     [join(ICONS_DIR, 'favicon-32x32.png'), 32, { scale: 0.8, radius: 0.18, shadow: false }],
     [join(ROOT, 'public', 'brand', 'konadata-app-icon.png'), 1024, { scale: 0.62 }],
+    [join(ROOT, 'public', 'brand', 'konadata-mark.png'), 512, { scale: 0.68, radius: 0.24 }],
   ];
   for (const [file, size, options] of outputs) {
     const icon = await renderIcon(symbol, size, options);
